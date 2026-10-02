@@ -160,7 +160,11 @@ final class IslandWindowController: NSWindowController {
             MainActor.assumeIsolated { self?.fsm.greetComplete() }
         }
 
-        fsm.isHeldOpen = { AppState.shared.pendingApproval != nil }
+        // Stay open while Claude waits for an answer or while you're typing / picking
+        fsm.isHeldOpen = {
+            let s = AppState.shared
+            return s.pendingApproval != nil || s.isEditingText || s.view == .harvest
+        }
     }
 
     // MARK: - 60 Hz polling loop
@@ -191,7 +195,7 @@ final class IslandWindowController: NSWindowController {
         let inIsland = hoverRect.contains(local)
 
         // Toggle click-through
-        let shouldAcceptMouse = inIsland || inAttachDrag || attachDragStart != nil
+        let shouldAcceptMouse = inIsland
         if panel.ignoresMouseEvents == shouldAcceptMouse {
             panel.ignoresMouseEvents = !shouldAcceptMouse
             if shouldAcceptMouse, let cv = panel.contentView {
@@ -212,7 +216,6 @@ final class IslandWindowController: NSWindowController {
 
         // Feed FSM hover enter/leave
         if inIsland && !wasInIsland {
-            guard !inAttachDrag else { wasInIsland = inIsland; return }
             // If in greeting: tell greeting to stay open (tc → infinity)
             if fsm.state == .greeting {
                 NotificationCenter.default.post(name: .greetingHover, object: nil)
@@ -349,16 +352,6 @@ final class IslandWindowController: NSWindowController {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.fsm.reveal()
-            }
-        }
-
-        // Music started playing: reveal silently (no peek sound)
-        NotificationCenter.default.addObserver(forName: .musicReveal, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.silentNextReveal = true
-                self.fsm.reveal()
-                self.silentNextReveal = false
             }
         }
 

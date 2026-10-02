@@ -252,7 +252,7 @@ private struct SlackCard: View {
                                 .foregroundColor(Color(hex: "#F5F6F8"))
                                 .focused($fieldFocused)
                                 .onSubmit { send(to: msg) }
-                                .onExitCommand { replying = false; draft = "" }
+                                .onExitCommand { replying = false; draft = ""; state.isEditingText = false }
                             Button { send(to: msg) } label: {
                                 Image(systemName: sending ? "ellipsis" : "paperplane.fill")
                                     .font(.system(size: 10, weight: .semibold))
@@ -263,6 +263,7 @@ private struct SlackCard: View {
                         } else {
                             CardLink(title: "Répondre", icon: "arrowshape.turn.up.left.fill", color: "#36C5F0") {
                                 replying = true
+                                state.isEditingText = true
                                 NotificationCenter.default.post(name: .islandNeedsKeyboard, object: nil)
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { fieldFocused = true }
                             }
@@ -293,7 +294,8 @@ private struct SlackCard: View {
         }
         .onAppear { SlackService.shared.markRead() }
         .onChange(of: state.slackUnread) { _, n in if n > 0 { SlackService.shared.markRead() } }
-        .onChange(of: latest?.id) { _, _ in replying = false; draft = "" }
+        .onChange(of: latest?.id) { _, _ in replying = false; draft = ""; state.isEditingText = false }
+        .onDisappear { state.isEditingText = false }
     }
 
     private func send(to msg: SlackMessage) {
@@ -303,7 +305,7 @@ private struct SlackCard: View {
         Task { @MainActor in
             let ok = await SlackService.shared.reply(to: msg, text: text)
             sending = false
-            if ok { draft = ""; replying = false }
+            if ok { draft = ""; replying = false; state.isEditingText = false }
             withAnimation { note = ok ? "Envoyé ✓" : "Échec de l'envoi" }
             try? await Task.sleep(nanoseconds: 2_500_000_000)
             withAnimation { note = nil }

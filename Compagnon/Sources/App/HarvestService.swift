@@ -285,7 +285,7 @@ final class HarvestService {
         }
     }
 
-    static func today() -> String {
+    nonisolated static func today() -> String {
         let f = DateFormatter()
         f.calendar = Calendar(identifier: .gregorian)
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -294,7 +294,7 @@ final class HarvestService {
     }
 
     /// 1:05:09
-    static func clock(_ seconds: TimeInterval) -> String {
+    nonisolated static func clock(_ seconds: TimeInterval) -> String {
         let t = max(0, Int(seconds))
         return String(format: "%d:%02d:%02d", t / 3600, (t % 3600) / 60, t % 60)
     }

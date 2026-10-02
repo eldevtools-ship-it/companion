@@ -40,6 +40,9 @@ final class AppState: ObservableObject {
     // Pending approval request from Claude Code hook
     @Published var pendingApproval: ApprovalInfo? = nil
 
+    // True while you type in the island (Slack reply): keeps it open
+    @Published var isEditingText: Bool = false
+
     // MARK: Settings (persisted)
 
     @Published var soundEnabled: Bool = true {
