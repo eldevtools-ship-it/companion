@@ -1,7 +1,7 @@
 # Build artefacts
-NotchBuddy/build/
-NotchBuddy/NotchBuddy.xcodeproj/project.xcworkspace/xcuserdata/
-NotchBuddy/NotchBuddy.xcodeproj/xcuserdata/
+Compagnon/build/
+# Généré par xcodegen à partir de Compagnon/project.yml
+Compagnon/Compagnon.xcodeproj/
 *.xcuserstate
 
 # Xcode DerivedData (outside repo — listed for clarity)
