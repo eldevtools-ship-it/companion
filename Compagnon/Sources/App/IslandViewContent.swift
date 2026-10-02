@@ -87,25 +87,137 @@ struct ApprovalView: View {
 
 struct QuestionView: View {
     @ObservedObject var state: AppState
+    @State private var index = 0
+    @State private var answers: [String: Any] = [:]
+    @State private var picked: Set<String> = []
+    @State private var typing = false
+    @State private var custom = ""
+    @FocusState private var customFocused: Bool
+
+    private var question: ClaudeQuestion? { state.pendingQuestion }
+    private var item: ClaudeQuestion.Item? {
+        guard let q = question, index < q.items.count else { return nil }
+        return q.items[index]
+    }
 
     var body: some View {
         ZStack {
             CardBackground(wash: .cyan)
-            VStack(alignment: .leading, spacing: 5) {
-                AgentWho(task: state.focusTask, label: "Claude Code pose une question")
-                Text("Quel moteur de recherche utiliser ?")
-                    .font(.system(size: 15, weight: .semibold))
-                HStack(spacing: 8) {
-                    ForEach(["Postgres plein texte", "Meilisearch", "Algolia"], id: \.self) { opt in
-                        SecondaryButton(opt) { /* answer */ }
+            if let q = question, let item {
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 8) {
+                        Text(q.items.count > 1 ? "Claude te demande · \(index + 1)/\(q.items.count)" : "Claude te demande")
+                            .font(.system(size: 11))
+                            .foregroundColor(Color(hex: "#8E939C"))
+                        if !item.header.isEmpty {
+                            Text(item.header)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Color(hex: "#22D3EE"))
+                                .padding(.horizontal, 6).padding(.vertical, 1)
+                                .background(Capsule().fill(Color(hex: "#22D3EE").opacity(0.12)))
+                        }
+                        Spacer(minLength: 4)
+                        CardLink(title: typing ? "Choix" : "Autre…", color: "#C5C8CD") {
+                            typing.toggle()
+                            if typing {
+                                NotificationCenter.default.post(name: .islandNeedsKeyboard, object: nil)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { customFocused = true }
+                            }
+                        }
+                        CardLink(title: "Dans Claude", color: "#8E939C") {
+                            HookServer.shared.finishQuestion(answers: nil, note: nil)
+                        }
+                        .help("Laisser Claude poser la question lui-même")
+                    }
+                    Text(item.question)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Color(hex: "#F5F6F8"))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if typing {
+                        HStack(spacing: 8) {
+                            TextField("Ta réponse…", text: $custom)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 11.5))
+                                .focused($customFocused)
+                                .onSubmit { answer(custom) }
+                                .padding(.horizontal, 10)
+                                .frame(height: 26)
+                                .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
+                                    .fill(Color.white.opacity(0.07)))
+                            choiceButton("Envoyer", prominent: true,
+                                         disabled: custom.trimmingCharacters(in: .whitespaces).isEmpty) { answer(custom) }
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            ForEach(item.options, id: \.label) { opt in
+                                let on = picked.contains(opt.label)
+                                choiceButton(opt.label, prominent: on) {
+                                    if item.multiSelect {
+                                        if on { picked.remove(opt.label) } else { picked.insert(opt.label) }
+                                    } else {
+                                        answer(opt.label)
+                                    }
+                                }
+                                .help(opt.description)
+                            }
+                            if item.multiSelect {
+                                Spacer(minLength: 4)
+                                choiceButton("Valider", prominent: true, disabled: picked.isEmpty) {
+                                    let labels = item.options.map(\.label).filter { picked.contains($0) }
+                                    answer(labels)
+                                }
+                            }
+                        }
                     }
                 }
+                .padding(.leading, 104)
+                .padding(.trailing, IslandConst.cardInset + 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.leading, 116)
-            .padding(.trailing, 16)
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .onChange(of: state.pendingQuestion) { _, _ in reset() }
+    }
+
+    private func choiceButton(_ title: String, prominent: Bool, disabled: Bool = false,
+                              action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11.5, weight: .medium))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .foregroundColor(prominent ? Color(hex: "#0B0C0E") : Color(hex: "#F1F2F4"))
+                .padding(.horizontal, 11)
+                .frame(height: 26)
+                .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
+                    .fill(prominent ? Color(hex: "#22D3EE") : Color.white.opacity(0.09)))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.45 : 1)
+    }
+
+    /// Records the answer to the current question, then moves on or sends everything.
+    private func answer(_ value: Any) {
+        guard let q = question, let item else { return }
+        if let text = value as? String, text.trimmingCharacters(in: .whitespaces).isEmpty { return }
+        answers[item.question] = value
+        if index + 1 < q.items.count {
+            index += 1
+            picked = []
+            custom = ""
+            typing = false
+        } else {
+            HookServer.shared.finishQuestion(answers: answers, note: nil)
+        }
+    }
+
+    private func reset() {
+        index = 0
+        answers = [:]
+        picked = []
+        custom = ""
+        typing = false
     }
 }
 

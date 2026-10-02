@@ -103,7 +103,7 @@ final class IslandWindowController: NSWindowController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newView in
                 guard let self else { return }
-                if newView == .harvest {
+                if newView == .harvest || newView == .question {
                     self.islandPanel.makeKey()
                 }
             }
@@ -163,7 +163,7 @@ final class IslandWindowController: NSWindowController {
         // Stay open while Claude waits for an answer or while you're typing / picking
         fsm.isHeldOpen = {
             let s = AppState.shared
-            return s.pendingApproval != nil || s.isEditingText || s.view == .harvest
+            return s.pendingApproval != nil || s.pendingQuestion != nil || s.isEditingText || s.view == .harvest
         }
     }
 

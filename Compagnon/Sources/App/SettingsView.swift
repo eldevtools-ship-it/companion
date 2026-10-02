@@ -203,7 +203,7 @@ struct SettingsView: View {
     // MARK: - Claude Code
 
     @ViewBuilder private var claudeSection: some View {
-        GroupBox {
+        GroupBox("Hooks") {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
                     StatusDot(ok: hooksInstalled && !hookNeedsUpdate)
@@ -239,6 +239,17 @@ struct SettingsView: View {
                             .buttonStyle(.bordered)
                     }
                 }
+            }
+            .padding(6)
+        }
+        GroupBox("Questions de Claude") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Quand Claude te pose une question à choix, elle s'affiche dans l'île : clique une réponse, écris la tienne, ou renvoie-la dans Claude. Sans réponse en 10 minutes, Claude la pose lui-même. (Nécessite des hooks à jour.)")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Toggle("Mode compatibilité (si Claude repose la question malgré ta réponse)", isOn: $state.questionCompatMode)
+                    .font(.system(size: 12))
             }
             .padding(6)
         }

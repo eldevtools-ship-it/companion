@@ -189,14 +189,20 @@ private struct SessionCard: View {
 private struct ClaudeIdleCard: View {
     let task: AgentTask
     private var installed: Bool { HookServer.claudeHooksInstalled() }
+    private var outdated: Bool { installed && HookServer.hooksNeedUpdate() }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             CardHeader(color: "#D97757", title: "Claude Code",
-                       subtitle: installed ? "En attente" : "Hooks non installés")
+                       subtitle: !installed ? "Hooks non installés" : (outdated ? "Hooks à mettre à jour" : "En attente"))
             InsetBox {
                 HStack(spacing: 12) {
-                    if installed {
+                    if outdated {
+                        CardLink(title: "Mettre à jour les hooks…", color: "#F5A524") {
+                            NotificationCenter.default.post(name: .openFullSettings, object: "claude")
+                        }
+                        Spacer(minLength: 0)
+                    } else if installed {
                         Text("Rien en cours")
                             .font(.system(size: 11))
                             .foregroundColor(Color(hex: "#8E939C"))

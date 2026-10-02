@@ -40,6 +40,9 @@ final class AppState: ObservableObject {
     // Pending approval request from Claude Code hook
     @Published var pendingApproval: ApprovalInfo? = nil
 
+    // Pending multiple-choice question from Claude (AskUserQuestion)
+    @Published var pendingQuestion: ClaudeQuestion? = nil
+
     // True while you type in the island (Slack reply): keeps it open
     @Published var isEditingText: Bool = false
 
@@ -85,6 +88,11 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(autoUpdate, forKey: "autoUpdate") }
     }
 
+    // Questions: hand the answers to Claude as text instead of filling the tool's answers
+    @Published var questionCompatMode: Bool = false {
+        didSet { UserDefaults.standard.set(questionCompatMode, forKey: "questionCompatMode") }
+    }
+
     @Published var harvestReminder: Bool = true {
         didSet { UserDefaults.standard.set(harvestReminder, forKey: "harvestReminder") }
     }
@@ -127,6 +135,7 @@ final class AppState: ObservableObject {
         if let v = ud.object(forKey: "hotkeyCode") as? Int         { hotkeyCode = UInt16(v) }
         if let v = ud.object(forKey: "autoUpdate") as? Bool        { autoUpdate = v }
         if let v = ud.object(forKey: "harvestReminder") as? Bool   { harvestReminder = v }
+        if let v = ud.object(forKey: "questionCompatMode") as? Bool { questionCompatMode = v }
 
         SoundEngine.shared.volume = Float(soundVolume)
         refreshPills()

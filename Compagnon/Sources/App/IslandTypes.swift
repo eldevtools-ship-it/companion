@@ -42,6 +42,22 @@ struct ApprovalInfo: Sendable {
 
 // MARK: - Pill badge (shown on pill edge when non-focused task has an alert)
 
+/// A multiple-choice question asked by Claude (AskUserQuestion), answered from the island.
+struct ClaudeQuestion: Equatable {
+    struct Option: Equatable {
+        let label: String
+        let description: String
+    }
+    struct Item: Equatable {
+        let question: String
+        let header: String
+        let options: [Option]
+        let multiSelect: Bool
+    }
+    let sessionId: String
+    let items: [Item]
+}
+
 enum PillBadge { case approval, finished, error, message }
 
 // MARK: - Agent Task

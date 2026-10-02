@@ -39,6 +39,8 @@ final class HookServer: @unchecked Sendable {
     private var approvalFDSource: (any DispatchSourceRead)? = nil  // monitors pendingApprovalFD
     private var activeSessionId: String? = nil        // current Claude Code session
     private var focusBeforeApproval: String? = nil    // saved focus to restore after approval
+    private var pendingQuestionFD: Int32 = -1         // held open while you pick an answer
+    private var questionFDSource: (any DispatchSourceRead)? = nil
 
     private init() {}
 
@@ -187,6 +189,9 @@ final class HookServer: @unchecked Sendable {
         if eventName == "PermissionRequest" {
             // Hold fd open — Claude Code waits for our decision (up to 120s)
             Task { @MainActor in self.processPermissionRequest(fd: fd, payload: payload) }
+        } else if eventName == "AskUserQuestion" {
+            // Hold fd open — the relay waits for the answer picked in the island
+            Task { @MainActor in self.processQuestion(fd: fd, payload: payload) }
         } else {
             Task { @MainActor in self.processEvent(name: eventName, payload: payload) }
             sendLine(fd: fd, text: #"{"ok":true}"#)
@@ -219,49 +224,36 @@ final class HookServer: @unchecked Sendable {
         let termProgram = payload["term_program"] as? String ?? ""
         let bundleId    = payload["bundle_id"]    as? String ?? ""
 
-        // Cursor identified solely by its stable Electron bundle ID.
-        // ToDesktop builds other apps too — do not match on "todesktop" alone.
-        let isCursorEditor = bundleId.lowercased() == "com.todesktop.230313mzl4w4u92"
-        let isVSCodeEditor = !isCursorEditor && (
-            termProgram.lowercased().contains("vscode") ||
-            bundleId.lowercased().contains("vscode"))
-
         // Routing:
-        // • "codex" → agent_codex (GitHub build only: workspace pill, approvals in the notch)
-        // • other valid compagnon_agent → external pill (fire-and-forget, no approval card)
-        // • Cursor bundle ID → agent_cursor
-        // • VS Code → integration_claude
-        let isCodexEvent = rawAgent == "codex"
+        // • valid compagnon_agent → its own pill (fire-and-forget, no approval card)
+        // • every Claude Code session (Claude app, terminal, VS Code, Cursor) → integration_claude
         let agentId: String
         let isExternalAgent: Bool
-        if isCodexEvent {
-            agentId = "agent_codex"
-            isExternalAgent = false
-        } else if let agent = validAgent {
+        if let agent = validAgent {
             agentId = "agent_\(agent)"
             isExternalAgent = true
-        } else if isCursorEditor {
-            agentId = "agent_cursor"
-            isExternalAgent = false
-        } else if isVSCodeEditor {
+        } else {
             agentId = "integration_claude"
             isExternalAgent = false
-        } else {
-            nbLog("Ignored \(name) from \(termProgram.isEmpty ? bundleId : termProgram) (\(projectName))")
-            return
         }
+        _ = (termProgram, bundleId)
 
         let focused = state.focusId == agentId
+
+        // A question answered in Claude itself (or a turn that ended) closes the card.
+        if let q = state.pendingQuestion, sessionId == q.sessionId, !isExternalAgent {
+            let tool = payload["tool_name"] as? String ?? ""
+            let answeredElsewhere = (name == "PostToolUse" || name == "PostToolUseFailure") && tool == "AskUserQuestion"
+            if answeredElsewhere || ["Stop", "StopFailure", "UserPromptSubmit", "SessionEnd"].contains(name) {
+                finishQuestion(answers: nil, note: "Réglé dans Claude.")
+            }
+        }
 
         // While a permission request is pending, dismiss when the resolving event arrives,
         // then continue normal processing. Only skip normal processing when unresolved.
         if let pending = state.pendingApproval, agentId == pending.pillId {
             let handledNote: String
-            switch pending.pillId {
-            case "agent_cursor": handledNote = "Réglé dans Cursor."
-            case "agent_codex":  handledNote = "Réglé dans Codex."
-            default:             handledNote = "Réglé dans VS Code."
-            }
+            handledNote = "Réglé dans Claude."
             var resolved = false
             switch name {
             case "PostToolUse", "PostToolUseFailure":
@@ -456,18 +448,10 @@ final class HookServer: @unchecked Sendable {
         let projectName = aliasProjectName(rawName.isEmpty ? "Session" : rawName)
 
         let rawAgent = payload["compagnon_agent"] as? String ?? ""
-        let termProgram = payload["term_program"] as? String ?? ""
-        let bundleId    = payload["bundle_id"]    as? String ?? ""
-        let isCursorEditor = bundleId.lowercased() == "com.todesktop.230313mzl4w4u92"
-        let isVSCodeEditor = !isCursorEditor && (
-            termProgram.lowercased().contains("vscode") ||
-            bundleId.lowercased().contains("vscode"))
 
-        // Codex gets the same approval card as Claude Code / Cursor (GitHub build only).
-        // Other external agents (any other compagnon_agent) answer immediately with "ask"
+        // External agents (any compagnon_agent) answer immediately with "ask"
         // so the agent re-asks in its own terminal — they do not get a notch card.
-        let isCodexRequest = rawAgent == "codex"
-        if !isCodexRequest && Self.validateAgent(rawAgent) != nil {
+        if Self.validateAgent(rawAgent) != nil {
             Task.detached { [weak self] in
                 self?.sendLine(fd: fd, text: #"{"permissionDecision":"ask"}"#)
                 close(fd)
@@ -475,22 +459,8 @@ final class HookServer: @unchecked Sendable {
             return
         }
 
-        // Determine which workspace pill owns the request.
-        let pillId: String
-        if isCodexRequest {
-            pillId = "agent_codex"
-        } else if isCursorEditor {
-            pillId = "agent_cursor"
-        } else {
-            pillId = "integration_claude"
-        }
-        guard isCodexRequest || isCursorEditor || isVSCodeEditor else {
-            Task.detached { [weak self] in
-                self?.sendLine(fd: fd, text: #"{"permissionDecision":"ask"}"#)
-                close(fd)
-            }
-            return
-        }
+        // Every Claude Code session (Claude app, terminal, VS Code, Cursor) gets the card.
+        let pillId = "integration_claude"
 
         let tool = payload["tool_name"] as? String ?? "Outil"
         let toolInput = payload["tool_input"] as? [String: Any] ?? [:]
@@ -533,11 +503,8 @@ final class HookServer: @unchecked Sendable {
         source.setEventHandler { [weak self] in
             guard let self, self.pendingApprovalFD == fd else { return }
             let note: String
-            switch capturedPillId {
-            case "agent_cursor": note = "Réglé dans Cursor."
-            case "agent_codex":  note = "Réglé dans Codex."
-            default:             note = "Réglé dans VS Code."
-            }
+            _ = capturedPillId
+            note = "Réglé dans Claude."
             self.dismissApprovalCard(note: note)
         }
         source.setCancelHandler { close(fd) }
@@ -550,12 +517,127 @@ final class HookServer: @unchecked Sendable {
         DispatchQueue.main.asyncAfter(deadline: .now() + 115) { [weak self] in
             guard let self, self.pendingApprovalFD == captured else { return }
             let note: String
-            switch capturedPillId {
-            case "agent_cursor": note = "Toujours en attente dans Cursor."
-            case "agent_codex":  note = "Toujours en attente dans Codex."
-            default:             note = "Toujours en attente dans VS Code."
-            }
+            _ = capturedPillId
+            note = "Toujours en attente dans Claude."
             self.dismissApprovalCard(note: note)
+        }
+    }
+
+    // MARK: - Questions (AskUserQuestion, blocking — the relay waits for the answer)
+
+    @MainActor
+    private func processQuestion(fd: Int32, payload: [String: Any]) {
+        let state = AppState.shared
+        let sessionId = payload["session_id"] as? String ?? "unknown"
+        let cwd = payload["cwd"] as? String ?? ""
+        let rawName = URL(fileURLWithPath: cwd).lastPathComponent
+        let projectName = aliasProjectName(rawName.isEmpty ? "Session" : rawName)
+        let input = payload["tool_input"] as? [String: Any] ?? [:]
+        let items: [ClaudeQuestion.Item] = (input["questions"] as? [[String: Any]] ?? []).compactMap { q in
+            guard let text = q["question"] as? String else { return nil }
+            let options = (q["options"] as? [[String: Any]] ?? []).compactMap { o -> ClaudeQuestion.Option? in
+                guard let label = o["label"] as? String else { return nil }
+                return ClaudeQuestion.Option(label: label, description: o["description"] as? String ?? "")
+            }
+            return ClaudeQuestion.Item(question: text, header: q["header"] as? String ?? "",
+                                       options: options, multiSelect: q["multiSelect"] as? Bool ?? false)
+        }
+        guard !items.isEmpty else {
+            Task.detached { [weak self] in
+                self?.sendLine(fd: fd, text: "{}")
+                close(fd)
+            }
+            return
+        }
+        nbLog("AskUserQuestion ×\(items.count) (\(sessionId.prefix(8)))")
+
+        // A new question replaces an unanswered one (that one goes back to Claude)
+        if pendingQuestionFD >= 0 { finishQuestion(answers: nil, note: nil) }
+        pendingQuestionFD = fd
+
+        let pillId = "integration_claude"
+        upsertWorkspaceTask(id: pillId, projectName: projectName, cwd: cwd)
+        state.updateTask(id: pillId, state: .question)
+        state.pendingQuestion = ClaudeQuestion(sessionId: sessionId, items: items)
+        state.isPinned = true
+        SoundEngine.shared.play("question")
+        if focusBeforeApproval == nil { focusBeforeApproval = state.focusId }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.72)) { state.focusId = pillId }
+        if state.mode == .expanded {
+            if state.pendingApproval == nil { state.view = .question }
+        } else {
+            NotificationCenter.default.post(name: .hookExpand, object: IslandView.question)
+        }
+
+        // The relay hanging up means the question was dealt with elsewhere.
+        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
+        source.setEventHandler { [weak self] in
+            guard let self, self.pendingQuestionFD == fd else { return }
+            self.finishQuestion(answers: nil, note: "Réglé dans Claude.")
+        }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        questionFDSource = source
+
+        // Just under the relay's 590 s: hand the question back to Claude
+        DispatchQueue.main.asyncAfter(deadline: .now() + 585) { [weak self] in
+            guard let self, self.pendingQuestionFD == fd else { return }
+            self.finishQuestion(answers: nil, note: "Question renvoyée dans Claude.")
+        }
+    }
+
+    /// Sends the answers (question text → label, [labels] or free text) to the waiting relay,
+    /// or nothing so Claude asks the question itself. Then clears the card.
+    @MainActor
+    func finishQuestion(answers: [String: Any]?, note: String?) {
+        let fd = pendingQuestionFD
+        pendingQuestionFD = -1
+        let source = questionFDSource
+        questionFDSource = nil
+        let state = AppState.shared
+
+        var reply = "{}"
+        if let answers {
+            var obj: [String: Any] = ["answers": answers]
+            if state.questionCompatMode { obj["mode"] = "deny" }
+            if let data = try? JSONSerialization.data(withJSONObject: obj),
+               let str = String(data: data, encoding: .utf8) { reply = str }
+        }
+        if fd >= 0 {
+            Task.detached { [weak self] in
+                self?.sendLine(fd: fd, text: reply)
+                DispatchQueue.main.async { source?.cancel() }
+            }
+        } else {
+            source?.cancel()
+        }
+
+        let pillId = "integration_claude"
+        state.pendingQuestion = nil
+        state.isPinned = state.pendingApproval != nil
+        state.updateTask(id: pillId, state: answers == nil ? .idle : .working)
+        clearPillBadge(id: pillId)
+        if let prev = focusBeforeApproval, state.pendingApproval == nil {
+            focusBeforeApproval = nil
+            if state.focusId == pillId, state.tasks.contains(where: { $0.id == prev }) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.72)) { state.focusId = prev }
+            }
+        }
+        guard state.view == .question else { return }
+        if let note {
+            state.noteMessage = note
+            state.view = .note
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                NotificationCenter.default.post(name: .islandCollapse, object: nil)
+            }
+        } else {
+            state.view = .overview
+            if answers != nil {
+                SoundEngine.shared.play("send")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    NotificationCenter.default.post(name: .islandCollapse, object: nil)
+                }
+            }
         }
     }
 
@@ -804,6 +886,15 @@ final class HookServer: @unchecked Sendable {
               let permReqHooks = hooks["PermissionRequest"] as? [[String: Any]] else {
             return false
         }
+        // Installed before questions were supported: no AskUserQuestion entry yet
+        let preToolUse = hooks["PreToolUse"] as? [[String: Any]] ?? []
+        let hasAskEntry = preToolUse.contains { entry in
+            (entry["matcher"] as? String) == "AskUserQuestion"
+                && ((entry["hooks"] as? [[String: Any]])?.contains {
+                    ($0["command"] as? String).map { isOwnHook($0) && $0.contains("--ask") } ?? false
+                } ?? false)
+        }
+        if claudeHooksInstalled() && !hasAskEntry { return true }
         for matcher in permReqHooks {
             if let hookList = matcher["hooks"] as? [[String: Any]] {
                 for hook in hookList {
@@ -872,6 +963,11 @@ final class HookServer: @unchecked Sendable {
             var existing = hooks[event] as? [[String: Any]] ?? []
             existing.removeAll { ($0["hooks"] as? [[String: Any]])?.contains { Self.isOwnHook($0["command"] as? String) } ?? false }
             existing.append(["hooks": [["type": "command", "command": quotedCmd, "timeout": timeout]]])
+            if event == "PreToolUse" {
+                // Claude's multiple-choice questions: wait (up to 10 min) for the answer in the island
+                existing.append(["matcher": "AskUserQuestion",
+                                 "hooks": [["type": "command", "command": quotedCmd + " --ask", "timeout": 600]]])
+            }
             hooks[event] = existing
         }
         settings["hooks"] = hooks
@@ -987,11 +1083,15 @@ def main():
     args = sys.argv[1:]
     agent = ''
     arg_event = ''
+    ask_mode = False
     i = 0
     while i < len(args):
         if args[i] == '--agent' and i + 1 < len(args):
             agent = args[i + 1]
             i += 2
+        elif args[i] == '--ask':
+            ask_mode = True
+            i += 1
         else:
             if not arg_event:
                 arg_event = args[i]
@@ -1025,6 +1125,46 @@ def main():
     socket_path = os.path.expanduser(
         '~/Library/Application Support/Compagnon/compagnon.sock'
     )
+
+    # Claude asks a multiple-choice question (dedicated PreToolUse entry, matcher
+    # AskUserQuestion): wait for the answer picked in Compagnon. No answer, or
+    # 'Répondre dans Claude' → print nothing and Claude shows its own question.
+    if ask_mode:
+        if payload.get('tool_name') != 'AskUserQuestion':
+            return
+        payload['hook_event_name'] = 'AskUserQuestion'
+        try:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.settimeout(590)
+            s.connect(socket_path)
+            s.sendall((json.dumps(payload) + '\\n').encode())
+            chunks = []
+            while True:
+                chunk = s.recv(65536)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                if b'\\n' in chunk:
+                    break
+            s.close()
+            resp = json.loads(b''.join(chunks).decode().strip() or '{}')
+        except Exception:
+            return
+        answers = resp.get('answers')
+        if not answers:
+            return
+        tool_input = payload.get('tool_input') or {}
+        if resp.get('mode') == 'deny':
+            # Compatibility mode: hand the answers to Claude as text
+            lines = ['- ' + q + ' → ' + (', '.join(a) if isinstance(a, list) else str(a)) for q, a in answers.items()]
+            reason = "L'utilisateur a répondu depuis Compagnon :\\n" + '\\n'.join(lines) + "\\nContinue avec ces réponses, sans reposer la question."
+            out = {'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'deny', 'permissionDecisionReason': reason}}
+        else:
+            out = {'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'allow',
+                   'updatedInput': {'questions': tool_input.get('questions', []), 'answers': answers}}}
+        sys.stdout.write(json.dumps(out) + '\\n')
+        sys.stdout.flush()
+        sys.exit(0)
 
     if event == 'PermissionRequest':
         # Block and wait for Compagnon's decision (Claude Code allows up to 120s)
