@@ -20,6 +20,7 @@ struct SettingsView: View {
     @State private var harvestToken: String   = KeychainStore.shared.get(HarvestService.tokenKey)   ?? ""
     @State private var harvestAccount: String = KeychainStore.shared.get(HarvestService.accountKey) ?? ""
     @State private var githubToken: String    = KeychainStore.shared.get("github-token")            ?? ""
+    @State private var calendarAccess: Bool = CalendarService.shared.hasAccess
     @State private var vercelToken: String    = KeychainStore.shared.get(VercelService.tokenKey)    ?? ""
     @State private var updateToken: String    = KeychainStore.shared.get(UpdateService.tokenKey)    ?? ""
 
@@ -71,6 +72,7 @@ struct SettingsView: View {
                         SettingsSidebarRow(title: "Claude Code",   icon: "terminal.fill",              color: "#D97757").tag("claude")
                         SettingsSidebarRow(title: "Slack",         icon: "bubble.left.fill",           color: "#E01E5A").tag("slack")
                         SettingsSidebarRow(title: "Harvest",       icon: "clock.fill",                 color: "#FA5D00").tag("harvest")
+                        SettingsSidebarRow(title: "Agenda",        icon: "calendar",                   color: "#7C5CFF").tag("calendar")
                         SettingsSidebarRow(title: "Vercel",        icon: "triangle.fill",              color: "#111111").tag("vercel")
                         SettingsSidebarRow(title: "GitHub",        icon: "chevron.left.forwardslash.chevron.right", color: "#6E7681").tag("github")
                         SettingsSidebarRow(title: "Mises à jour",  icon: "arrow.down.circle.fill",     color: "#22C55E").tag("updates")
@@ -116,6 +118,7 @@ struct SettingsView: View {
         case "claude":  return "Claude Code"
         case "slack":   return "Slack"
         case "harvest": return "Harvest"
+        case "calendar": return "Agenda"
         case "vercel":  return "Vercel"
         case "github":  return "GitHub"
         case "updates": return "Mises à jour"
@@ -128,6 +131,7 @@ struct SettingsView: View {
         case "claude":  claudeSection
         case "slack":   slackSection
         case "harvest": harvestSection
+        case "calendar": calendarSection
         case "vercel":  vercelSection
         case "github":  githubSection
         case "updates": updatesSection
@@ -327,6 +331,42 @@ struct SettingsView: View {
         GroupBox("Rappel") {
             Toggle("Me rappeler de lancer un timer (jours ouvrés, 9 h – 19 h)", isOn: $state.harvestReminder)
                 .padding(6)
+        }
+    }
+
+    // MARK: - Agenda
+
+    @ViewBuilder private var calendarSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    StatusDot(ok: calendarAccess)
+                    Text(calendarAccess ? "Accès au calendrier autorisé" : "Accès au calendrier non autorisé")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                Text("Compagnon lit l'app Calendrier du Mac (tous ses comptes, Google compris) et te prévient avant tes réunions, avec un bouton pour rejoindre Meet, Zoom ou Teams.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !calendarAccess {
+                    Button("Autoriser l'accès au calendrier") {
+                        Task {
+                            let ok = await CalendarService.shared.requestAccess()
+                            calendarAccess = ok
+                            statusMessage = ok ? "✓ Accès au calendrier autorisé." :
+                                "❌ Accès refusé : Réglages Système → Confidentialité et sécurité → Calendriers → Compagnon."
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                Toggle("Afficher la pastille Agenda et les rappels", isOn: $state.calendarEnabled)
+                    .onChange(of: state.calendarEnabled) { _, _ in
+                        state.refreshPills()
+                        CalendarService.shared.refresh()
+                    }
+                Stepper("Me prévenir \(state.calendarLeadMinutes) min avant", value: $state.calendarLeadMinutes, in: 1...30)
+            }
+            .padding(6)
         }
     }
 

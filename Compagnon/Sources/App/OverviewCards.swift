@@ -572,6 +572,64 @@ private struct PickerField<Items: View>: View {
     }
 }
 
+// MARK: - Agenda
+
+private struct MeetingCard: View {
+    @ObservedObject var state: AppState
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            if let m = state.nextMeeting {
+                CardHeader(color: m.calendarColor, title: m.title)
+                TimelineView(.periodic(from: .now, by: 30)) { tl in
+                    Text(m.timing(at: tl.date))
+                        .font(.system(size: 11))
+                        .foregroundColor(Color(hex: "#8E939C"))
+                        .lineLimit(1)
+                }
+                .padding(.top, CardLayout.headerTop + 18)
+                .padding(.leading, CardLayout.contentLeading)
+                .padding(.trailing, 34)
+                InsetBox(tint: Color(hex: "#7C5CFF")) {
+                    HStack(spacing: 10) {
+                        if m.joinURL != nil {
+                            Button { CalendarService.shared.join(m) } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "video.fill").font(.system(size: 9, weight: .bold))
+                                    Text("Rejoindre")
+                                }
+                                .font(.system(size: 11.5, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .frame(height: 24)
+                                .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius - 2)
+                                    .fill(Color(hex: "#7C5CFF")))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        if let loc = m.location, m.joinURL == nil || !loc.lowercased().hasPrefix("http") {
+                            Text(loc)
+                                .font(.system(size: 11))
+                                .foregroundColor(Color(hex: "#C5C8CD"))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                        Spacer(minLength: 0)
+                        CardLink(title: "Calendrier", color: "#8E939C") { CalendarService.shared.openCalendar() }
+                    }
+                }
+            } else {
+                CardHeader(color: "#7C5CFF", title: "Agenda", subtitle: "Rien de prévu")
+                Text("Aucune réunion dans les prochaines 36 h.")
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(hex: "#6B7079"))
+                    .padding(.top, CardLayout.headerTop + 22)
+                    .padding(.leading, CardLayout.contentLeading)
+            }
+        }
+    }
+}
+
 // MARK: - Vercel
 
 private struct VercelCard: View {
@@ -673,6 +731,9 @@ func openTarget(_ task: AgentTask?) {
         if let url = URL(string: "https://id.getharvest.com/harvest") { NSWorkspace.shared.open(url) }
     case "integration_github":
         if let url = URL(string: "https://github.com") { NSWorkspace.shared.open(url) }
+    case CalendarService.pillId:
+        if let m = AppState.shared.nextMeeting, m.joinURL != nil { CalendarService.shared.join(m) }
+        else { CalendarService.shared.openCalendar() }
     case VercelService.pillId:
         let target = AppState.shared.vercelDeployments.first.flatMap { URL(string: $0.url) }
             ?? URL(string: "https://vercel.com/dashboard")
