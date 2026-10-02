@@ -147,6 +147,8 @@ struct OverviewView: View {
             NSWorkspace.shared.open(URL(string: "https://app.cal.com/bookings")!)
         case "integration_slack":
             SlackService.shared.open(AppState.shared.slackMessages.first)
+        case "integration_harvest":
+            NSWorkspace.shared.open(URL(string: "https://id.getharvest.com/harvest")!)
         case "agent_cursor":
             if let url = NSWorkspace.shared.urlForApplication(
                 withBundleIdentifier: "com.todesktop.230313mzl4w4u92") {
@@ -1160,6 +1162,7 @@ struct IntegrationCardView: View {
         case "integration_slack":
             return KeychainStore.shared.get(SlackService.userTokenKey) != nil
                 && KeychainStore.shared.get(SlackService.appTokenKey) != nil
+        case "integration_harvest": return HarvestService.shared.isConfigured
         default: return false
         }
     }
@@ -1177,6 +1180,7 @@ struct IntegrationCardView: View {
         case "integration_notion":  return URL(string: "https://notion.so")
         case "integration_calcom":  return URL(string: "https://app.cal.com/bookings")
         case "integration_slack":   return URL(string: "slack://open")
+        case "integration_harvest": return URL(string: "https://id.getharvest.com/harvest")
         default: return nil
         }
     }
@@ -1224,6 +1228,11 @@ struct IntegrationCardView: View {
         task.id == "integration_slack" && (!appState.slackMessages.isEmpty || appState.slackStatus == .connected)
     }
 
+    // Harvest: show the timer as soon as the first refresh completes
+    private var harvestHasData: Bool {
+        task.id == "integration_harvest" && appState.harvestLoaded && appState.harvestError == nil
+    }
+
     // Notion: show pages as soon as first poll completes
     private var notionHasData: Bool {
         task.id == "integration_notion" && appState.notionLoaded
@@ -1247,6 +1256,7 @@ struct IntegrationCardView: View {
                    : nil
         if svcErr != nil { return Color(hex: "#F4505E") }
         if task.id == "integration_slack", case .error = appState.slackStatus { return Color(hex: "#F4505E") }
+        if task.id == "integration_harvest" && appState.harvestError != nil { return Color(hex: "#F4505E") }
         return isConfigured ? Color(hex: "#22C55E") : Color(hex: "#F4505E")
     }
 
@@ -1262,6 +1272,7 @@ struct IntegrationCardView: View {
                    : nil
         if let err = svcErr { return err }
         if task.id == "integration_slack" && isConfigured { return appState.slackStatus.label }
+        if task.id == "integration_harvest", let err = appState.harvestError { return "Erreur : \(err)" }
         let isHooks = task.id == "agent_gemini" || task.id == "agent_antigravity"
         let isAI    = task.id == "ai_anthropic" || task.id == "ai_google" || task.id == "ai_openai"
         if isConfigured {
@@ -1309,6 +1320,9 @@ struct IntegrationCardView: View {
                 .transition(.opacity)
         } else if slackHasData {
             SlackCardView()
+                .transition(.opacity)
+        } else if harvestHasData {
+            HarvestCardView()
                 .transition(.opacity)
         } else if notionHasData {
             NotionCardView()
@@ -1924,6 +1938,124 @@ struct SlackCardView: View {
             try? await Task.sleep(nanoseconds: 2_500_000_000)
             withAnimation { note = nil }
         }
+    }
+}
+
+// MARK: - Harvest Card View
+
+struct HarvestCardView: View {
+    @ObservedObject private var appState = AppState.shared
+    @State private var busy = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color(hex: appState.harvestRunning != nil ? "#FA5D00" : "#6B7079"))
+                    .frame(width: 7, height: 7)
+                Text("Harvest")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color(hex: "#F5F6F8"))
+                Text(appState.harvestRunning != nil ? "Timer en cours" : "Aucun timer")
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(hex: "#8E939C"))
+                Spacer(minLength: 4)
+                Text("Aujourd'hui \(HarvestService.format(appState.harvestToday))")
+                    .font(.system(size: 10))
+                    .foregroundColor(Color(hex: "#6B7079"))
+                    .monospacedDigit()
+            }
+            .padding(.top, 6)
+            .padding(.leading, 108)
+            .padding(.trailing, 16)
+
+            if let running = appState.harvestRunning {
+                HStack(alignment: .center, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(running.projectName)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Color(hex: "#E5E7EB"))
+                            .lineLimit(1)
+                        Text(running.clientName.map { "\(running.taskName) · \($0)" } ?? running.taskName)
+                            .font(.system(size: 10))
+                            .foregroundColor(Color(hex: "#8E939C"))
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    TimelineView(.periodic(from: .now, by: 1)) { tl in
+                        Text(Self.clock(running.elapsed(at: tl.date)))
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundColor(Color(hex: "#FA5D00"))
+                            .monospacedDigit()
+                    }
+                    Button {
+                        busy = true
+                        Task { @MainActor in await HarvestService.shared.stop(); busy = false }
+                    } label: {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.black)
+                            .frame(width: 22, height: 22)
+                            .background(Circle().fill(Color(hex: "#FA5D00")))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(busy)
+                    .help("Arrêter le timer")
+                }
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .background(Color(hex: "#FA5D00").opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .padding(.top, 5)
+                .padding(.leading, 108)
+                .padding(.trailing, 12)
+            } else {
+                HStack(spacing: 8) {
+                    if let last = appState.harvestLast {
+                        Button {
+                            start(HarvestShortcut(projectId: last.projectId, projectName: last.projectName,
+                                                  taskId: last.taskId, taskName: last.taskName))
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "play.fill").font(.system(size: 9, weight: .bold))
+                                Text("Relancer \(last.label)").lineLimit(1)
+                            }
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color(hex: "#FA5D00"))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(busy)
+                    }
+                    if !appState.harvestShortcuts.isEmpty {
+                        Menu("Autre…") {
+                            ForEach(appState.harvestShortcuts) { s in
+                                Button(s.label) { start(s) }
+                            }
+                        }
+                        .menuStyle(.borderlessButton)
+                        .fixedSize()
+                        .font(.system(size: 11))
+                        .disabled(busy)
+                    }
+                }
+                .padding(.top, 8)
+                .padding(.leading, 112)
+                .padding(.trailing, 16)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .padding(.top, 4)
+        .onAppear { HarvestService.shared.markSeen() }
+    }
+
+    private func start(_ s: HarvestShortcut) {
+        busy = true
+        Task { @MainActor in await HarvestService.shared.start(s); busy = false }
+    }
+
+    static func clock(_ seconds: TimeInterval) -> String {
+        let t = max(0, Int(seconds))
+        return String(format: "%d:%02d:%02d", t / 3600, (t % 3600) / 60, t % 60)
     }
 }
 

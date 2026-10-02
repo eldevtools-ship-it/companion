@@ -72,6 +72,7 @@ final class KeychainStore: @unchecked Sendable {
         "calcom-api-key",
         "notion-api-key",
         "slack-user-token", "slack-app-token",
+        "harvest-token", "harvest-account-id",
     ]
 
     private init() {

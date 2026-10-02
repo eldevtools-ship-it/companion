@@ -69,6 +69,8 @@ enum PillCatalog {
         // ── Services ─────────────────────────────────────────────────────────
         .init(id: "integration_slack",   name: "Slack",       color: "#E01E5A",
               category: .service,   subtitle: "Messages",     source: .n8n),
+        .init(id: "integration_harvest", name: "Harvest",     color: "#FA5D00",
+              category: .service,   subtitle: "Temps",        source: .n8n),
         .init(id: "integration_resend",  name: "Resend",      color: "#22C55E",
               category: .service,   subtitle: "Intégration",  source: .n8n),
         .init(id: "integration_n8n",     name: "n8n",         color: "#F29B38",

@@ -63,6 +63,8 @@ struct SettingsView: View {
     @State private var notionKey: String    = KeychainStore.shared.get("notion-api-key")  ?? ""
     @State private var slackUserToken: String = KeychainStore.shared.get(SlackService.userTokenKey) ?? ""
     @State private var slackAppToken: String  = KeychainStore.shared.get(SlackService.appTokenKey)  ?? ""
+    @State private var harvestToken: String   = KeychainStore.shared.get(HarvestService.tokenKey)   ?? ""
+    @State private var harvestAccount: String = KeychainStore.shared.get(HarvestService.accountKey) ?? ""
 
     // Hotkey
     @State private var hotkeyFlags: UInt    = AppState.shared.hotkeyFlags
@@ -568,6 +570,29 @@ struct SettingsView: View {
                         .textFieldStyle(.roundedBorder)
                 }
 
+                // Harvest
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 6) {
+                        Circle().fill(Color(hex: "#FA5D00")).frame(width: 8, height: 8)
+                        Text("Harvest").font(.system(size: 12, weight: .semibold))
+                        if let err = state.harvestError {
+                            Text("Erreur : \(err)").font(.system(size: 11)).foregroundColor(.secondary)
+                        }
+                    }
+                    Text("Crée un jeton d'accès personnel sur id.getharvest.com/developers et note l'ID de compte affiché sur la même page.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Ouvrir id.getharvest.com") {
+                        if let url = URL(string: "https://id.getharvest.com/developers") { NSWorkspace.shared.open(url) }
+                    }
+                    SecureField("Jeton d'accès personnel", text: $harvestToken)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("ID de compte  (Account ID)", text: $harvestAccount)
+                        .textFieldStyle(.roundedBorder)
+                    Toggle("Me rappeler de lancer un timer (jours ouvrés, 9 h – 19 h)", isOn: $state.harvestReminder)
+                }
+
                 // Resend
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 6) {
@@ -808,6 +833,9 @@ struct SettingsView: View {
         saveKey(SlackService.userTokenKey, value: slackUserToken.trimmingCharacters(in: .whitespacesAndNewlines))
         saveKey(SlackService.appTokenKey,  value: slackAppToken.trimmingCharacters(in: .whitespacesAndNewlines))
         SlackService.shared.restart()
+        saveKey(HarvestService.tokenKey,   value: harvestToken.trimmingCharacters(in: .whitespacesAndNewlines))
+        saveKey(HarvestService.accountKey, value: harvestAccount.trimmingCharacters(in: .whitespacesAndNewlines))
+        HarvestService.shared.restart()
         statusMessage = "✓ Clés d'intégration enregistrées."
     }
 

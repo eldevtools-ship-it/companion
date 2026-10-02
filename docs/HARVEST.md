@@ -1,0 +1,35 @@
+# Brancher Harvest sur Compagnon
+
+Compagnon affiche ton **timer Harvest en cours** (projet, tâche, temps qui
+défile), te laisse l'**arrêter** ou en **relancer** un, et te **rappelle** de
+lancer un timer quand tu travailles sans.
+
+## Installation (2 minutes, pas besoin d'admin)
+
+1. Va sur <https://id.getharvest.com/developers> → **Create new personal access
+   token**, donne-lui un nom (« Compagnon »).
+2. Copie le **jeton** et l'**Account ID** affichés (si tu as plusieurs comptes
+   Harvest, prends l'ID du compte du boulot).
+3. Compagnon → **Réglages… → Intégrations → Harvest** : colle les deux, puis
+   **Enregistrer les intégrations**.
+4. **Réglages… → Pastilles actives** : vérifie que **Harvest** est coché.
+
+Le jeton reste dans le Trousseau du Mac.
+
+## Dans l'île
+
+- **Timer en cours** : projet, tâche et client, le temps qui défile, et un
+  bouton ■ pour l'arrêter. En haut à droite : le total de la journée.
+- **Pas de timer** : **Relancer** reprend ta dernière tâche (sur la même ligne
+  si c'était aujourd'hui), **Autre…** liste tes projets et tâches récents.
+- La lampe de l'antenne est bleue tant qu'un timer tourne.
+
+## Le rappel
+
+Les jours ouvrés entre 9 h et 19 h, si tu es devant ton Mac depuis 10 minutes
+sans timer lancé, Compagnon sort de l'encoche avec un petit son et un badge sur
+la pastille Harvest. Au maximum une fois toutes les 30 minutes, et jamais quand
+tu es absent (plus de 5 minutes sans toucher clavier ni souris).
+Désactivable dans les réglages.
+
+Les données sont rafraîchies toutes les minutes.

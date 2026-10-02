@@ -84,7 +84,7 @@ python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 - [x] Personnage, sons et icône à nous
 - [x] Build automatique sur GitHub (pas besoin d'Xcode)
 - [x] Slack : messages directs et mentions en temps réel, réponse depuis l'île ([docs/SLACK.md](docs/SLACK.md))
-- [ ] Harvest : timer en cours, démarrer / arrêter
+- [x] Harvest : timer en cours, démarrer / arrêter, rappel ([docs/HARVEST.md](docs/HARVEST.md))
 - [ ] Répondre aux questions de Claude depuis Compagnon
 - [ ] Écrire à Claude depuis Compagnon
 - [ ] Nettoyer ou migrer `windows/` (version Windows/Linux héritée, pas utilisée)

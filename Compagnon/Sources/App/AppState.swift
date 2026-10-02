@@ -194,7 +194,7 @@ final class AppState: ObservableObject {
     }
 
     // Active integration pills (main workspace pill excluded). Max 4.
-    @Published var activeIntegrations: Set<String> = ["integration_slack", "integration_github", "integration_vercel"] {
+    @Published var activeIntegrations: Set<String> = ["integration_slack", "integration_harvest", "integration_github", "integration_vercel"] {
         didSet {
             if let data = try? JSONEncoder().encode(Array(activeIntegrations)) {
                 UserDefaults.standard.set(data, forKey: "activeIntegrations")
@@ -238,6 +238,17 @@ final class AppState: ObservableObject {
     @Published var slackUnread: Int = 0
     @Published var slackStatus: SlackStatus = .notConfigured
 
+    // Harvest (populated by HarvestService)
+    @Published var harvestRunning: HarvestEntry? = nil
+    @Published var harvestLast: HarvestEntry? = nil
+    @Published var harvestShortcuts: [HarvestShortcut] = []
+    @Published var harvestToday: TimeInterval = 0
+    @Published var harvestLoaded: Bool = false
+    @Published var harvestError: String? = nil
+    @Published var harvestReminder: Bool = true {
+        didSet { UserDefaults.standard.set(harvestReminder, forKey: "harvestReminder") }
+    }
+
     // Chat conversation history
     @Published var chatHistory: [ChatMessage] = []
 
@@ -253,6 +264,7 @@ final class AppState: ObservableObject {
         let ud = UserDefaults.standard
 
         if let v = ud.object(forKey: "soundEnabled") as? Bool   { soundEnabled = v }
+        if let v = ud.object(forKey: "harvestReminder") as? Bool { harvestReminder = v }
         if let v = ud.object(forKey: "soundVolume")  as? Double { soundVolume  = v }
         if let v = ud.string(forKey: "claudeModel"),
            !v.trimmingCharacters(in: .whitespaces).isEmpty { claudeModel = v }

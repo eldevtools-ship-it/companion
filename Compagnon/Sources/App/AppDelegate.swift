@@ -104,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         CalcomPoller.shared.start()
         NotionPoller.shared.start()
         SlackService.shared.start()
+        HarvestService.shared.start()
         NotificationCenter.default.addObserver(self, selector: #selector(openSettingsFromNotification(_:)),
                                                name: .openFullSettings, object: nil)
         _ = MusicController.shared
