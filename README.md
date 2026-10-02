@@ -9,8 +9,9 @@ Un petit assistant qui vit dans l'encoche du Mac et fait trois choses :
 - **Harvest** : le timer en cours bien visible, start / stop, choix du projet,
   de la tâche et d'une note, et un rappel si tu travailles sans timer.
 
-Plus un aperçu GitHub. Les pastilles apparaissent toutes seules dès que le
-service est configuré.
+Plus **Agenda** (rappel avant tes réunions, bouton Rejoindre, lu dans l'app
+Calendrier du Mac), **Vercel** (déploiements) et **GitHub**. Les pastilles
+apparaissent toutes seules dès que le service est configuré.
 
 Compagnon est notre version de [Coucou](https://github.com/Louis-CFM/coucou)
 (Louis Raillé, licence MIT) : même base, mais en français, avec notre propre
@@ -111,7 +112,8 @@ python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 - [x] Mises à jour automatiques de l'app sur le Mac
 - [x] Slack : messages directs et mentions en temps réel, réponse depuis l'île ([docs/SLACK.md](docs/SLACK.md))
 - [x] Harvest : timer en cours, démarrer / arrêter, rappel ([docs/HARVEST.md](docs/HARVEST.md))
-- [ ] Répondre aux questions de Claude depuis Compagnon
+- [x] Répondre aux questions de Claude depuis Compagnon (à confirmer à l'usage)
+- [x] Rappel de réunion (Calendrier du Mac) et Vercel
 - [ ] Écrire à Claude depuis Compagnon
 - [x] Recentrer l'app sur Claude Code, Slack, Harvest et GitHub
 

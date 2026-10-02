@@ -25,7 +25,7 @@ struct PillDefinition {
 }
 
 // MARK: - Catalog
-// The whole app: Claude Code, plus Slack, Harvest, Vercel and GitHub once their keys are set.
+// The whole app: Claude Code, plus Slack, Harvest, Agenda, Vercel and GitHub once set up.
 
 enum PillCatalog {
     static let all: [PillDefinition] = [
@@ -41,6 +41,9 @@ enum PillCatalog {
         .init(id: "integration_harvest", name: "Harvest",     color: "#FA5D00",
               category: .service,   subtitle: "Temps",       source: .service,
               isConfigured: { HarvestService.shared.isConfigured }),
+        .init(id: "integration_calendar", name: "Agenda",     color: "#7C5CFF",
+              category: .service,   subtitle: "Réunions",    source: .service,
+              isConfigured: { CalendarService.shared.isConfigured }),
         .init(id: "integration_vercel",  name: "Vercel",      color: "#E5E7EB",
               category: .service,   subtitle: "Déploiements", source: .service,
               isConfigured: { VercelService.shared.isConfigured }),

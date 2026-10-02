@@ -55,8 +55,8 @@ targets:
         LSUIElement: YES
         NSHighResolutionCapable: YES
         NSSupportsAutomaticGraphicsSwitching: YES
-        NSAppleEventsUsageDescription: "Pour sauter au terminal, envoyer des mails et piloter Musique."
-        NSAccessibilityUsageDescription: "Pour lire le titre de la fenêtre active et l'attacher comme contexte."
+        NSAppleEventsUsageDescription: "Pour ramener au premier plan l'app où tourne Claude."
+        NSCalendarsFullAccessUsageDescription: "Pour te prévenir quelques minutes avant tes réunions et te proposer de les rejoindre."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.eldevtools.Compagnon

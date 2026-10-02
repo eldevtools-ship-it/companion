@@ -102,6 +102,15 @@ final class AppState: ObservableObject {
     // GitHub (GithubPoller)
     @Published var githubStats: GitHubStats? = nil
 
+    // Agenda (CalendarService)
+    @Published var nextMeeting: Meeting? = nil
+    @Published var calendarEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(calendarEnabled, forKey: "calendarEnabled") }
+    }
+    @Published var calendarLeadMinutes: Int = 5 {
+        didSet { UserDefaults.standard.set(calendarLeadMinutes, forKey: "calendarLeadMinutes") }
+    }
+
     // Vercel (VercelService)
     @Published var vercelDeployments: [VercelDeployment] = []
     @Published var vercelError: String? = nil
@@ -136,6 +145,8 @@ final class AppState: ObservableObject {
         if let v = ud.object(forKey: "autoUpdate") as? Bool        { autoUpdate = v }
         if let v = ud.object(forKey: "harvestReminder") as? Bool   { harvestReminder = v }
         if let v = ud.object(forKey: "questionCompatMode") as? Bool { questionCompatMode = v }
+        if let v = ud.object(forKey: "calendarEnabled") as? Bool   { calendarEnabled = v }
+        if let v = ud.object(forKey: "calendarLeadMinutes") as? Int { calendarLeadMinutes = v }
 
         SoundEngine.shared.volume = Float(soundVolume)
         refreshPills()

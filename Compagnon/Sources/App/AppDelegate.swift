@@ -167,6 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         HookServer.shared.start()
         GithubPoller.shared.start()
         VercelService.shared.start()
+        CalendarService.shared.start()
         SlackService.shared.start()
         HarvestService.shared.start()
         UpdateService.shared.start()

@@ -50,6 +50,7 @@ private struct FocusCard: View {
         case HarvestService.pillId: HarvestCard(state: state)
         case "integration_github":  GitHubCard(state: state)
         case VercelService.pillId:  VercelCard(state: state)
+        case CalendarService.pillId: MeetingCard(state: state)
         default:
             if task.state != .idle || !task.steps.isEmpty {
                 SessionCard(task: task)
