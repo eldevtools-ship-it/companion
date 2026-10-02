@@ -97,6 +97,12 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(questionCompatMode, forKey: "questionCompatMode") }
     }
 
+    /// Concentration: Slack, Vercel and the Harvest reminder stay silent and never open
+    /// the island (badges still show). Claude and meetings still come through.
+    @Published var focusMode: Bool = false {
+        didSet { UserDefaults.standard.set(focusMode, forKey: "focusMode") }
+    }
+
     @Published var harvestReminder: Bool = true {
         didSet { UserDefaults.standard.set(harvestReminder, forKey: "harvestReminder") }
     }
@@ -148,6 +154,7 @@ final class AppState: ObservableObject {
         if let v = ud.object(forKey: "hotkeyCode") as? Int         { hotkeyCode = UInt16(v) }
         if let v = ud.object(forKey: "autoUpdate") as? Bool        { autoUpdate = v }
         if let v = ud.object(forKey: "harvestReminder") as? Bool   { harvestReminder = v }
+        if let v = ud.object(forKey: "focusMode") as? Bool         { focusMode = v }
         if let v = ud.object(forKey: "questionCompatMode") as? Bool { questionCompatMode = v }
         if let v = ud.object(forKey: "calendarEnabled") as? Bool   { calendarEnabled = v }
         if let v = ud.object(forKey: "calendarLeadMinutes") as? Int { calendarLeadMinutes = v }

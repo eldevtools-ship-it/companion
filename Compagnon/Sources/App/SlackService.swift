@@ -320,11 +320,12 @@ final class SlackService {
         state.tasks[idx].steps = ["\(message.sender) : \(message.text)"]
         let alreadyShown = state.mode == .expanded && state.focusId == Self.pillId && state.view == .overview
         if !alreadyShown { state.tasks[idx].pillBadge = .message }
-        SoundEngine.shared.play("pop")
+        if !state.focusMode { SoundEngine.shared.play("pop") }
 
-        // Open on the Slack card, unless Claude is waiting for an answer or
-        // another card (chat, mail…) is in use.
-        let busy = state.pendingApproval != nil || (state.mode == .expanded && state.view != .overview)
+        // Open on the Slack card, unless you're concentrating, Claude is waiting
+        // for an answer or another card is in use.
+        let busy = state.focusMode || state.pendingApproval != nil
+            || (state.mode == .expanded && state.view != .overview)
         if !busy {
             state.focusId = Self.pillId
             NotificationCenter.default.post(name: .hookExpand, object: IslandView.overview)

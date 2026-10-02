@@ -216,8 +216,10 @@ final class VercelService {
         if state.focusId != Self.pillId || state.mode != .expanded {
             state.tasks[idx].pillBadge = done.isSuccess ? .finished : .error
         }
-        SoundEngine.shared.play(done.isSuccess ? "finish" : "error")
-        if state.mode == .hidden { NotificationCenter.default.post(name: .hookReveal, object: nil) }
+        if !state.focusMode {
+            SoundEngine.shared.play(done.isSuccess ? "finish" : "error")
+            if state.mode == .hidden { NotificationCenter.default.post(name: .hookReveal, object: nil) }
+        }
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 60_000_000_000)
             guard let i = state.tasks.firstIndex(where: { $0.id == Self.pillId }),

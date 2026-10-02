@@ -503,11 +503,20 @@ struct HarvestPickerView: View {
                 fieldsRow
                 if list == .closed {
                     noteRow
+                        .transition(.asymmetric(
+                            insertion: .opacity.animation(.easeOut(duration: 0.18).delay(0.12)),
+                            removal: .opacity.animation(.easeIn(duration: 0.08))))
                 } else {
+                    // Fades in once the island has grown, and out before it shrinks back,
+                    // so the list never slides over the fields.
                     listPanel
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .scale(scale: 0.98, anchor: .top))
+                                .animation(.easeOut(duration: 0.2).delay(0.1)),
+                            removal: .opacity.animation(.easeIn(duration: 0.1))))
                 }
             }
+            .clipped()
             .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, IslandConst.cardInset)
             .padding(.vertical, IslandConst.cardInset + 4)
@@ -676,7 +685,14 @@ struct HarvestPickerView: View {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { list = mode }
         filter = ""
         let grow = mode != .closed
-        if state.harvestListOpen != grow { state.harvestListOpen = grow }
+        if grow {
+            if !state.harvestListOpen { state.harvestListOpen = true }
+        } else if state.harvestListOpen {
+            // Let the list fade out before the island folds back up
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) {
+                if list == .closed { state.harvestListOpen = false }
+            }
+        }
         if mode == .project {
             NotificationCenter.default.post(name: .islandNeedsKeyboard, object: nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { filterFocused = true }

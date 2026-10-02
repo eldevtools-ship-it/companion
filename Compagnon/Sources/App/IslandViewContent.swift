@@ -61,15 +61,15 @@ struct ApprovalView: View {
                 AgentWho(task: state.focusTask, label: "demande une autorisation")
                 CodeBlock(text: approval?.command ?? approval?.tool ?? "…")
                 HStack(spacing: 8) {
-                    SecondaryButton("Refuser") {
+                    SecondaryButton("Refuser", kbd: "esc") {
                         HookServer.shared.sendApprovalDecision("deny")
                     }
-                    PrimaryButton("Autoriser") {
+                    PrimaryButton("Autoriser", kbd: "⏎") {
                         HookServer.shared.sendApprovalDecision("allow")
                     }
                     // Codex rejects updatedPermissions, so "Always" is not offered
                     if approval?.pillId != "agent_codex" {
-                        SecondaryButton("Toujours") {
+                        SecondaryButton("Toujours", kbd: "⌘⏎") {
                             HookServer.shared.sendApprovalDecision("always")
                         }
                     }
@@ -151,9 +151,9 @@ struct QuestionView: View {
                         }
                     } else {
                         HStack(spacing: 6) {
-                            ForEach(item.options, id: \.label) { opt in
+                            ForEach(Array(item.options.enumerated()), id: \.element.label) { i, opt in
                                 let on = picked.contains(opt.label)
-                                choiceButton(opt.label, prominent: on) {
+                                choiceButton(opt.label, prominent: on, key: i < 9 ? "\(i + 1)" : nil) {
                                     if item.multiSelect {
                                         if on { picked.remove(opt.label) } else { picked.insert(opt.label) }
                                     } else {
@@ -178,20 +178,44 @@ struct QuestionView: View {
             }
         }
         .onChange(of: state.pendingQuestion) { _, _ in reset() }
+        // 1…9 picks an option, ⏎ validates a multiple choice (IslandWindowController)
+        .onReceive(NotificationCenter.default.publisher(for: .questionShortcut)) { note in
+            guard let n = note.object as? Int, let item, !typing else { return }
+            if n == 0 {
+                if item.multiSelect && !picked.isEmpty {
+                    answer(item.options.map(\.label).filter { picked.contains($0) })
+                }
+                return
+            }
+            guard n - 1 < item.options.count else { return }
+            let label = item.options[n - 1].label
+            if item.multiSelect {
+                if picked.contains(label) { picked.remove(label) } else { picked.insert(label) }
+            } else {
+                answer(label)
+            }
+        }
     }
 
-    private func choiceButton(_ title: String, prominent: Bool, disabled: Bool = false,
+    private func choiceButton(_ title: String, prominent: Bool, disabled: Bool = false, key: String? = nil,
                               action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 11.5, weight: .medium))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .foregroundColor(prominent ? Color(hex: "#0B0C0E") : Color(hex: "#F1F2F4"))
-                .padding(.horizontal, 11)
-                .frame(height: 26)
-                .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
-                    .fill(prominent ? Color(hex: "#22D3EE") : Color.white.opacity(0.09)))
+            HStack(spacing: 6) {
+                if let key {
+                    Text(key)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .opacity(0.5)
+                }
+                Text(title)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .foregroundColor(prominent ? Color(hex: "#0B0C0E") : Color(hex: "#F1F2F4"))
+            .padding(.horizontal, 11)
+            .frame(height: 26)
+            .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
+                .fill(prominent ? Color(hex: "#22D3EE") : Color.white.opacity(0.09)))
         }
         .buttonStyle(.plain)
         .pointingHand()

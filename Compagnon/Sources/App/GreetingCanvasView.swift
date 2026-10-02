@@ -558,7 +558,7 @@ struct GreetingCanvasView: View {
                 context.withCGContext { cgCtx in
                     drawGreeting(cgCtx, size: size, t: t, tc: tc,
                                  compact: IslandRestingLayout(width: state.notchWidth + IslandConst.compactEar * 2,
-                                                              height: state.notchHeight))
+                                                              height: state.notchHeight + IslandRestingLayout.compactExtraHeight))
                 }
             }
             // Fire greetComplete exactly once at T.end (when no hover)

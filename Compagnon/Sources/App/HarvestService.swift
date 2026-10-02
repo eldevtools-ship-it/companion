@@ -268,6 +268,7 @@ final class HarvestService {
         state.tasks[idx].state = .question
         state.tasks[idx].steps = ["Pas de timer en cours"]
         state.tasks[idx].pillBadge = .approval
+        guard !state.focusMode else { return }
         SoundEngine.shared.play("question")
         if state.mode == .hidden {
             NotificationCenter.default.post(name: .hookReveal, object: nil)

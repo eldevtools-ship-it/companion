@@ -316,13 +316,14 @@ struct IslandHeader: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Left: back to the overview from any other card
-            HStack(spacing: 5) {
+            // Left: concentration, then back to the overview from any other card
+            HStack(spacing: 10) {
+                FocusButton(state: state)
                 if state.view != .overview && state.view != .empty {
                     TabButton(icon: "chevron.left", view: .overview, state: state)
                 }
             }
-            .padding(.leading, 14)
+            .padding(.leading, 16)
 
             Spacer()
 
@@ -351,6 +352,41 @@ struct IslandHeader: View {
             .padding(.trailing, 16)
         }
         .frame(maxHeight: .infinity)
+    }
+}
+
+/// Concentration toggle: Slack, Vercel and the Harvest reminder go quiet.
+struct FocusButton: View {
+    @ObservedObject var state: AppState
+    @State private var hovered = false
+
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { state.focusMode.toggle() }
+            SoundEngine.shared.play("blip")
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: state.focusMode ? "moon.fill" : "moon")
+                    .font(.system(size: 13, weight: .medium))
+                    .contentTransition(.symbolEffect(.replace))
+                if state.focusMode {
+                    Text("Concentration")
+                        .font(.system(size: 11, weight: .semibold))
+                        .transition(.opacity.combined(with: .move(edge: .leading)))
+                }
+            }
+            .foregroundColor(state.focusMode ? Color(hex: "#C4B5FD")
+                             : (hovered ? Color(hex: "#B0B5BE") : Color(hex: "#8E939C")))
+            .padding(.horizontal, state.focusMode ? 9 : 0)
+            .frame(height: 22)
+            .background(Capsule().fill(Color(hex: "#8B5CF6").opacity(state.focusMode ? 0.18 : 0)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .pointingHand()
+        .onHover { hovered = $0 }
+        .help(state.focusMode ? "Concentration activée : seul Claude te dérange. Clique pour l'arrêter."
+                              : "Concentration : couper Slack, Vercel et le rappel Harvest")
     }
 }
 

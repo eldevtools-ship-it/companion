@@ -235,6 +235,7 @@ final class IslandWindowController: NSWindowController {
             fsm.mouseLeft()
         }
         wasInIsland = inIsland
+        updateKeyboard(pointerInside: inIsland)
 
         // Bot-head hover (love emote)
         let overBot = state.mode == .expanded && state.stateOverride == nil && isBotHit(local)
@@ -250,6 +251,55 @@ final class IslandWindowController: NSWindowController {
                 scheduleLoveTimer()
             }
         }
+    }
+
+    // MARK: - Keyboard shortcuts (approval / question)
+    // The island only takes the keyboard while the pointer is on it, so a key typed
+    // in another app can never answer Claude by accident.
+
+    private var tookKeyboard = false
+
+    private var answerPending: Bool {
+        state.mode == .expanded && (state.pendingApproval != nil || state.pendingQuestion != nil)
+    }
+
+    private func updateKeyboard(pointerInside: Bool) {
+        guard let panel = islandPanel else { return }
+        if pointerInside && answerPending {
+            if !panel.isKeyWindow { panel.makeKey(); tookKeyboard = true }
+        } else if tookKeyboard {
+            tookKeyboard = false
+            // Keep it while you're typing an answer
+            if panel.isKeyWindow && !(panel.firstResponder is NSText) { panel.resignKey() }
+        }
+    }
+
+    /// ⏎ autoriser · ⌘⏎ toujours · ⎋ refuser — 1…9 choisir · ⏎ valider. Returns true if handled.
+    private func handleShortcut(_ event: NSEvent) -> Bool {
+        guard event.window === islandPanel, answerPending, wasInIsland else { return false }
+        if islandPanel.firstResponder is NSText { return false }   // typing in a field
+        let isReturn = event.keyCode == 36 || event.keyCode == 76
+        let cmd = event.modifierFlags.contains(.command)
+        if let approval = state.pendingApproval, state.view == .approval {
+            if isReturn {
+                let always = cmd && approval.pillId != "agent_codex"
+                HookServer.shared.sendApprovalDecision(always ? "always" : "allow")
+                return true
+            }
+            if event.keyCode == 53 { HookServer.shared.sendApprovalDecision("deny"); return true }
+            return false
+        }
+        if state.pendingQuestion != nil, state.view == .question {
+            if isReturn {
+                NotificationCenter.default.post(name: .questionShortcut, object: 0)
+                return true
+            }
+            if let ch = event.charactersIgnoringModifiers, let n = Int(ch), (1...9).contains(n) {
+                NotificationCenter.default.post(name: .questionShortcut, object: n)
+                return true
+            }
+        }
+        return false
     }
 
     private var lastMouse: CGPoint = .zero
@@ -352,6 +402,13 @@ final class IslandWindowController: NSWindowController {
                     }
                 }
             }
+        }
+
+        // Answer Claude from the keyboard while the pointer is on the island
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            let handled = MainActor.assumeIsolated { self.handleShortcut(event) }
+            return handled ? nil : event
         }
 
         // Hook server expand requests (alerts only)
@@ -562,6 +619,7 @@ extension Notification.Name {
     static let islandAction     = Notification.Name("compagnon.islandAction")
     static let islandCollapse   = Notification.Name("compagnon.islandCollapse")
     static let islandNeedsKeyboard = Notification.Name("compagnon.islandNeedsKeyboard")
+    static let questionShortcut = Notification.Name("compagnon.questionShortcut")
     static let openFullSettings = Notification.Name("compagnon.openFullSettings")
     static let hookReveal       = Notification.Name("compagnon.hookReveal")
     // Greeting ↔ IslandWindowController
@@ -578,7 +636,7 @@ func islandSize(mode: IslandMode, view: IslandView,
                 nh: CGFloat = IslandConst.notchHeight) -> (CGFloat, CGFloat) {
     switch mode {
     case .hidden:   return (nw, nh)
-    case .compact:  return (nw + IslandConst.compactEar * 2, nh)
+    case .compact:  return (nw + IslandConst.compactEar * 2, nh + IslandRestingLayout.compactExtraHeight)
     case .expanded:
         let layout = IslandConst.viewLayouts[view]!
         if view == .harvest && AppState.shared.harvestListOpen {

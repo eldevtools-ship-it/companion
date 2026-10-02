@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusItem: NSStatusItem?
     private let versionItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let updateItem = NSMenuItem(title: "Rechercher une mise à jour", action: nil, keyEquivalent: "u")
+    private let focusItem = NSMenuItem(title: "Concentration", action: nil, keyEquivalent: "")
     private(set) var islandController: IslandWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -37,6 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: "Ouvrir Compagnon", action: #selector(openIsland), keyEquivalent: "")
         menu.addItem(withTitle: "Réglages…", action: #selector(openSettings), keyEquivalent: ",")
+        focusItem.target = self
+        focusItem.action = #selector(toggleFocus)
+        menu.addItem(focusItem)
         menu.addItem(.separator())
         updateItem.target = self
         updateItem.action = #selector(checkForUpdate)
@@ -57,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func refreshMenu() {
         versionItem.title = "Compagnon · version \(UpdateService.currentBuild)"
+        focusItem.state = AppState.shared.focusMode ? .on : .off
         switch AppState.shared.updateStatus {
         case .available(let build): updateItem.title = "Installer la version \(build)"
         case .checking:             updateItem.title = "Recherche en cours…"
@@ -106,6 +111,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             UserDefaults.standard.set("updates", forKey: "settingsSection")
             openSettings()
         }
+    }
+
+    @objc private func toggleFocus() {
+        AppState.shared.focusMode.toggle()
     }
 
     @objc private func openIsland() {
