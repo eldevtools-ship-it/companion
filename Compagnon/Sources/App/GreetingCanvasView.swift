@@ -27,7 +27,7 @@ private enum GT {
 
 // MARK: - Geometry constants (640×150 reference space)
 
-private let GC0     = CGPoint(x: 320, y: 90)   // Mochi center
+private let GC0     = CGPoint(x: 320, y: 90)   // character center
 private let GHB:    CGFloat = 58                // body height at full size
 private let GASP:   CGFloat = 1.34             // body width/height ratio
 private let GEAR_X: CGFloat = 40               // ear x from small island left edge (matches BotPlacement compact x=40)
@@ -241,27 +241,16 @@ private func gRR(_ ctx: CGContext, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h
     ctx.closePath()
 }
 
-private func mochiPath(hw: CGFloat, hh: CGFloat) -> CGPath {
-    let n: CGFloat = 3.2
-    let path = CGMutablePath()
-    let steps = 96
-    for i in 0...steps {
-        let a = CGFloat(i)/CGFloat(steps)*2 * .pi
-        let ca = cos(a), sa = sin(a)
-        let px = hw * (ca < 0 ? -1 : 1) * pow(abs(ca), 2/n)
-        let py = hh * (sa < 0 ? -1 : 1) * pow(abs(sa), 2/n)
-        if i == 0 { path.move(to: CGPoint(x: px, y: py)) }
-        else { path.addLine(to: CGPoint(x: px, y: py)) }
-    }
-    path.closeSubpath(); return path
+private func characterPath(hw: CGFloat, hh: CGFloat) -> CGPath {
+    CompagnonStyle.bodyCGPath(rx: hw, ry: hh)
 }
 
 // Linear gradient fill clipped to path (body-local coords, centered at origin)
 private func whiteFill(_ ctx: CGContext, _ path: CGPath,
                         x0: CGFloat, y0: CGFloat, x1: CGFloat, y1: CGFloat) {
     let cs   = CGColorSpaceCreateDeviceRGB()
-    let c0   = CGColor(red: 251/255, green: 251/255, blue: 252/255, alpha: 1)
-    let c1   = CGColor(red: 231/255, green: 233/255, blue: 236/255, alpha: 1)
+    let c0   = CompagnonStyle.bodyTop
+    let c1   = CompagnonStyle.bodyBottom
     guard let g = CGGradient(colorsSpace: cs, colors: [c0,c1] as CFArray, locations: [0,1]) else { return }
     ctx.saveGState()
     ctx.addPath(path); ctx.clip()
@@ -308,7 +297,7 @@ private func drawHandR(_ ctx: CGContext, hw: CGFloat, hh: CGFloat, p: GreetPose)
     ctx.restoreGState()
 }
 
-private func drawMochi(_ ctx: CGContext, p: GreetPose) {
+private func drawCharacter(_ ctx: CGContext, p: GreetPose) {
     let hh = CGFloat(p.hb/2), hw = hh*GASP; guard hh > 0.4 else { return }
 
     // Halo (golden → blue) — soft diffuse aura, two-pass for smoothness
@@ -354,8 +343,13 @@ private func drawMochi(_ ctx: CGContext, p: GreetPose) {
     drawHandL(ctx, hw: hw, hh: hh, p: p)
     drawHandR(ctx, hw: hw, hh: hh, p: p)
 
+    // Antenna behind the body: coral bulb, sways against the tilt
+    CompagnonStyle.drawAntenna(ctx, CompagnonStyle.antenna(ry: hh, angle: CGFloat(-p.tilt * 1.6 - p.lookX * 0.25)),
+                               bulb: CompagnonStyle.accent,
+                               glow: CGFloat(0.5 + 0.5 * p.badge))
+
     // Body
-    let mpath = mochiPath(hw: hw, hh: hh)
+    let mpath = characterPath(hw: hw, hh: hh)
     whiteFill(ctx, mpath, x0: hw*0.6, y0: -hh, x1: -hw*0.6, y1: hh)
 
     // Blue tint overlay
@@ -374,8 +368,8 @@ private func drawMochi(_ ctx: CGContext, p: GreetPose) {
     // Eyes (clipped to body)
     ctx.saveGState()
     ctx.addPath(mpath); ctx.clip()
-    ctx.setFillColor(gHex("#16171A"))
-    ctx.setStrokeColor(gHex("#16171A"))
+    ctx.setFillColor(CompagnonStyle.ink)
+    ctx.setStrokeColor(CompagnonStyle.ink)
     let er = CGFloat(p.hb*0.06)
     let sp = CGFloat(p.hb*0.19)
     let lx = CGFloat(p.lookX)*hw*0.42
@@ -401,6 +395,11 @@ private func drawMochi(_ ctx: CGContext, p: GreetPose) {
             ctx.scaleBy(x: 1, y: max(0.12, CGFloat(p.open)))
             ctx.addEllipse(in: CGRect(x: -er, y: -er, width: er*2, height: er*2))
             ctx.fillPath()
+            if p.open > 0.6 {
+                ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.85))
+                ctx.fillEllipse(in: CompagnonStyle.catchlight(eyeWidth: er*2, eyeHeight: er*2))
+                ctx.setFillColor(CompagnonStyle.ink)
+            }
         }
         ctx.restoreGState()
     }
@@ -502,7 +501,7 @@ private func drawMinis(_ ctx: CGContext, alpha: Double, compact: IslandRestingLa
         let scale = CGFloat(alpha) * compact.miniGridScale
         ctx.scaleBy(x: scale, y: scale)
         ctx.setFillColor(gHex(miniColors[i]))
-        ctx.addPath(mochiPath(hw: 5.3, hh: 4)); ctx.fillPath()
+        ctx.addPath(characterPath(hw: 5.3, hh: 4)); ctx.fillPath()
         ctx.restoreGState()
     }
 }
@@ -535,7 +534,7 @@ private func drawGreeting(_ ctx: CGContext, size: CGSize, t: Double, tc: Double,
 
     // drawHeader: no icons during greeting
     drawMinis(ctx, alpha: p.minis, compact: compact)
-    drawMochi(ctx, p: p)
+    drawCharacter(ctx, p: p)
 }
 
 // MARK: - SwiftUI View

@@ -71,16 +71,16 @@ enum BadgeType {
     case dot(CGColor)
 }
 
-// MARK: - Mochi track constants (from PISTES.mochi)
+// MARK: - Character constants (palette and silhouette live in CompagnonStyle)
 
-enum MochiConst {
-    static let eyeW: CGFloat  = 0.25
-    static let eyeH: CGFloat  = 0.27
-    static let eyeSp: CGFloat = 0.37
-    static let eyeP: CGFloat  = -0.12
-    static let baseTop    = CGColor(red: 0.929, green: 0.929, blue: 0.937, alpha: 1)  // #EDEDEF
-    static let baseBottom = CGColor(red: 0.769, green: 0.773, blue: 0.792, alpha: 1)  // #C4C5CA
-    static let ink        = CGColor(red: 0.102, green: 0.082, blue: 0.071, alpha: 1)  // #1A1412
+enum BotConst {
+    static let eyeW: CGFloat  = 0.22
+    static let eyeH: CGFloat  = 0.30
+    static let eyeSp: CGFloat = 0.35
+    static let eyeP: CGFloat  = -0.10
+    static let baseTop    = CompagnonStyle.bodyTop
+    static let baseBottom = CompagnonStyle.bodyBottom
+    static let ink        = CompagnonStyle.ink
     static let miniInk    = CGColor(red: 0.063, green: 0.075, blue: 0.102, alpha: 1)  // #10131A
 }
 
@@ -252,6 +252,12 @@ final class BotEngine: ObservableObject {
     // Dancing (Apple Music)
     var isDancing: Bool = false
     var dancingLevel: CGFloat = 0   // 0→1 over 0.3s, 1→0 over 0.5s
+
+    // Antenna spring (radians, 0 = upright). Lags behind bounces and shakes.
+    var antennaAngle: CGFloat = 0
+    var antennaVel: CGFloat = 0
+    private var antennaLastOx: CGFloat = 0
+    private var antennaLastOy: CGFloat = 0
 
     // Mini wandering look (random, ignores mouse)
     var miniLookTarget: CGPoint = .zero
@@ -796,6 +802,20 @@ final class BotEngine: ObservableObject {
             dancingLevel = max(dancingTarget, dancingLevel - CGFloat(dt) / 0.5)
         }
 
+        // Antenna: underdamped spring towards the head direction, kicked by body motion
+        if dt > 0 {
+            let vx = (ox - antennaLastOx) / dtCG
+            let vy = (oy - antennaLastOy) / dtCG
+            antennaVel += (-vx * 1.6 + vy * 0.5 * sin(antennaAngle + 0.3)) * dtCG * 6
+            let target = -yaw * 0.35 + (dancingLevel > 0 ? 0.25 * sin(CGFloat(now) * .pi * 112 / 60) * dancingLevel : 0)
+            let omega: CGFloat = 2 * .pi / 0.5
+            let zeta: CGFloat = 0.22
+            antennaVel += (omega * omega * (target - antennaAngle) - 2 * zeta * omega * antennaVel) * dtCG
+            antennaAngle = max(-0.9, min(0.9, antennaAngle + antennaVel * dtCG))
+        }
+        antennaLastOx = ox
+        antennaLastOy = oy
+
         lastTime = now
     }
 
@@ -835,8 +855,24 @@ final class BotEngine: ObservableObject {
         if tilt != 0 { ctx.rotate(by: .radians(tilt)) }
         ctx.scaleBy(x: sx, y: sy)
 
-        // Body path (superellipse for Mochi, morph to rect for upload)
-        let bodyPath = mochiPath(rx: rx, ry: ry, morph: morph, R: R)
+        // Body path (gumdrop silhouette, morph to rect for upload)
+        let bodyPath = characterPath(rx: rx, ry: ry, morph: morph, R: R)
+
+        // Antenna behind the body — main bot only, folds away in box mode
+        if !isMini && R > 5 && morph < 0.95 {
+            let bulb: CGColor
+            if bodyColor != nil {
+                bulb = CompagnonStyle.accent
+            } else {
+                // Coral when idle, the state color as soon as Claude is up to something
+                let k = min(1, tint / 0.35)
+                bulb = cgColorFromTuple(mix3(cgColorToTuple(CompagnonStyle.accent), col, k))
+            }
+            CompagnonStyle.drawAntenna(ctx, CompagnonStyle.antenna(ry: ry, angle: antennaAngle),
+                                       bulb: bulb,
+                                       glow: CompagnonStyle.bulbGlow(state, time: CACurrentMediaTime()),
+                                       alpha: 1 - morph)
+        }
 
         // Body fill
         drawBody(ctx: &ctx, path: bodyPath, R: R, rx: rx, ry: ry)
@@ -982,8 +1018,8 @@ final class BotEngine: ObservableObject {
                     endPoint: CGPoint(x: -hew * 0.8, y: heh * 0.9)
                 ))
             } else {
-                let c0 = cgColorToTuple(MochiConst.baseTop)
-                let c1 = cgColorToTuple(MochiConst.baseBottom)
+                let c0 = cgColorToTuple(BotConst.baseTop)
+                let c1 = cgColorToTuple(BotConst.baseBottom)
                 handCtx.fill(handPath, with: .linearGradient(
                     Gradient(colors: [colorFromTuple(c0), colorFromTuple(c1)]),
                     startPoint: CGPoint(x: hew * 0.7, y: -heh * 0.85),
@@ -1016,9 +1052,8 @@ final class BotEngine: ObservableObject {
 
     // MARK: - Private draw helpers
 
-    private func mochiPath(rx: CGFloat, ry: CGFloat, morph: CGFloat, R: CGFloat) -> Path {
+    private func characterPath(rx: CGFloat, ry: CGFloat, morph: CGFloat, R: CGFloat) -> Path {
         let n = 72
-        let expN: CGFloat = 2.0 / 2.7
         // Target mailbox dims (spec: 1.0R wide, 0.94R tall, 0.42R corner radius)
         let tw = R * 1.0
         let th = R * 0.94
@@ -1027,8 +1062,8 @@ final class BotEngine: ObservableObject {
         for i in 0...n {
             let a = CGFloat(i) / CGFloat(n) * .pi * 2
             let ca = cos(a), sa = sin(a)
-            let px0 = rx * (ca >= 0 ? pow(ca, expN) : -pow(-ca, expN))
-            let py0 = ry * (sa >= 0 ? pow(sa, expN) : -pow(-sa, expN))
+            let p0 = CompagnonStyle.bodyPoint(angle: a, rx: rx, ry: ry)
+            let px0 = p0.x, py0 = p0.y
             let px: CGFloat
             let py: CGFloat
             if morph < 0.005 {
@@ -1092,8 +1127,8 @@ final class BotEngine: ObservableObject {
             ctx.fill(path, with: .color(Color(cgColor: bc)))
         } else {
             // Main bot: linear gradient body
-            let c0 = cgColorToTuple(MochiConst.baseTop)
-            let c1 = cgColorToTuple(MochiConst.baseBottom)
+            let c0 = cgColorToTuple(BotConst.baseTop)
+            let c1 = cgColorToTuple(BotConst.baseBottom)
             ctx.fill(path, with: .linearGradient(
                 Gradient(colors: [colorFromTuple(c0), colorFromTuple(c1)]),
                 startPoint: CGPoint(x: rx*0.7, y: -ry*0.85),
@@ -1160,8 +1195,8 @@ final class BotEngine: ObservableObject {
         ctx.clip(to: path)
 
         for sd in [-1.0, 1.0] {
-            let eyeYaw   = CGFloat(sd) * MochiConst.eyeSp + yaw
-            var eyePitch = MochiConst.eyeP + pitch + roll
+            let eyeYaw   = CGFloat(sd) * BotConst.eyeSp + yaw
+            var eyePitch = BotConst.eyeP + pitch + roll
             // Wrap pitch for roll-through effect
             eyePitch = ((eyePitch + .pi).truncatingRemainder(dividingBy: .pi*2) + .pi*2).truncatingRemainder(dividingBy: .pi*2) - .pi
 
@@ -1175,8 +1210,8 @@ final class BotEngine: ObservableObject {
             let fy = lerp(max(0.18, cp),          1, morph * 0.7)
 
             let eyeMult: CGFloat = isMini ? 1.9 : 1.0
-            let ew = R * MochiConst.eyeW * es * eyeMult
-            let eh = R * MochiConst.eyeH * es * eyeMult
+            let ew = R * BotConst.eyeW * es * eyeMult
+            let eh = R * BotConst.eyeH * es * eyeMult
 
             var eyeCtx = ctx
             eyeCtx.translateBy(x: ex, y: ey)
@@ -1186,7 +1221,7 @@ final class BotEngine: ObservableObject {
     }
 
     private func drawEyeShape(ctx: inout GraphicsContext, shape: EyeShape, w: CGFloat, h: CGFloat, open: CGFloat, sd: CGFloat, R: CGFloat) {
-        let ink = isMini ? Color(cgColor: MochiConst.miniInk) : Color(cgColor: MochiConst.ink)
+        let ink = isMini ? Color(cgColor: BotConst.miniInk) : Color(cgColor: BotConst.ink)
         let now = CGFloat(CACurrentMediaTime())
 
         switch shape {
@@ -1199,6 +1234,11 @@ final class BotEngine: ObservableObject {
             p.addRoundedRect(in: CGRect(x: -w/2, y: -hh/2, width: w, height: hh),
                              cornerSize: CGSize(width: min(w/2, hh/2), height: min(w/2, hh/2)))
             ctx.fill(p, with: .color(ink))
+            if !isMini && open > 0.6 && w > 3 {
+                var glint = Path()
+                glint.addEllipse(in: CompagnonStyle.catchlight(eyeWidth: w, eyeHeight: hh))
+                ctx.fill(glint, with: .color(Color.white.opacity(0.85)))
+            }
 
         case .dot:
             var p = Path()
@@ -1470,6 +1510,10 @@ private func mix3(_ a: (CGFloat,CGFloat,CGFloat), _ b: (CGFloat,CGFloat,CGFloat)
 
 private func mixColor(_ a: (CGFloat,CGFloat,CGFloat), _ b: (CGFloat,CGFloat,CGFloat), _ t: CGFloat) -> (CGFloat,CGFloat,CGFloat) {
     mix3(a, b, t)
+}
+
+private func cgColorFromTuple(_ t: (CGFloat,CGFloat,CGFloat)) -> CGColor {
+    CGColor(red: t.0, green: t.1, blue: t.2, alpha: 1)
 }
 
 private func colorFromTuple(_ t: (CGFloat,CGFloat,CGFloat)) -> Color {

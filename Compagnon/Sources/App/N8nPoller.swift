@@ -195,7 +195,7 @@ final class N8nPoller: @unchecked Sendable {
               let items    = main.first else { return nil }
 
         let count = items.count
-        let header = "→ \(lastNode) · \(count) item\(count == 1 ? "" : "s")"
+        let header = "→ \(lastNode) · \(count) élément\(count == 1 ? "" : "s")"
 
         // Preview first item's JSON keys (up to 4)
         if let firstItem = items.first,

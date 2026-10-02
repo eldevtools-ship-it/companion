@@ -86,7 +86,7 @@ final class AppState: ObservableObject {
         guard !loadingProviderModels.contains(provider),
               fetchedProviderModels[provider] == nil else { return }
         guard let apiKey = KeychainStore.shared.get(provider.keychainKey), !apiKey.isEmpty else {
-            providerModelFetchError[provider] = "No API key — add it in Settings."
+            providerModelFetchError[provider] = "Pas de clé API — ajoute-la dans les Réglages."
             return
         }
         loadingProviderModels.insert(provider)
@@ -100,7 +100,7 @@ final class AppState: ObservableObject {
             }
             loadingProviderModels.remove(provider)
             if models.isEmpty {
-                providerModelFetchError[provider] = "Failed to load models. Check your API key."
+                providerModelFetchError[provider] = "Impossible de charger les modèles. Vérifie ta clé API."
             } else {
                 fetchedProviderModels[provider] = models
                 // If the saved model isn't in the fetched list, pick a sensible default:
@@ -462,13 +462,13 @@ struct VercelDeployment: Identifiable {
     let branch: String?
 
     var isSuccess: Bool { state == "READY" }
-    var statusLabel: String { isSuccess ? "Ready" : (state == "CANCELED" ? "Canceled" : "Error") }
+    var statusLabel: String { isSuccess ? "Prêt" : (state == "CANCELED" ? "Annulé" : "Erreur") }
     var timeAgo: String {
         let diff = Date().timeIntervalSince(createdAt)
-        if diff < 60    { return "just now" }
-        if diff < 3600  { return "\(Int(diff/60))m" }
-        if diff < 86400 { return "\(Int(diff/3600))h" }
-        return "\(Int(diff/86400))d"
+        if diff < 60    { return "à l'instant" }
+        if diff < 3600  { return "\(Int(diff/60)) min" }
+        if diff < 86400 { return "\(Int(diff/3600)) h" }
+        return "\(Int(diff/86400)) j"
     }
 }
 
@@ -487,10 +487,10 @@ struct ResendEmail: Identifiable {
     }
     var timeAgo: String {
         let diff = Date().timeIntervalSince(createdAt)
-        if diff < 60    { return "just now" }
-        if diff < 3600  { return "\(Int(diff/60))m" }
-        if diff < 86400 { return "\(Int(diff/3600))h" }
-        return "\(Int(diff/86400))d"
+        if diff < 60    { return "à l'instant" }
+        if diff < 3600  { return "\(Int(diff/60)) min" }
+        if diff < 86400 { return "\(Int(diff/3600)) h" }
+        return "\(Int(diff/86400)) j"
     }
     var isDelivered: Bool { lastEvent == "delivered" }
 }
@@ -516,10 +516,10 @@ struct StripePayment: Identifiable, Equatable {
     var isSuccess: Bool { status == "succeeded" }
     var timeAgo: String {
         let diff = Date().timeIntervalSince(createdAt)
-        if diff < 60    { return "just now" }
-        if diff < 3600  { return "\(Int(diff/60))m" }
-        if diff < 86400 { return "\(Int(diff/3600))h" }
-        return "\(Int(diff/86400))d"
+        if diff < 60    { return "à l'instant" }
+        if diff < 3600  { return "\(Int(diff/60)) min" }
+        if diff < 86400 { return "\(Int(diff/3600)) h" }
+        return "\(Int(diff/86400)) j"
     }
 }
 
@@ -556,10 +556,10 @@ struct NotionPage: Identifiable {
 
     var timeAgo: String {
         let diff = Date().timeIntervalSince(lastEditedAt)
-        if diff < 60 { return "now" }
-        if diff < 3600 { return "\(Int(diff/60))m" }
-        if diff < 86400 { return "\(Int(diff/3600))h" }
-        return "\(Int(diff/86400))d"
+        if diff < 60 { return "maintenant" }
+        if diff < 3600 { return "\(Int(diff/60)) min" }
+        if diff < 86400 { return "\(Int(diff/3600)) h" }
+        return "\(Int(diff/86400)) j"
     }
 }
 

@@ -259,9 +259,9 @@ final class HookServer: @unchecked Sendable {
         if let pending = state.pendingApproval, agentId == pending.pillId {
             let handledNote: String
             switch pending.pillId {
-            case "agent_cursor": handledNote = "Handled in Cursor."
-            case "agent_codex":  handledNote = "Handled in Codex."
-            default:             handledNote = "Handled in VS Code."
+            case "agent_cursor": handledNote = "Réglé dans Cursor."
+            case "agent_codex":  handledNote = "Réglé dans Codex."
+            default:             handledNote = "Réglé dans VS Code."
             }
             var resolved = false
             switch name {
@@ -308,7 +308,7 @@ final class HookServer: @unchecked Sendable {
             activeSessionId = sessionId
             if isExternalAgent { upsertExternalAgent(id: agentId, name: validAgent!) } else { upsertWorkspaceTask(id: agentId, projectName: projectName, cwd: cwd) }
             state.updateTask(id: agentId, state: .working)
-            let tool = payload["tool_name"] as? String ?? "Tool"
+            let tool = payload["tool_name"] as? String ?? "Outil"
             let input = payload["tool_input"] as? [String: Any] ?? [:]
             let step = frenchStep(tool: tool, input: input)
             appendStep(id: agentId, step: step)
@@ -319,7 +319,7 @@ final class HookServer: @unchecked Sendable {
 
         case "PostToolUseFailure":
             state.updateTask(id: agentId, state: .working)
-            appendStep(id: agentId, step: "⚠ failed")
+            appendStep(id: agentId, step: "⚠ échec")
 
         case "Notification":
             let message = payload["message"] as? String ?? ""
@@ -372,10 +372,10 @@ final class HookServer: @unchecked Sendable {
             state.removeTask(id: agentId)
 
         case "SubagentStart":
-            appendStep(id: agentId, step: "+ subagent")
+            appendStep(id: agentId, step: "+ sous-agent")
 
         case "SubagentStop":
-            appendStep(id: agentId, step: "• subagent done")
+            appendStep(id: agentId, step: "• sous-agent terminé")
 
         default:
             break
@@ -493,7 +493,7 @@ final class HookServer: @unchecked Sendable {
             return
         }
 
-        let tool = payload["tool_name"] as? String ?? "Tool"
+        let tool = payload["tool_name"] as? String ?? "Outil"
         let toolInput = payload["tool_input"] as? [String: Any] ?? [:]
         var command = toolInput["command"] as? String ?? tool
         let inputKey = Self.approvalInputKey(toolInput)
@@ -535,9 +535,9 @@ final class HookServer: @unchecked Sendable {
             guard let self, self.pendingApprovalFD == fd else { return }
             let note: String
             switch capturedPillId {
-            case "agent_cursor": note = "Handled in Cursor."
-            case "agent_codex":  note = "Handled in Codex."
-            default:             note = "Handled in VS Code."
+            case "agent_cursor": note = "Réglé dans Cursor."
+            case "agent_codex":  note = "Réglé dans Codex."
+            default:             note = "Réglé dans VS Code."
             }
             self.dismissApprovalCard(note: note)
         }
@@ -552,9 +552,9 @@ final class HookServer: @unchecked Sendable {
             guard let self, self.pendingApprovalFD == captured else { return }
             let note: String
             switch capturedPillId {
-            case "agent_cursor": note = "Still waiting in Cursor."
-            case "agent_codex":  note = "Still waiting in Codex."
-            default:             note = "Still waiting in VS Code."
+            case "agent_cursor": note = "Toujours en attente dans Cursor."
+            case "agent_codex":  note = "Toujours en attente dans Codex."
+            default:             note = "Toujours en attente dans VS Code."
             }
             self.dismissApprovalCard(note: note)
         }
@@ -943,7 +943,7 @@ final class HookServer: @unchecked Sendable {
         let exists = FileManager.default.fileExists(atPath: url.path)
         if !install && !exists {
             throw NSError(domain: "CompagnonNoop", code: 0, userInfo: [
-                NSLocalizedDescriptionKey: "No Gemini CLI hooks to remove."
+                NSLocalizedDescriptionKey: "Aucun hook Gemini CLI à supprimer."
             ])
         }
         let current = exists ? try Data(contentsOf: url) : Data()
@@ -959,7 +959,7 @@ final class HookServer: @unchecked Sendable {
         let current = (try? Data(contentsOf: url)) ?? Data()
         guard sha256Hex(current) == fp else {
             throw NSError(domain: "Compagnon", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "~/.gemini/settings.json changed since preview. Refresh and try again."
+                NSLocalizedDescriptionKey: "~/.gemini/settings.json a changé depuis l'aperçu. Actualise et réessaie."
             ])
         }
         try writeJSONFile(data, to: url, suffix: "settings.json")
@@ -972,7 +972,7 @@ final class HookServer: @unchecked Sendable {
                                                      label: "~/.gemini/settings.json")
         if let raw = settings["hooks"], !(raw is [String: Any]) {
             throw NSError(domain: "Compagnon", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "~/.gemini/settings.json: \"hooks\" has an unexpected type — Compagnon has not touched it."
+                NSLocalizedDescriptionKey: "~/.gemini/settings.json : \"hooks\" a un type inattendu — Compagnon n'y a pas touché."
             ])
         }
         let base = hookBase()
@@ -989,7 +989,7 @@ final class HookServer: @unchecked Sendable {
         for (geminiEvent, normalizedEvent, timeout) in events {
             if let raw = hooks[geminiEvent], !(raw is [[String: Any]]) {
                 throw NSError(domain: "Compagnon", code: 2, userInfo: [
-                    NSLocalizedDescriptionKey: "~/.gemini/settings.json: \"hooks\"[\"\(geminiEvent)\"] has an unexpected type — Compagnon has not touched it."
+                    NSLocalizedDescriptionKey: "~/.gemini/settings.json : \"hooks\"[\"\(geminiEvent)\"] a un type inattendu — Compagnon n'y a pas touché."
                 ])
             }
             var groups = hooks[geminiEvent] as? [[String: Any]] ?? []
@@ -1013,7 +1013,7 @@ final class HookServer: @unchecked Sendable {
                                                      label: "~/.gemini/settings.json")
         if let raw = settings["hooks"], !(raw is [String: Any]) {
             throw NSError(domain: "Compagnon", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "~/.gemini/settings.json: \"hooks\" has an unexpected type — Compagnon has not touched it."
+                NSLocalizedDescriptionKey: "~/.gemini/settings.json : \"hooks\" a un type inattendu — Compagnon n'y a pas touché."
             ])
         }
         if var hooks = settings["hooks"] as? [String: Any] {
@@ -1039,7 +1039,7 @@ final class HookServer: @unchecked Sendable {
         let exists = FileManager.default.fileExists(atPath: url.path)
         if !install && !exists {
             throw NSError(domain: "CompagnonNoop", code: 0, userInfo: [
-                NSLocalizedDescriptionKey: "No Antigravity hooks to remove."
+                NSLocalizedDescriptionKey: "Aucun hook Antigravity à supprimer."
             ])
         }
         let current = exists ? try Data(contentsOf: url) : Data()
@@ -1055,7 +1055,7 @@ final class HookServer: @unchecked Sendable {
         let current = (try? Data(contentsOf: url)) ?? Data()
         guard sha256Hex(current) == fp else {
             throw NSError(domain: "Compagnon", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "~/.gemini/config/hooks.json changed since preview. Refresh and try again."
+                NSLocalizedDescriptionKey: "~/.gemini/config/hooks.json a changé depuis l'aperçu. Actualise et réessaie."
             ])
         }
         try writeJSONFile(data, to: url, suffix: "hooks.json")
@@ -1111,12 +1111,12 @@ final class HookServer: @unchecked Sendable {
         do { data = try Data(contentsOf: url) }
         catch {
             throw NSError(domain: "Compagnon", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "\(label) cannot be read — Compagnon has not touched it."
+                NSLocalizedDescriptionKey: "\(label) est illisible — Compagnon n'y a pas touché."
             ])
         }
         guard let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             throw NSError(domain: "Compagnon", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "\(label) is not valid JSON — Compagnon has not touched it."
+                NSLocalizedDescriptionKey: "\(label) n'est pas un JSON valide — Compagnon n'y a pas touché."
             ])
         }
         return obj
@@ -1134,7 +1134,7 @@ final class HookServer: @unchecked Sendable {
             do { try fm.copyItem(at: url, to: backupURL) }
             catch {
                 throw NSError(domain: "Compagnon", code: 3, userInfo: [
-                    NSLocalizedDescriptionKey: "Could not back up \(url.lastPathComponent): \(error.localizedDescription)"
+                    NSLocalizedDescriptionKey: "Impossible de sauvegarder \(url.lastPathComponent) : \(error.localizedDescription)"
                 ])
             }
         }
@@ -1194,7 +1194,7 @@ final class HookServer: @unchecked Sendable {
         let exists = FileManager.default.fileExists(atPath: url.path)
         if !install && !exists {
             throw NSError(domain: "CompagnonNoop", code: 0, userInfo: [
-                NSLocalizedDescriptionKey: "No Codex hooks to remove."
+                NSLocalizedDescriptionKey: "Aucun hook Codex à supprimer."
             ])
         }
         let current = exists ? try Data(contentsOf: url) : Data()
@@ -1210,7 +1210,7 @@ final class HookServer: @unchecked Sendable {
         let current = (try? Data(contentsOf: url)) ?? Data()
         guard sha256Hex(current) == fp else {
             throw NSError(domain: "Compagnon", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "~/.codex/hooks.json changed since preview. Refresh and try again."
+                NSLocalizedDescriptionKey: "~/.codex/hooks.json a changé depuis l'aperçu. Actualise et réessaie."
             ])
         }
         try writeJSONFile(data, to: url, suffix: "hooks.json")
@@ -1222,7 +1222,7 @@ final class HookServer: @unchecked Sendable {
         var root = try Self.strictReadJSONObject(at: Self.codexHooksURL, label: "~/.codex/hooks.json")
         if let raw = root["hooks"], !(raw is [String: Any]) {
             throw NSError(domain: "Compagnon", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "~/.codex/hooks.json: \"hooks\" has an unexpected type — Compagnon has not touched it."
+                NSLocalizedDescriptionKey: "~/.codex/hooks.json : \"hooks\" a un type inattendu — Compagnon n'y a pas touché."
             ])
         }
         let base = hookBase()
@@ -1232,7 +1232,7 @@ final class HookServer: @unchecked Sendable {
             ("SessionStart",    10,  nil),
             ("UserPromptSubmit", 10, nil),
             ("PreToolUse",      10,  nil),
-            ("PermissionRequest", 120, "Waiting for your answer in the notch (Compagnon)"),
+            ("PermissionRequest", 120, "En attente de ta réponse dans l'encoche (Compagnon)"),
             ("PostToolUse",     10,  nil),
             ("Stop",            10,  nil),
             ("SubagentStart",   10,  nil),
@@ -1244,7 +1244,7 @@ final class HookServer: @unchecked Sendable {
         for (event, timeout, statusMsg) in events {
             if let raw = hooks[event], !(raw is [[String: Any]]) {
                 throw NSError(domain: "Compagnon", code: 2, userInfo: [
-                    NSLocalizedDescriptionKey: "~/.codex/hooks.json: \"hooks\"[\"\(event)\"] has an unexpected type — Compagnon has not touched it."
+                    NSLocalizedDescriptionKey: "~/.codex/hooks.json : \"hooks\"[\"\(event)\"] a un type inattendu — Compagnon n'y a pas touché."
                 ])
             }
             var groups = hooks[event] as? [[String: Any]] ?? []
@@ -1268,7 +1268,7 @@ final class HookServer: @unchecked Sendable {
         var root = try Self.strictReadJSONObject(at: Self.codexHooksURL, label: "~/.codex/hooks.json")
         if let raw = root["hooks"], !(raw is [String: Any]) {
             throw NSError(domain: "Compagnon", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "~/.codex/hooks.json: \"hooks\" has an unexpected type — Compagnon has not touched it."
+                NSLocalizedDescriptionKey: "~/.codex/hooks.json : \"hooks\" a un type inattendu — Compagnon n'y a pas touché."
             ])
         }
         if var hooks = root["hooks"] as? [String: Any] {
@@ -1457,7 +1457,7 @@ def main():
                     sys.stdout.flush()
                     sys.exit(0)
                 elif decision == 'deny':
-                    out = {'hookSpecificOutput': {'hookEventName': 'PermissionRequest', 'decision': {'behavior': 'deny', 'message': 'Denied from Compagnon'}}}
+                    out = {'hookSpecificOutput': {'hookEventName': 'PermissionRequest', 'decision': {'behavior': 'deny', 'message': 'Refusé depuis Compagnon'}}}
                     sys.stdout.write(json.dumps(out) + '\\n')
                     sys.stdout.flush()
                     sys.exit(0)

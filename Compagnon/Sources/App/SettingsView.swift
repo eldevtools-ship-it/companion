@@ -118,11 +118,11 @@ struct SettingsView: View {
                         get: { Optional(selectedSection) },
                         set: { if let v = $0 { selectedSection = v; statusMessage = "" } }
                     )) {
-                        SettingsSidebarRow(title: "General",      icon: "gearshape.fill",                    color: "#8E939C").tag("general")
-                        SettingsSidebarRow(title: "Active pills", icon: "square.grid.2x2.fill",              color: "#F5A524").tag("activepills")
+                        SettingsSidebarRow(title: "Général",      icon: "gearshape.fill",                    color: "#8E939C").tag("general")
+                        SettingsSidebarRow(title: "Pastilles actives", icon: "square.grid.2x2.fill",              color: "#F5A524").tag("activepills")
                         SettingsSidebarRow(title: "Agents",       icon: "terminal.fill",                     color: "#3B9EFF").tag("agents")
                         SettingsSidebarRow(title: "Chat",         icon: "bubble.left.and.bubble.right.fill", color: "#E07950").tag("chat")
-                        SettingsSidebarRow(title: "Integrations", icon: "puzzlepiece.extension.fill",        color: "#7C5CFF").tag("integrations")
+                        SettingsSidebarRow(title: "Intégrations", icon: "puzzlepiece.extension.fill",        color: "#7C5CFF").tag("integrations")
                     }
                     .listStyle(.sidebar)
                     .scrollContentBackground(.hidden)
@@ -182,12 +182,12 @@ struct SettingsView: View {
 
     private var sectionTitle: String {
         switch selectedSection {
-        case "general":      return "General"
-        case "activepills":  return "Active pills"
+        case "general":      return "Général"
+        case "activepills":  return "Pastilles actives"
         case "agents":       return "Agents"
         case "chat":         return "Chat"
-        case "integrations": return "Integrations"
-        default:             return "General"
+        case "integrations": return "Intégrations"
+        default:             return "Général"
         }
     }
 
@@ -204,9 +204,9 @@ struct SettingsView: View {
     // MARK: - General section
 
     @ViewBuilder private var generalSection: some View {
-        GroupBox("Sound") {
+        GroupBox("Son") {
             VStack(alignment: .leading, spacing: 10) {
-                Toggle("Enable sounds", isOn: $state.soundEnabled)
+                Toggle("Activer les sons", isOn: $state.soundEnabled)
                 HStack(spacing: 8) {
                     Text("Volume")
                         .frame(width: 56, alignment: .leading)
@@ -220,37 +220,37 @@ struct SettingsView: View {
             .padding(6)
         }
 
-        GroupBox("Behavior") {
+        GroupBox("Comportement") {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    Text("Close after")
+                    Text("Fermer après")
                     TextField("60", value: $state.autoCloseInterval, format: .number)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 64)
-                    Text("s inactive")
+                    Text("s d'inactivité")
                 }
                 HStack(spacing: 8) {
-                    Text("Hide after")
+                    Text("Masquer après")
                     TextField("3", value: absenceMinutes, format: .number)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 48)
-                    Text("min without movement")
+                    Text("min sans mouvement")
                 }
             }
             .padding(6)
         }
 
-        GroupBox("Hotkey") {
+        GroupBox("Raccourci clavier") {
             VStack(alignment: .leading, spacing: 10) {
-                Toggle("Show island with shortcut", isOn: $state.hotkeyEnabled)
+                Toggle("Afficher l'île avec un raccourci", isOn: $state.hotkeyEnabled)
                 if state.hotkeyEnabled {
                     HStack(spacing: 8) {
-                        Text("Shortcut")
+                        Text("Raccourci")
                             .frame(width: 70, alignment: .leading)
                         ShortcutRecorderButton(flags: $hotkeyFlags, code: $hotkeyCode)
                             .onChange(of: hotkeyFlags) { _, v in state.hotkeyFlags = v }
                             .onChange(of: hotkeyCode)  { _, v in state.hotkeyCode  = v }
-                        Text("presses this → island opens")
+                        Text("→ ouvre l'île")
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
                     }
@@ -259,8 +259,8 @@ struct SettingsView: View {
             .padding(6)
         }
 
-        GroupBox("Startup") {
-            Toggle("Launch at Mac startup", isOn: $launchAtStartup)
+        GroupBox("Démarrage") {
+            Toggle("Lancer au démarrage du Mac", isOn: $launchAtStartup)
                 .onChange(of: launchAtStartup) { _, on in toggleStartup(on) }
                 .padding(6)
         }
@@ -271,15 +271,15 @@ struct SettingsView: View {
     @ViewBuilder private var activePillsSection: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Choose the tools you use. Compagnon only shows what you declare here.")
+                Text("Choisis les outils que tu utilises. Compagnon n'affiche que ce que tu déclares ici.")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
 
-                Text("\(state.activeIntegrations.count)/4 slots used")
+                Text("\(state.activeIntegrations.count)/4 emplacements utilisés")
                     .font(.system(size: 11))
                     .foregroundColor(state.activeIntegrations.count >= 4 ? .orange : .secondary)
 
-                Picker("Main", selection: $state.mainPillId) {
+                Picker("Principale", selection: $state.mainPillId) {
                     ForEach(PillCatalog.available.filter { $0.category == .workspace && !$0.comingSoon }, id: \.id) { def in
                         Text(def.name).tag(def.id)
                     }
@@ -310,25 +310,25 @@ struct SettingsView: View {
     // MARK: - Agents section
 
     @ViewBuilder private var agentsSection: some View {
-        GroupBox("Claude Code Hooks") {
+        GroupBox("Hooks Claude Code") {
             VStack(alignment: .leading, spacing: 10) {
                 if hookNeedsUpdate {
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.orange)
-                        Text("Hook timeout outdated — update to fix approvals")
+                        Text("Délai du hook obsolète — mets à jour pour réparer les validations")
                             .font(.system(size: 11))
                             .foregroundColor(.orange)
                     }
-                    Button("Update hooks") { installHooks() }
+                    Button("Mettre à jour les hooks") { installHooks() }
                 }
                 Text("compagnon-hook : \(HookServer.hookScriptPath)")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary)
                 HStack(spacing: 10) {
-                    Button("Install hooks") { installHooks() }
+                    Button("Installer les hooks") { installHooks() }
                         .buttonStyle(.borderedProminent)
-                    Button("Uninstall") { uninstallHooks() }
+                    Button("Désinstaller") { uninstallHooks() }
                         .buttonStyle(.bordered)
                 }
 
@@ -343,9 +343,9 @@ struct SettingsView: View {
                     .cornerRadius(6)
 
                     HStack {
-                        Button("Confirm & write") { confirmInstall() }
+                        Button("Confirmer et écrire") { confirmInstall() }
                             .buttonStyle(.borderedProminent)
-                        Button("Cancel") { showDiff = false; pendingHookJSON = "" }
+                        Button("Annuler") { showDiff = false; pendingHookJSON = "" }
                             .buttonStyle(.bordered)
                     }
                 }
@@ -353,17 +353,17 @@ struct SettingsView: View {
             .padding(6)
         }
 
-        GroupBox("Gemini CLI Hooks") {
+        GroupBox("Hooks Gemini CLI") {
             VStack(alignment: .leading, spacing: 10) {
                 Text(geminiHooksInstalled
-                     ? "Hooks installed — restart Gemini CLI to activate"
+                     ? "Hooks installés — relance Gemini CLI pour les activer"
                      : "~/.gemini/settings.json")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary)
                 HStack(spacing: 10) {
-                    Button("Install hooks") { triggerGeminiPreview(install: true) }
+                    Button("Installer les hooks") { triggerGeminiPreview(install: true) }
                         .buttonStyle(.borderedProminent)
-                    Button("Uninstall") { triggerGeminiPreview(install: false) }
+                    Button("Désinstaller") { triggerGeminiPreview(install: false) }
                         .buttonStyle(.bordered)
                 }
                 if showGeminiDiff {
@@ -376,9 +376,9 @@ struct SettingsView: View {
                     .background(Color(NSColor.textBackgroundColor))
                     .cornerRadius(6)
                     HStack {
-                        Button("Confirm & write") { confirmGeminiOp() }
+                        Button("Confirmer et écrire") { confirmGeminiOp() }
                             .buttonStyle(.borderedProminent)
-                        Button("Cancel") { showGeminiDiff = false; pendingGeminiJSON = "" }
+                        Button("Annuler") { showGeminiDiff = false; pendingGeminiJSON = "" }
                             .buttonStyle(.bordered)
                     }
                 }
@@ -386,17 +386,17 @@ struct SettingsView: View {
             .padding(6)
         }
 
-        GroupBox("Antigravity Hooks") {
+        GroupBox("Hooks Antigravity") {
             VStack(alignment: .leading, spacing: 10) {
                 Text(agyHooksInstalled
-                     ? "Hooks installed — restart Antigravity to activate"
+                     ? "Hooks installés — relance Antigravity pour les activer"
                      : "~/.gemini/config/hooks.json")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary)
                 HStack(spacing: 10) {
-                    Button("Install hooks") { triggerAgyPreview(install: true) }
+                    Button("Installer les hooks") { triggerAgyPreview(install: true) }
                         .buttonStyle(.borderedProminent)
-                    Button("Uninstall") { triggerAgyPreview(install: false) }
+                    Button("Désinstaller") { triggerAgyPreview(install: false) }
                         .buttonStyle(.bordered)
                 }
                 if showAgyDiff {
@@ -409,9 +409,9 @@ struct SettingsView: View {
                     .background(Color(NSColor.textBackgroundColor))
                     .cornerRadius(6)
                     HStack {
-                        Button("Confirm & write") { confirmAgyOp() }
+                        Button("Confirmer et écrire") { confirmAgyOp() }
                             .buttonStyle(.borderedProminent)
-                        Button("Cancel") { showAgyDiff = false; pendingAgyJSON = "" }
+                        Button("Annuler") { showAgyDiff = false; pendingAgyJSON = "" }
                             .buttonStyle(.bordered)
                     }
                 }
@@ -419,17 +419,17 @@ struct SettingsView: View {
             .padding(6)
         }
 
-        GroupBox("Codex Hooks") {
+        GroupBox("Hooks Codex") {
             VStack(alignment: .leading, spacing: 10) {
                 Text(codexHooksInstalled
-                     ? "Hooks installed — open Codex and run /hooks or open Hooks in the app's settings to trust them"
+                     ? "Hooks installés — ouvre Codex et lance /hooks, ou ouvre Hooks dans les réglages de l'app, pour les approuver"
                      : "~/.codex/hooks.json")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary)
                 HStack(spacing: 10) {
-                    Button("Install hooks") { triggerCodexPreview(install: true) }
+                    Button("Installer les hooks") { triggerCodexPreview(install: true) }
                         .buttonStyle(.borderedProminent)
-                    Button("Uninstall") { triggerCodexPreview(install: false) }
+                    Button("Désinstaller") { triggerCodexPreview(install: false) }
                         .buttonStyle(.bordered)
                 }
                 if showCodexDiff {
@@ -442,9 +442,9 @@ struct SettingsView: View {
                     .background(Color(NSColor.textBackgroundColor))
                     .cornerRadius(6)
                     HStack {
-                        Button("Confirm & write") { confirmCodexOp() }
+                        Button("Confirmer et écrire") { confirmCodexOp() }
                             .buttonStyle(.borderedProminent)
-                        Button("Cancel") { showCodexDiff = false; pendingCodexJSON = "" }
+                        Button("Annuler") { showCodexDiff = false; pendingCodexJSON = "" }
                             .buttonStyle(.bordered)
                     }
                 }
@@ -456,23 +456,23 @@ struct SettingsView: View {
     // MARK: - Chat section
 
     @ViewBuilder private var chatSection: some View {
-        GroupBox("Anthropic API") {
+        GroupBox("API Anthropic") {
             VStack(alignment: .leading, spacing: 8) {
-                SecureField("API key (sk-ant-…)", text: $apiKey)
+                SecureField("Clé API (sk-ant-…)", text: $apiKey)
                     .textFieldStyle(.roundedBorder)
-                Button("Save") {
+                Button("Enregistrer") {
                     KeychainStore.shared.set("anthropic-api-key", value: apiKey)
-                    statusMessage = "✓ Key saved."
+                    statusMessage = "✓ Clé enregistrée."
                 }
                 .buttonStyle(.borderedProminent)
 
                 Divider().padding(.vertical, 2)
 
-                Picker("Model", selection: $modelChoice) {
+                Picker("Modèle", selection: $modelChoice) {
                     ForEach(displayModels, id: \.id) { preset in
                         Text(preset.label).tag(preset.id)
                     }
-                    Text("Custom…").tag(Self.customModelTag)
+                    Text("Personnalisé…").tag(Self.customModelTag)
                 }
                 .onChange(of: modelChoice) { _, choice in
                     if choice != Self.customModelTag {
@@ -483,21 +483,21 @@ struct SettingsView: View {
                 }
 
                 if modelChoice == Self.customModelTag {
-                    TextField("Model ID (e.g. claude-sonnet-4-6)", text: $customModel)
+                    TextField("ID du modèle (ex. claude-sonnet-4-6)", text: $customModel)
                         .textFieldStyle(.roundedBorder)
                         .onChange(of: customModel) { _, value in applyCustomModel(value) }
                 }
 
-                Text("Used by the chat. The list comes from your Anthropic account.")
+                Text("Utilisé par le chat. La liste vient de ton compte Anthropic.")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }
             .padding(6)
         }
 
-        GroupBox("Chat — other providers") {
+        GroupBox("Chat — autres fournisseurs") {
             VStack(alignment: .leading, spacing: 12) {
-                Text("To use Google Gemini or OpenAI from the chat. Keys are stored in the Keychain.")
+                Text("Pour utiliser Google Gemini ou OpenAI depuis le chat. Les clés sont stockées dans le Trousseau.")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
 
@@ -505,11 +505,11 @@ struct SettingsView: View {
                     Circle().fill(Color(hex: "#4285F4")).frame(width: 8, height: 8)
                     Text("Google AI").font(.system(size: 12, weight: .semibold))
                 }
-                SecureField("API key (AI Studio)", text: $googleKey)
+                SecureField("Clé API (AI Studio)", text: $googleKey)
                     .textFieldStyle(.roundedBorder)
-                Button("Save") {
+                Button("Enregistrer") {
                     KeychainStore.shared.set("google-api-key", value: googleKey)
-                    statusMessage = "✓ Google key saved."
+                    statusMessage = "✓ Clé Google enregistrée."
                 }
                 .buttonStyle(.borderedProminent)
 
@@ -519,11 +519,11 @@ struct SettingsView: View {
                     Circle().fill(Color(hex: "#10A37F")).frame(width: 8, height: 8)
                     Text("OpenAI").font(.system(size: 12, weight: .semibold))
                 }
-                SecureField("API key (sk-…)", text: $openAIKey)
+                SecureField("Clé API (sk-…)", text: $openAIKey)
                     .textFieldStyle(.roundedBorder)
-                Button("Save") {
+                Button("Enregistrer") {
                     KeychainStore.shared.set("openai-api-key", value: openAIKey)
-                    statusMessage = "✓ OpenAI key saved."
+                    statusMessage = "✓ Clé OpenAI enregistrée."
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -543,9 +543,9 @@ struct SettingsView: View {
                         Circle().fill(Color(hex: "#22C55E")).frame(width: 8, height: 8)
                         Text("Resend").font(.system(size: 12, weight: .semibold))
                     }
-                    SecureField("API key  (re_…)", text: $resendKey)
+                    SecureField("Clé API  (re_…)", text: $resendKey)
                         .textFieldStyle(.roundedBorder)
-                    TextField("From address  (you@yourdomain.com)", text: $resendFrom)
+                    TextField("Adresse d'envoi  (toi@ton-domaine.com)", text: $resendFrom)
                         .textFieldStyle(.roundedBorder)
                 }
 
@@ -555,9 +555,9 @@ struct SettingsView: View {
                         Circle().fill(Color(hex: "#F29B38")).frame(width: 8, height: 8)
                         Text("n8n").font(.system(size: 12, weight: .semibold))
                     }
-                    TextField("Instance URL  (https://…)", text: $n8nUrl)
+                    TextField("URL de l'instance  (https://…)", text: $n8nUrl)
                         .textFieldStyle(.roundedBorder)
-                    SecureField("API key", text: $n8nKey)
+                    SecureField("Clé API", text: $n8nKey)
                         .textFieldStyle(.roundedBorder)
                     IntegrationFilterRow(
                         label: "Workflows",
@@ -574,10 +574,10 @@ struct SettingsView: View {
                         Circle().fill(Color(hex: "#7C5CFF")).frame(width: 8, height: 8)
                         Text("Vercel").font(.system(size: 12, weight: .semibold))
                     }
-                    SecureField("Token", text: $vercelToken)
+                    SecureField("Jeton", text: $vercelToken)
                         .textFieldStyle(.roundedBorder)
                     IntegrationFilterRow(
-                        label: "Projects",
+                        label: "Projets",
                         items: vercelProjects,
                         filter: $state.vercelProjectFilter,
                         loading: loadingVercel,
@@ -591,7 +591,7 @@ struct SettingsView: View {
                         Circle().fill(Color(hex: "#F4505E")).frame(width: 8, height: 8)
                         Text("GitHub").font(.system(size: 12, weight: .semibold))
                     }
-                    SecureField("Personal Access Token", text: $githubToken)
+                    SecureField("Jeton d'accès personnel", text: $githubToken)
                         .textFieldStyle(.roundedBorder)
                 }
 
@@ -601,7 +601,7 @@ struct SettingsView: View {
                         Circle().fill(Color(hex: "#0570DE")).frame(width: 8, height: 8)
                         Text("Stripe").font(.system(size: 12, weight: .semibold))
                     }
-                    SecureField("Secret key  (sk_live_… or sk_test_…)", text: $stripeKey)
+                    SecureField("Clé secrète  (sk_live_… ou sk_test_…)", text: $stripeKey)
                         .textFieldStyle(.roundedBorder)
                 }
 
@@ -611,7 +611,7 @@ struct SettingsView: View {
                         Circle().fill(Color(hex: "#C9956A")).frame(width: 8, height: 8)
                         Text("Cal.com").font(.system(size: 12, weight: .semibold))
                     }
-                    SecureField("API key  (cal_live_…)", text: $calcomKey)
+                    SecureField("Clé API  (cal_live_…)", text: $calcomKey)
                         .textFieldStyle(.roundedBorder)
                 }
 
@@ -621,11 +621,11 @@ struct SettingsView: View {
                         Circle().fill(Color(hex: "#E8E8E8")).frame(width: 8, height: 8)
                         Text("Notion").font(.system(size: 12, weight: .semibold))
                     }
-                    SecureField("Integration token  (secret_…)", text: $notionKey)
+                    SecureField("Jeton d'intégration  (secret_…)", text: $notionKey)
                         .textFieldStyle(.roundedBorder)
                 }
 
-                Button("Save integrations") { saveIntegrations() }
+                Button("Enregistrer les intégrations") { saveIntegrations() }
                     .buttonStyle(.borderedProminent)
             }
             .padding(6)
@@ -644,7 +644,7 @@ struct SettingsView: View {
             if on { try SMAppService.mainApp.register() }
             else  { try SMAppService.mainApp.unregister() }
         } catch {
-            statusMessage = "❌ Startup: \(error.localizedDescription)"
+            statusMessage = "❌ Démarrage : \(error.localizedDescription)"
             launchAtStartup = !on
         }
     }
@@ -656,7 +656,7 @@ struct SettingsView: View {
         do {
             pendingHookJSON = try HookServer.shared.previewClaudeHooks()
             showDiff = true
-            statusMessage = "Review the JSON below before confirming."
+            statusMessage = "Vérifie le JSON ci-dessous avant de confirmer."
         } catch {
             statusMessage = "❌ \(error.localizedDescription)"
         }
@@ -666,18 +666,18 @@ struct SettingsView: View {
         do {
             try HookServer.shared.writeClaudeHooks()
             showDiff = false
-            statusMessage = "✓ Hooks installed in ~/.claude/settings.json"
+            statusMessage = "✓ Hooks installés dans ~/.claude/settings.json"
             pendingHookJSON = ""
             hookNeedsUpdate = false
         } catch {
-            statusMessage = "❌ Write error: \(error.localizedDescription)"
+            statusMessage = "❌ Erreur d'écriture : \(error.localizedDescription)"
         }
     }
 
     private func uninstallHooks() {
         do {
             try HookServer.shared.uninstallClaudeHooks()
-            statusMessage = "✓ Hooks removed."
+            statusMessage = "✓ Hooks supprimés."
         } catch {
             statusMessage = "❌ \(error.localizedDescription)"
         }
@@ -688,7 +688,7 @@ struct SettingsView: View {
             geminiPendingInstall = install
             pendingGeminiJSON = try HookServer.shared.previewGeminiHooks(install: install)
             showGeminiDiff = true
-            statusMessage = "Review the JSON below before confirming."
+            statusMessage = "Vérifie le JSON ci-dessous avant de confirmer."
         } catch let e as NSError where e.domain == "CompagnonNoop" {
             statusMessage = e.localizedDescription
         } catch {
@@ -703,8 +703,8 @@ struct SettingsView: View {
             pendingGeminiJSON = ""
             geminiHooksInstalled = geminiPendingInstall
             statusMessage = geminiPendingInstall
-                ? "✓ Gemini CLI hooks installed in ~/.gemini/settings.json"
-                : "✓ Gemini CLI hooks removed."
+                ? "✓ Hooks Gemini CLI installés dans ~/.gemini/settings.json"
+                : "✓ Hooks Gemini CLI supprimés."
         } catch {
             statusMessage = "❌ \(error.localizedDescription)"
         }
@@ -715,7 +715,7 @@ struct SettingsView: View {
             agyPendingInstall = install
             pendingAgyJSON = try HookServer.shared.previewAgyHooks(install: install)
             showAgyDiff = true
-            statusMessage = "Review the JSON below before confirming."
+            statusMessage = "Vérifie le JSON ci-dessous avant de confirmer."
         } catch let e as NSError where e.domain == "CompagnonNoop" {
             statusMessage = e.localizedDescription
         } catch {
@@ -730,8 +730,8 @@ struct SettingsView: View {
             pendingAgyJSON = ""
             agyHooksInstalled = agyPendingInstall
             statusMessage = agyPendingInstall
-                ? "✓ Antigravity hooks installed in ~/.gemini/config/hooks.json"
-                : "✓ Antigravity hooks removed."
+                ? "✓ Hooks Antigravity installés dans ~/.gemini/config/hooks.json"
+                : "✓ Hooks Antigravity supprimés."
         } catch {
             statusMessage = "❌ \(error.localizedDescription)"
         }
@@ -742,7 +742,7 @@ struct SettingsView: View {
             codexPendingInstall = install
             pendingCodexJSON = try HookServer.shared.previewCodexHooks(install: install)
             showCodexDiff = true
-            statusMessage = "Review the JSON below before confirming."
+            statusMessage = "Vérifie le JSON ci-dessous avant de confirmer."
         } catch let e as NSError where e.domain == "CompagnonNoop" {
             statusMessage = e.localizedDescription
         } catch {
@@ -757,8 +757,8 @@ struct SettingsView: View {
             pendingCodexJSON = ""
             codexHooksInstalled = codexPendingInstall
             statusMessage = codexPendingInstall
-                ? "✓ Codex hooks installed — run /hooks in Codex or open Hooks in the app's settings to trust them."
-                : "✓ Codex hooks removed."
+                ? "✓ Hooks Codex installés — lance /hooks dans Codex ou ouvre Hooks dans les réglages de l'app pour les approuver."
+                : "✓ Hooks Codex supprimés."
         } catch {
             statusMessage = "❌ \(error.localizedDescription)"
         }
@@ -774,7 +774,7 @@ struct SettingsView: View {
         saveKey("stripe-api-key",  value: stripeKey)
         saveKey("calcom-api-key",  value: calcomKey)
         saveKey("notion-api-key",  value: notionKey)
-        statusMessage = "✓ Integration keys saved."
+        statusMessage = "✓ Clés d'intégration enregistrées."
     }
 
     private func saveKey(_ key: String, value: String) {
@@ -789,7 +789,7 @@ struct SettingsView: View {
 
     private func loadVercelProjects() {
         guard let token = KeychainStore.shared.get("vercel-token") else {
-            statusMessage = "❌ Save Vercel token first."
+            statusMessage = "❌ Enregistre d'abord le jeton Vercel."
             return
         }
         loadingVercel = true
@@ -808,7 +808,7 @@ struct SettingsView: View {
             DispatchQueue.main.async {
                 self.vercelProjects = names
                 self.loadingVercel = false
-                if names.isEmpty { self.statusMessage = "❌ No Vercel projects found." }
+                if names.isEmpty { self.statusMessage = "❌ Aucun projet Vercel trouvé." }
             }
         }.resume()
     }
@@ -818,7 +818,7 @@ struct SettingsView: View {
     private func loadN8nWorkflows() {
         guard let apiKey  = KeychainStore.shared.get("n8n-api-key"),
               let rawBase = KeychainStore.shared.get("n8n-url") else {
-            statusMessage = "❌ Save n8n URL and API key first."
+            statusMessage = "❌ Enregistre d'abord l'URL et la clé API n8n."
             return
         }
         loadingN8n = true
@@ -829,7 +829,7 @@ struct SettingsView: View {
 
     private func fetchN8nWorkflows(urls: [String], apiKey: String, idx: Int) {
         guard idx < urls.count, let url = URL(string: urls[idx]) else {
-            DispatchQueue.main.async { self.loadingN8n = false; self.statusMessage = "❌ No n8n workflows found." }
+            DispatchQueue.main.async { self.loadingN8n = false; self.statusMessage = "❌ Aucun workflow n8n trouvé." }
             return
         }
         var req = URLRequest(url: url, timeoutInterval: 10)
@@ -849,7 +849,7 @@ struct SettingsView: View {
             DispatchQueue.main.async {
                 self.n8nWorkflows = names
                 self.loadingN8n = false
-                if names.isEmpty { self.statusMessage = "❌ No n8n workflows found." }
+                if names.isEmpty { self.statusMessage = "❌ Aucun workflow n8n trouvé." }
             }
         }.resume()
     }
@@ -861,14 +861,14 @@ struct SettingsView: View {
         let atMax  = state.activeIntegrations.count >= 4 && !isOn && !isMain
         let hint: String? = {
             if isMain { return nil }
-            if def.comingSoon { return "Coming soon" }
-            if def.id == "agent_gemini"        && !HookServer.geminiHooksInstalled()  { return "Hooks not installed" }
-            if def.id == "agent_antigravity"   && !HookServer.agyHooksInstalled()    { return "Hooks not installed" }
-            if def.id == "agent_codex"         && !HookServer.codexHooksInstalled()  { return "Hooks not installed" }
+            if def.comingSoon { return "Bientôt" }
+            if def.id == "agent_gemini"        && !HookServer.geminiHooksInstalled()  { return "Hooks non installés" }
+            if def.id == "agent_antigravity"   && !HookServer.agyHooksInstalled()    { return "Hooks non installés" }
+            if def.id == "agent_codex"         && !HookServer.codexHooksInstalled()  { return "Hooks non installés" }
             if def.category == .ai {
                 let keyId = def.id == "ai_anthropic" ? "anthropic-api-key"
                            : def.id == "ai_google"    ? "google-api-key" : "openai-api-key"
-                if KeychainStore.shared.get(keyId) == nil { return "Key not configured" }
+                if KeychainStore.shared.get(keyId) == nil { return "Clé non configurée" }
             }
             return nil
         }()
@@ -881,7 +881,7 @@ struct SettingsView: View {
                 .foregroundColor(atMax ? .secondary : .primary)
             Spacer()
             if isMain {
-                Text("Main")
+                Text("Principale")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             } else {
@@ -953,12 +953,12 @@ struct IntegrationFilterRow: View {
                 if loading {
                     ProgressView().scaleEffect(0.6)
                 } else {
-                    Button(items.isEmpty ? "Load list" : "Refresh") { onLoad() }
+                    Button(items.isEmpty ? "Charger la liste" : "Actualiser") { onLoad() }
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
                 }
                 if !filter.isEmpty {
-                    Button("Clear") { filter = [] }
+                    Button("Effacer") { filter = [] }
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
                         .foregroundColor(.secondary)
@@ -984,7 +984,7 @@ struct IntegrationFilterRow: View {
                 }
                 .padding(.leading, 4)
                 if !filter.isEmpty {
-                    Text("Watching \(filter.count) of \(items.count)")
+                    Text("\(filter.count) suivis sur \(items.count)")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
@@ -1017,7 +1017,7 @@ struct ShortcutRecorderButton: View {
                 return nil
             }
         } label: {
-            Text(isRecording ? "Press keys…" : shortcutLabel)
+            Text(isRecording ? "Appuie sur les touches…" : shortcutLabel)
                 .font(.system(size: 11, design: .monospaced))
                 .padding(.horizontal, 8).padding(.vertical, 3)
                 .background(isRecording ? Color.accentColor.opacity(0.12) : Color(NSColor.controlBackgroundColor))
@@ -1035,14 +1035,14 @@ struct ShortcutRecorderButton: View {
         if f.contains(.shift)   { s += "⇧" }
         if f.contains(.command) { s += "⌘" }
         s += keyChar(code)
-        return s.isEmpty ? "None" : s
+        return s.isEmpty ? "Aucun" : s
     }
 
     private func keyChar(_ c: UInt16) -> String {
         let map: [UInt16: String] = [
             0:"A", 1:"S", 2:"D", 3:"F", 4:"H", 5:"G", 6:"Z", 7:"X", 8:"C", 9:"V",
             11:"B", 12:"Q", 13:"W", 14:"E", 15:"R", 16:"Y", 17:"T", 31:"O", 32:"U",
-            34:"I", 37:"L", 38:"J", 40:"K", 45:"N", 46:"M", 49:"Space", 50:"`", 27:"-"
+            34:"I", 37:"L", 38:"J", 40:"K", 45:"N", 46:"M", 49:"Espace", 50:"`", 27:"-"
         ]
         return map[c] ?? "·"
     }

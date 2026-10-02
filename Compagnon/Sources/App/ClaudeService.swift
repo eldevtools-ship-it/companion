@@ -198,15 +198,15 @@ final class ClaudeService {
     /// neutral otherwise — same wording as the Windows build.
     private nonisolated static func makeSystemPrompt() -> String {
         let opening = if let firstName = resolveUserFirstName() {
-            "You are Mochi, \(firstName)'s personal AI assistant embedded in the notch of their Mac."
+            "Tu es Compagnon, l'assistant IA personnel de \(firstName), intégré dans l'encoche de son Mac."
         } else {
-            "You are Mochi, a personal AI assistant embedded in the notch of the user's Mac."
+            "Tu es Compagnon, un assistant IA personnel intégré dans l'encoche du Mac de l'utilisateur."
         }
         return """
         \(opening) \
-        You have web search access and can help with absolutely anything — research, coding, finding places, recommendations, tasks, questions. \
-        Respond in the user's language. Be thorough and complete — use as much detail as the task requires. \
-        No markdown formatting (no **, no ##, no bullet dashes). Use plain text with line breaks.
+        Tu as accès à la recherche web et tu peux aider pour absolument tout — recherches, code, trouver des lieux, recommandations, tâches, questions. \
+        Réponds en français par défaut, sauf si l'utilisateur écrit dans une autre langue : dans ce cas, réponds dans sa langue. Sois complet et précis — donne autant de détails que la tâche le demande. \
+        Pas de mise en forme markdown (pas de **, pas de ##, pas de tirets de liste). Écris en texte brut avec des retours à la ligne.
         """
     }
 
@@ -222,7 +222,7 @@ final class ClaudeService {
             return
         }
         guard let key = apiKey, !key.isEmpty else {
-            await showError("API key missing. Open settings.", state: state)
+            await showError("Clé API manquante. Ouvre les Réglages.", state: state)
             return
         }
 
@@ -270,7 +270,7 @@ final class ClaudeService {
         let provider = state.chatProvider
         guard provider != .anthropic else { return }
         guard let key = KeychainStore.shared.get(provider.keychainKey), !key.isEmpty else {
-            await showError("\(provider.displayName) API key missing. Configure it in Settings.", state: state)
+            await showError("Clé API \(provider.displayName) manquante. Configure-la dans les Réglages.", state: state)
             return
         }
 
@@ -334,7 +334,7 @@ final class ClaudeService {
                   let choices = json["choices"] as? [[String: Any]],
                   let message = choices.first?["message"] as? [String: Any],
                   let content = message["content"] as? String else {
-                throw NSError(domain: "ChatAPI", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unexpected response format"])
+                throw NSError(domain: "ChatAPI", code: 0, userInfo: [NSLocalizedDescriptionKey: "Format de réponse inattendu"])
             }
             let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
             conversationMessages.append(["role": "assistant", "content": trimmed])
@@ -354,7 +354,7 @@ final class ClaudeService {
 
     func search(query: String, context: PromptContext?, state: AppState) async {
         guard let key = apiKey, !key.isEmpty else {
-            await showError("Anthropic API key missing. Open settings to configure it.", state: state)
+            await showError("Clé API Anthropic manquante. Ouvre les Réglages pour la configurer.", state: state)
             return
         }
 
@@ -375,10 +375,10 @@ final class ClaudeService {
         }
 
         let system = """
-        You are an assistant built into the notch of a Mac. Reply in English, short and precise.
-        Reply ONLY with valid JSON in this exact format:
+        Tu es un assistant intégré dans l'encoche d'un Mac. Réponds en français (sauf si l'utilisateur écrit dans une autre langue), de façon courte et précise.
+        Réponds UNIQUEMENT avec du JSON valide, dans ce format exact :
         {"title":"...","items":[{"label":"...","detail":"...","url":"..."}],"note":"..."}
-        Maximum 3 items. "url" is optional. "note" is optional.
+        3 éléments maximum. "url" est facultatif. "note" est facultatif.
         """
 
         let tools: [[String: Any]] = [
@@ -425,12 +425,12 @@ final class ClaudeService {
                     let id = AppState.shared.claudeModel
                     throw NSError(domain: "Claude", code: 0,
                         userInfo: [NSLocalizedDescriptionKey:
-                            "Model not found: \(id). Pick another one in Settings."])
+                            "Modèle introuvable : \(id). Choisis-en un autre dans les Réglages."])
                 }
                 throw NSError(domain: "Claude", code: 0,
                     userInfo: [NSLocalizedDescriptionKey: errMsg])
             }
-            let msg = String(data: data, encoding: .utf8) ?? "unknown error"
+            let msg = String(data: data, encoding: .utf8) ?? "erreur inconnue"
             throw NSError(domain: "Claude", code: 0, userInfo: [NSLocalizedDescriptionKey: msg])
         }
         return data
@@ -441,7 +441,7 @@ final class ClaudeService {
     private func handleChatResult(_ data: Data, state: AppState) async {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let content = json["content"] as? [[String: Any]] else {
-            await showError("Unexpected API response.", state: state)
+            await showError("Réponse inattendue de l'API.", state: state)
             return
         }
 
@@ -450,7 +450,7 @@ final class ClaudeService {
 
         guard let textBlock = content.first(where: { $0["type"] as? String == "text" }),
               let text = textBlock["text"] as? String, !text.isEmpty else {
-            await showError("No response text.", state: state)
+            await showError("Pas de texte dans la réponse.", state: state)
             return
         }
 
@@ -470,7 +470,7 @@ final class ClaudeService {
               let content = json["content"] as? [[String: Any]],
               let textBlock = content.first(where: { $0["type"] as? String == "text" }),
               let text = textBlock["text"] as? String else {
-            await showError("Unexpected API response.", state: state)
+            await showError("Réponse inattendue de l'API.", state: state)
             return
         }
 
@@ -485,7 +485,7 @@ final class ClaudeService {
         // Try to parse as our JSON format
         if let resultData = cleanText.data(using: .utf8),
            let parsed = try? JSONSerialization.jsonObject(with: resultData) as? [String: Any] {
-            let title  = parsed["title"] as? String ?? "Result"
+            let title  = parsed["title"] as? String ?? "Résultat"
             let note   = parsed["note"] as? String
             var items: [ResultItem] = []
             if let rawItems = parsed["items"] as? [[String: Any]] {
@@ -502,7 +502,7 @@ final class ClaudeService {
             // Fallback: show raw text in 3-line chunks
             let lines = cleanText.components(separatedBy: "\n").filter { !$0.isEmpty }.prefix(3)
             state.searchResult = SearchResult(
-                title: "Claude's response",
+                title: "Réponse de Claude",
                 items: lines.map { ResultItem(label: $0, detail: "", url: nil) },
                 note: nil
             )

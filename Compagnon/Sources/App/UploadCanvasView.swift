@@ -147,8 +147,8 @@ struct UploadCanvasView: View {
             drawChooseView(ctx: &c, f: f)
         }
 
-        // ── Mochi ─────────────────────────────────────────────────
-        drawMochi(ctx: &c, f: f)
+        // ── Character ─────────────────────────────────────────────
+        drawCharacter(ctx: &c, f: f)
 
         // ── File / suction ────────────────────────────────────────
         if f.fileVisible { drawFile(ctx: &c, f: f) }
@@ -160,7 +160,7 @@ struct UploadCanvasView: View {
         var tCtx = ctx
         tCtx.opacity = f.textAlpha
 
-        let label = Text("Drop your files here")
+        let label = Text("Dépose tes fichiers ici")
             .font(.system(size:13, weight:.medium))
             .foregroundColor(Color(hex:"#D5D7DB"))
         tCtx.draw(label, at: CGPoint(x: USC.TEXT_X, y: USC.TEXT_Y - 4), anchor: .leading)
@@ -189,7 +189,7 @@ struct UploadCanvasView: View {
 
         // Filename label
         let name = state.droppedFile?.name ?? "file"
-        let label = Text("Uploading \(name)")
+        let label = Text("Envoi de \(name)")
             .font(.system(size:12.5, weight:.medium))
             .foregroundColor(Color(hex:"#A9ADB5"))
         pCtx.draw(label, at: CGPoint(x: x0, y: by-30), anchor: .leading)
@@ -263,12 +263,12 @@ struct UploadCanvasView: View {
         cCtx.concatenate(CGAffineTransform(translationX: 0, y: CGFloat((1-f.chooseAlpha)*4)))
 
         let name = state.droppedFile?.name ?? "file"
-        let titleText = Text("\(name) is ready.")
+        let titleText = Text("\(name) est prêt.")
             .font(.system(size:14, weight:.semibold))
             .foregroundColor(Color(hex:"#F5F6F8"))
         cCtx.draw(titleText, at: CGPoint(x:114, y:80), anchor: .leading)
 
-        let subText = Text("What do you want to do with it?")
+        let subText = Text("Qu'est-ce que tu veux en faire ?")
             .font(.system(size:12.5))
             .foregroundColor(Color(hex:"#9398A1"))
         cCtx.draw(subText, at: CGPoint(x:114, y:100), anchor: .leading)
@@ -276,7 +276,7 @@ struct UploadCanvasView: View {
         // Primary button (white fill)
         cCtx.fill(roundedRect(CGRect(x:114,y:113,width:168,height:26), r:13),
                   with: .color(Color(hex:"#F5F6F8")))
-        let btn1 = Text("Ask a question about it")
+        let btn1 = Text("Poser une question dessus")
             .font(.system(size:12.5, weight:.medium))
             .foregroundColor(Color(red:0.043,green:0.047,blue:0.055))
         cCtx.draw(btn1, at: CGPoint(x:198, y:126), anchor: .center)
@@ -284,15 +284,15 @@ struct UploadCanvasView: View {
         // Secondary button (dim fill)
         cCtx.fill(roundedRect(CGRect(x:290,y:113,width:120,height:26), r:13),
                   with: .color(Color.white.opacity(0.09)))
-        let btn2 = Text("Send by email")
+        let btn2 = Text("Envoyer par mail")
             .font(.system(size:12.5, weight:.medium))
             .foregroundColor(Color(hex:"#F1F2F4"))
         cCtx.draw(btn2, at: CGPoint(x:350, y:126), anchor: .center)
     }
 
-    // MARK: - Mochi (superellipse body + eyes + mouth)
+    // MARK: - Character (gumdrop body + antenna + eyes + mouth)
 
-    private func drawMochi(ctx: inout GraphicsContext, f: USFrame) {
+    private func drawCharacter(ctx: inout GraphicsContext, f: USFrame) {
         let R  = f.d / 2 / 1.04
         let m  = f.morph
         let mc = max(0, min(m, 1.0))
@@ -304,10 +304,15 @@ struct UploadCanvasView: View {
 
         let (bp, rx, ry) = usBodyPath(m: m, R: R)
 
+        // ── Antenna (folds away as the body becomes a box) ─────────
+        CompagnonStyle.drawAntenna(c, CompagnonStyle.antenna(ry: CGFloat(ry), angle: CGFloat(-f.tilt * 1.6 - f.lookX * 0.25)),
+                                   bulb: CompagnonStyle.accent, glow: 0.6,
+                                   alpha: CGFloat(max(0, 1 - mc * 1.6)))
+
         // ── Body gradient ──────────────────────────────────────────
         let bodyGrad = Gradient(stops:[
-            .init(color: Color(hex:"#EDEDEF"), location:0),
-            .init(color: Color(hex:"#C4C5CA"), location:1)
+            .init(color: CompagnonStyle.bodyTopColor, location:0),
+            .init(color: CompagnonStyle.bodyBottomColor, location:1)
         ])
         c.fill(bp, with: .linearGradient(bodyGrad,
             startPoint:  CGPoint(x:  rx*0.7, y: -ry*0.9),
@@ -381,13 +386,16 @@ struct UploadCanvasView: View {
     // MARK: - Eye shapes
 
     private func drawEyeShape(ctx: inout GraphicsContext, shape: USEyeShape, w: CGFloat, h: CGFloat) {
-        let ink = Color(red:0.055,green:0.059,blue:0.071)
+        let ink = CompagnonStyle.inkColor
         switch shape {
         case .pill:
             var p = Path()
             p.addRoundedRect(in: CGRect(x:-w/2, y:-h/2, width:w, height:h),
                              cornerSize: CGSize(width:w/2, height:w/2))
             ctx.fill(p, with: .color(ink))
+            var glint = Path()
+            glint.addEllipse(in: CompagnonStyle.catchlight(eyeWidth: w, eyeHeight: min(h, w * 1.6)))
+            ctx.fill(glint, with: .color(Color.white.opacity(0.85)))
 
         case .cup:
             // Flat top + semicircle bottom (cup shape)
@@ -556,13 +564,16 @@ private func drawDocCG(cg: CGContext, cx: Double, cy: Double, wsc: Double, hsc: 
 
 func usBodyPath(m: Double, R: Double) -> (path: Path, rx: Double, ry: Double) {
     let mc = max(0, min(m, 1.0))
-    let n  = 2.15 + (5.5-2.15)*mc
+    // Gumdrop silhouette at rest, squarer box as it morphs
+    let nTop = Double(CompagnonStyle.topExponent) + (5.5 - Double(CompagnonStyle.topExponent))*mc
+    let nBottom = Double(CompagnonStyle.bottomExponent) + (5.5 - Double(CompagnonStyle.bottomExponent))*mc
     let rx = R * (1.04 - 0.04*mc)
     let ry = R * (0.97 - 0.03*mc)
     var path = Path()
     for i in 0...96 {
         let a  = Double(i)/96 * .pi*2
         let ca = cos(a), sa = sin(a)
+        let n  = sa > 0 ? nBottom : nTop
         let px = rx * (ca<0 ? -1 : ca>0 ? 1 : 0) * pow(abs(ca), 2/n)
         let py = ry * (sa<0 ? -1 : sa>0 ? 1 : 0) * pow(abs(sa), 2/n)
         if i == 0 { path.move(to:    CGPoint(x:px,y:py)) }

@@ -44,10 +44,10 @@ final class StripePoller: @unchecked Sendable {
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             if code != 200 {
                 let errMsg: String
-                if code == 401 { errMsg = "Invalid API key (401)" }
-                else if code == 403 { errMsg = "Use secret key (sk_live_… not pk_live_…)" }
-                else if code == 0   { errMsg = error?.localizedDescription ?? "No connection" }
-                else                { errMsg = "API error \(code)" }
+                if code == 401 { errMsg = "Clé API invalide (401)" }
+                else if code == 403 { errMsg = "Utilise la clé secrète (sk_live_…, pas pk_live_…)" }
+                else if code == 0   { errMsg = error?.localizedDescription ?? "Pas de connexion" }
+                else                { errMsg = "Erreur API \(code)" }
                 DispatchQueue.main.async { AppState.shared.stripeError = errMsg }
                 return
             }
