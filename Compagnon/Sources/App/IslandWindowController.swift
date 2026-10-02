@@ -260,7 +260,8 @@ final class IslandWindowController: NSWindowController {
     private var tookKeyboard = false
 
     private var answerPending: Bool {
-        state.mode == .expanded && (state.pendingApproval != nil || state.pendingQuestion != nil)
+        state.mode == .expanded
+            && (state.pendingApproval != nil || state.pendingQuestion != nil || state.view == .finished)
     }
 
     private func updateKeyboard(pointerInside: Bool) {
@@ -280,6 +281,12 @@ final class IslandWindowController: NSWindowController {
         if islandPanel.firstResponder is NSText { return false }   // typing in a field
         let isReturn = event.keyCode == 36 || event.keyCode == 76
         let cmd = event.modifierFlags.contains(.command)
+        if state.view == .finished {
+            guard isReturn else { return false }
+            returnToSession(state.focusTask)
+            collapse()
+            return true
+        }
         if let approval = state.pendingApproval, state.view == .approval {
             if isReturn {
                 let always = cmd && approval.pillId != "agent_codex"

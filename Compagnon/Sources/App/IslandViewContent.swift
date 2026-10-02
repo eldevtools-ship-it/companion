@@ -280,22 +280,29 @@ struct ErrorView: View {
 struct FinishedView: View {
     @ObservedObject var state: AppState
 
+    private var task: AgentTask? { state.focusTask }
+
     var body: some View {
         ZStack {
             CardBackground(wash: .green)
-            VStack(alignment: .leading, spacing: 5) {
-                AgentWho(task: state.focusTask, label: "Claude Code a terminé")
-                Text(state.focusTask?.steps.last ?? "Session terminée")
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 7) {
+                    if let task {
+                        Circle().fill(Color(hex: task.color)).frame(width: 8, height: 8)
+                        Text(task.name).font(.system(size: 12, weight: .semibold)).foregroundColor(Color(hex: "#F5F6F8"))
+                    }
+                    Text(task?.lastDuration.map { "a terminé en \(Self.duration($0))" } ?? "a terminé")
+                        .font(.system(size: 12, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(Color(hex: "#8E939C"))
+                }
+                Text(task?.steps.last ?? "Session terminée")
                     .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 HStack(spacing: 8) {
-                    PrimaryButton("Ouvrir le terminal") {
-                        let terminalBundleIds = ["com.apple.Terminal", "com.googlecode.iterm2", "net.kovidgoyal.kitty", "com.mitchellh.ghostty"]
-                        let activated = terminalBundleIds.compactMap { id in
-                            NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == id }
-                        }.first.map { $0.activate(options: .activateIgnoringOtherApps) }
-                        if activated == nil {
-                            NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"))
-                        }
+                    PrimaryButton("Revenir", kbd: "⏎") {
+                        returnToSession(task)
                         NotificationCenter.default.post(name: .islandCollapse, object: nil)
                     }
                     SecondaryButton("OK") {
@@ -308,6 +315,14 @@ struct FinishedView: View {
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// "42 s", "4 min", "1 h 05"
+    static func duration(_ t: TimeInterval) -> String {
+        let s = Int(t.rounded())
+        if s < 60 { return "\(s) s" }
+        if s < 3600 { return "\(s / 60) min" }
+        return String(format: "%d h %02d", s / 3600, (s % 3600) / 60)
     }
 }
 

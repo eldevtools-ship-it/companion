@@ -343,13 +343,8 @@ private func drawCharacter(_ ctx: CGContext, p: GreetPose) {
     drawHandL(ctx, hw: hw, hh: hh, p: p)
     drawHandR(ctx, hw: hw, hh: hh, p: p)
 
-    // Antenna behind the body: coral bulb, sways against the tilt
-    CompagnonStyle.drawAntenna(ctx, CompagnonStyle.antenna(ry: hh, angle: CGFloat(-p.tilt * 1.6 - p.lookX * 0.25)),
-                               bulb: CompagnonStyle.accent,
-                               glow: CGFloat(0.5 + 0.5 * p.badge))
-
-    // Body
-    let mpath = characterPath(hw: hw, hh: hh)
+    // Body: the cloud
+    let mpath = CompagnonStyle.cloudCGPath(rx: hw, ry: hh)
     whiteFill(ctx, mpath, x0: hw*0.6, y0: -hh, x1: -hw*0.6, y1: hh)
 
     // Blue tint overlay
@@ -395,11 +390,6 @@ private func drawCharacter(_ ctx: CGContext, p: GreetPose) {
             ctx.scaleBy(x: 1, y: max(0.12, CGFloat(p.open)))
             ctx.addEllipse(in: CGRect(x: -er, y: -er, width: er*2, height: er*2))
             ctx.fillPath()
-            if p.open > 0.6 {
-                ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.85))
-                ctx.fillEllipse(in: CompagnonStyle.catchlight(eyeWidth: er*2, eyeHeight: er*2))
-                ctx.setFillColor(CompagnonStyle.ink)
-            }
         }
         ctx.restoreGState()
     }

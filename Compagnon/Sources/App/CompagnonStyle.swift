@@ -7,11 +7,11 @@ import CoreGraphics
 // three renderers stay identical. All coordinates are body-local, y pointing down.
 
 enum CompagnonStyle {
-    // Body: soft mint, lighter at the top-right, deeper at the bottom-left.
-    static let bodyTop    = CGColor(red: 0.925, green: 0.984, blue: 0.961, alpha: 1)  // #ECFBF5
-    static let bodyBottom = CGColor(red: 0.722, green: 0.886, blue: 0.820, alpha: 1)  // #B8E2D1
-    // Eyes: deep navy instead of black.
-    static let ink        = CGColor(red: 0.078, green: 0.129, blue: 0.239, alpha: 1)  // #14213D
+    // Body: a white cloud, lavender in its shadows. The state colour rises from below.
+    static let bodyTop    = CGColor(red: 1.000, green: 1.000, blue: 1.000, alpha: 1)  // #FFFFFF
+    static let bodyBottom = CGColor(red: 0.851, green: 0.851, blue: 0.957, alpha: 1)  // #D9D9F4
+    // Eyes: deep blue-grey instead of black.
+    static let ink        = CGColor(red: 0.149, green: 0.165, blue: 0.267, alpha: 1)  // #262A44
     // Antenna bulb when nothing is going on: warm coral, the character's signature.
     static let accent     = CGColor(red: 1.000, green: 0.420, blue: 0.290, alpha: 1)  // #FF6B4A
 
@@ -44,7 +44,40 @@ enum CompagnonStyle {
         return path
     }
 
-    // MARK: Antenna — a little stalk with a glowing bulb that shows Claude's state
+    // MARK: Cloud — the main character's silhouette
+    // Five overlapping puffs (unit space: x −1.06…1.06, y −0.78…0.84). The outline is
+    // where a ray from the centre leaves the last puff, so it stays one smooth shape.
+
+    static let cloudPuffs: [(x: CGFloat, y: CGFloat, r: CGFloat)] = [
+        (-0.60, 0.18, 0.46), (0.60, 0.18, 0.46), (-0.24, -0.20, 0.58), (0.30, -0.12, 0.52), (0.00, 0.24, 0.60),
+    ]
+
+    /// Point of the cloud outline at angle `a`, fitted to a box of half-size rx × ry.
+    /// `puff` breathes the puffs (1 = rest), `phase` lets each puff move on its own.
+    static func cloudPoint(angle a: CGFloat, rx: CGFloat, ry: CGFloat, puff: CGFloat = 1, phase: CGFloat = 0) -> CGPoint {
+        let dx = cos(a), dy = sin(a)
+        var best: CGFloat = 0
+        for (i, p) in cloudPuffs.enumerated() {
+            let r = p.r * (puff + 0.012 * sin(phase * 2 + CGFloat(i)))
+            let b = dx * p.x + dy * p.y
+            let disc = b * b - (p.x * p.x + p.y * p.y - r * r)
+            if disc >= 0 { best = max(best, b + sqrt(disc)) }
+        }
+        // unit box is 1.06 wide and 0.81 tall around y = 0.03
+        return CGPoint(x: dx * best * rx / 1.06, y: (dy * best - 0.03) * ry / 0.81)
+    }
+
+    static func cloudCGPath(rx: CGFloat, ry: CGFloat, puff: CGFloat = 1, phase: CGFloat = 0, steps: Int = 120) -> CGPath {
+        let path = CGMutablePath()
+        for i in 0...steps {
+            let p = cloudPoint(angle: CGFloat(i) / CGFloat(steps) * 2 * .pi, rx: rx, ry: ry, puff: puff, phase: phase)
+            if i == 0 { path.move(to: p) } else { path.addLine(to: p) }
+        }
+        path.closeSubpath()
+        return path
+    }
+
+    // MARK: Antenna — a little stalk with a glowing bulb (no longer drawn on the cloud)
 
     struct Antenna {
         let base: CGPoint

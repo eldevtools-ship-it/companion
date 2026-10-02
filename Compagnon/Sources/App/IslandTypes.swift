@@ -75,6 +75,8 @@ struct AgentTask: Identifiable, Equatable {
     var miniEye: EyeShape? = nil
     var pillBadge: PillBadge? = nil  // alert badge shown on pill when not focused
     var sessionCwd: String?  = nil  // last known working directory (Claude Code sessions)
+    var startedAt: Date?     = nil  // when the current Claude turn started (your prompt)
+    var lastDuration: TimeInterval? = nil  // how long the last finished turn took
 }
 
 enum AgentSource: Equatable {

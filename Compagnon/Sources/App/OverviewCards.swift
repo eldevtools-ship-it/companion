@@ -166,7 +166,8 @@ private struct SessionCard: View {
                 Spacer(minLength: 2)
                 if task.steps.count > 1 {
                     Text("\(min(task.stepIndex + 1, task.steps.count))/\(task.steps.count)")
-                        .font(.system(size: 11))
+                        .font(.system(size: 11, design: .rounded))
+                        .monospacedDigit()
                         .foregroundColor(Color(hex: "#6B7079"))
                         .fixedSize()
                 }
@@ -320,7 +321,7 @@ private struct SlackCard: View {
         return HStack(spacing: 2) {
             pageButton("chevron.left", enabled: index + 1 < count) { shown = index + 1 }
             Text("\(index + 1)/\(count)")
-                .font(.system(size: 10.5, weight: .medium))
+                .font(.system(size: 10.5, weight: .medium, design: .rounded))
                 .foregroundColor(Color(hex: "#8E939C"))
                 .monospacedDigit()
                 .frame(minWidth: 26)
@@ -476,6 +477,11 @@ struct HarvestPickerView: View {
 
     private let fieldHeight: CGFloat = 30
     private static let orange = "#FA5D00"
+    /// Two 30 pt rows 10 pt apart, centred in the closed card.
+    private static let topPadding: CGFloat = {
+        let card = (IslandConst.viewLayouts[.harvest]?.height ?? 160) - IslandConst.cardTop - IslandConst.contentInset
+        return ((card - 70) / 2).rounded()
+    }()
 
     private var project: HarvestProject? { state.harvestProjects.first { $0.id == projectId } }
     private var task: HarvestTask? { project?.tasks.first { $0.id == taskId } }
@@ -501,26 +507,20 @@ struct HarvestPickerView: View {
             CardBackground(wash: nil)
             VStack(alignment: .leading, spacing: 10) {
                 fieldsRow
+                // Plain cross-fades only: scale/clip transitions render through an
+                // offscreen layer that flashes black in the transparent island window.
                 if list == .closed {
-                    noteRow
-                        .transition(.asymmetric(
-                            insertion: .opacity.animation(.easeOut(duration: 0.18).delay(0.12)),
-                            removal: .opacity.animation(.easeIn(duration: 0.08))))
+                    noteRow.transition(.opacity)
                 } else {
-                    // Fades in once the island has grown, and out before it shrinks back,
-                    // so the list never slides over the fields.
-                    listPanel
-                        .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .scale(scale: 0.98, anchor: .top))
-                                .animation(.easeOut(duration: 0.2).delay(0.1)),
-                            removal: .opacity.animation(.easeIn(duration: 0.1))))
+                    listPanel.transition(.opacity)
                 }
             }
-            .clipped()
             .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, IslandConst.cardInset)
-            .padding(.vertical, IslandConst.cardInset + 4)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: list == .closed ? .leading : .topLeading)
+            // Same top in both modes (centred in the closed card), so nothing jumps
+            .padding(.top, Self.topPadding)
+            .padding(.bottom, IslandConst.cardInset + 4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .onAppear { if state.view == .harvest { prepare() } }
         .onChange(of: state.view) { _, v in
@@ -682,7 +682,7 @@ struct HarvestPickerView: View {
     }
 
     private func show(_ mode: ListMode) {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { list = mode }
+        withAnimation(.easeInOut(duration: 0.18)) { list = mode }
         filter = ""
         let grow = mode != .closed
         if grow {
@@ -759,7 +759,6 @@ private struct FieldButton: View {
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
         .pointingHand()
-        .animation(.easeOut(duration: 0.15), value: open)
     }
 }
 
@@ -942,7 +941,7 @@ private struct GitHubCard: View {
         HStack(spacing: 5) {
             Image(systemName: icon).font(.system(size: 10)).foregroundColor(Color(hex: color))
             Text(value)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundColor(Color(hex: "#E5E7EB"))
                 .monospacedDigit()
             Text(label).font(.system(size: 11)).foregroundColor(Color(hex: "#8E939C"))
@@ -975,8 +974,29 @@ func openTarget(_ task: AgentTask?) {
             ?? URL(string: "https://vercel.com/dashboard")
         if let target { NSWorkspace.shared.open(target) }
     default:
-        openClaude()
+        returnToSession(task)
     }
+}
+
+/// Back to where this Claude session runs: its folder's window in VS Code or Cursor
+/// when one is open, otherwise the Claude app or a terminal.
+@MainActor
+func returnToSession(_ task: AgentTask?) {
+    if let cwd = task?.sessionCwd, !cwd.isEmpty {
+        let editors = [("com.microsoft.VSCode", "vscode"), ("com.todesktop.230313mzl4w4u92", "cursor")]
+        for (bundleId, scheme) in editors
+        where NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleId }) {
+            var comps = URLComponents()
+            comps.scheme = scheme
+            comps.host = "file"
+            comps.path = cwd
+            if let url = comps.url {
+                NSWorkspace.shared.open(url)
+                return
+            }
+        }
+    }
+    openClaude()
 }
 
 /// Brings Claude (desktop app, VS Code or a terminal) to the front.

@@ -290,6 +290,10 @@ final class HookServer: @unchecked Sendable {
             activeSessionId = sessionId
             if isExternalAgent { upsertExternalAgent(id: agentId, name: validAgent!) } else { upsertWorkspaceTask(id: agentId, projectName: projectName, cwd: cwd) }
             state.updateTask(id: agentId, state: .thinking)
+            if let i = state.tasks.firstIndex(where: { $0.id == agentId }) {
+                state.tasks[i].startedAt = Date()
+                state.tasks[i].lastDuration = nil
+            }
             if let prompt = payload["prompt"] as? String, !prompt.isEmpty {
                 appendStep(id: agentId, step: String(prompt.prefix(60)))
             }
@@ -325,6 +329,10 @@ final class HookServer: @unchecked Sendable {
 
         case "Stop":
             state.updateTask(id: agentId, state: .finished)
+            if let i = state.tasks.firstIndex(where: { $0.id == agentId }), let start = state.tasks[i].startedAt {
+                state.tasks[i].lastDuration = Date().timeIntervalSince(start)
+                state.tasks[i].startedAt = nil
+            }
             if let message = payload["message"] as? String, !message.isEmpty {
                 appendStep(id: agentId, step: String(message.prefix(60)))
             }

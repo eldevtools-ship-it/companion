@@ -78,6 +78,16 @@ struct IslandContainer: View {
                 .opacity(greetingActive ? 0 : 1)
                 .animation(.easeInOut(duration: 0.25), value: greetingActive)
 
+            // Concentration on: a small violet light next to the character
+            if state.mode == .compact && state.focusMode {
+                Circle()
+                    .fill(Color(hex: "#A78BFA"))
+                    .frame(width: 5, height: 5)
+                    .shadow(color: Color(hex: "#A78BFA").opacity(0.8), radius: 3)
+                    .position(x: IslandConst.compactEar - 7, y: islandHeight / 2 + 5)
+                    .transition(.opacity)
+            }
+
             Group {
                 if state.mode == .compact {
                     CompactMiniGrid(state: state)

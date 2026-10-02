@@ -858,27 +858,13 @@ final class BotEngine: ObservableObject {
         // Body path (gumdrop silhouette, morph to rect for upload)
         let bodyPath = characterPath(rx: rx, ry: ry, morph: morph, R: R)
 
-        // Antenna behind the body — main bot only, folds away in box mode
-        if !isMini && R > 5 && morph < 0.95 {
-            let bulb: CGColor
-            if bodyColor != nil {
-                bulb = CompagnonStyle.accent
-            } else {
-                // Coral when idle, the state color as soon as Claude is up to something
-                let k = min(1, tint / 0.35)
-                bulb = cgColorFromTuple(mix3(cgColorToTuple(CompagnonStyle.accent), col, k))
-            }
-            CompagnonStyle.drawAntenna(ctx, CompagnonStyle.antenna(ry: ry, angle: antennaAngle),
-                                       bulb: bulb,
-                                       glow: CompagnonStyle.bulbGlow(state, time: CACurrentMediaTime()),
-                                       alpha: 1 - morph)
-        }
+        // The cloud has no antenna: its state shows in its colour
 
         // Body fill
         drawBody(ctx: &ctx, path: bodyPath, R: R, rx: rx, ry: ry)
 
         // Blush — always shows a floor proportional to tint (prototype behaviour)
-        let blushVal = max(blush, tint * 0.5) * (1 - morph)
+        let blushVal = blush * (1 - morph)
         if blushVal > 0.01 {
             drawBlush(ctx: &ctx, path: bodyPath, rx: rx, ry: ry, R: R, blush: blushVal)
         }
@@ -1053,7 +1039,10 @@ final class BotEngine: ObservableObject {
     // MARK: - Private draw helpers
 
     private func characterPath(rx: CGFloat, ry: CGFloat, morph: CGFloat, R: CGFloat) -> Path {
-        let n = 72
+        let n = 96
+        let isCloud = bodyColor == nil && !isMini
+        let now = CGFloat(CACurrentMediaTime())
+        let puff = 1 + 0.02 * sin(now * 1.5)
         // Target mailbox dims (spec: 1.0R wide, 0.94R tall, 0.42R corner radius)
         let tw = R * 1.0
         let th = R * 0.94
@@ -1062,7 +1051,9 @@ final class BotEngine: ObservableObject {
         for i in 0...n {
             let a = CGFloat(i) / CGFloat(n) * .pi * 2
             let ca = cos(a), sa = sin(a)
-            let p0 = CompagnonStyle.bodyPoint(angle: a, rx: rx, ry: ry)
+            let p0 = isCloud
+                ? CompagnonStyle.cloudPoint(angle: a, rx: rx, ry: ry, puff: puff, phase: now)
+                : CompagnonStyle.bodyPoint(angle: a, rx: rx, ry: ry)
             let px0 = p0.x, py0 = p0.y
             let px: CGFloat
             let py: CGFloat
@@ -1134,17 +1125,18 @@ final class BotEngine: ObservableObject {
                 startPoint: CGPoint(x: rx*0.7, y: -ry*0.85),
                 endPoint: CGPoint(x: -rx*0.8, y: ry*0.9)
             ))
-            // State tint — fades out as morph increases (mailbox has no tint)
+            // State colour rising through the cloud from below
             let effectiveTint = tint * (1 - morph)
             if effectiveTint > 0.01 {
                 let tc = colorFromTuple(col)
                 ctx.fill(path, with: .linearGradient(
                     Gradient(stops: [
-                        .init(color: tc.opacity(Double(0.72 * effectiveTint)), location: 0),
+                        .init(color: tc.opacity(Double(0.95 * effectiveTint)), location: 0),
+                        .init(color: tc.opacity(Double(0.35 * effectiveTint)), location: 0.55),
                         .init(color: tc.opacity(0), location: 1)
                     ]),
                     startPoint: CGPoint(x: 0, y: ry),
-                    endPoint: CGPoint(x: 0, y: -ry)
+                    endPoint: CGPoint(x: 0, y: -ry * 1.1)
                 ))
             }
             // Shadow rim
@@ -1156,16 +1148,29 @@ final class BotEngine: ObservableObject {
                 ]),
                 center: .zero, startRadius: R*0.15, endRadius: R*1.25
             ))
-            // Highlight
+            // Soft key light, top left
             ctx.fill(path, with: .radialGradient(
                 Gradient(stops: [
-                    .init(color: Color.white.opacity(0.55), location: 0),
+                    .init(color: Color.white.opacity(0.7), location: 0),
                     .init(color: .clear, location: 1)
                 ]),
-                center: CGPoint(x: rx*0.34, y: -ry*0.46),
+                center: CGPoint(x: -rx*0.34, y: -ry*0.5),
                 startRadius: 0,
-                endRadius: R*0.42
+                endRadius: R*0.7
             ))
+            // Inner rim: bright along the top, state colour along the bottom
+            var rim = ctx
+            rim.clip(to: path)
+            let tc = colorFromTuple(col)
+            rim.stroke(path, with: .linearGradient(
+                Gradient(stops: [
+                    .init(color: Color.white.opacity(0.9), location: 0),
+                    .init(color: Color.white.opacity(0), location: 0.4),
+                    .init(color: tc.opacity(0), location: 0.7),
+                    .init(color: tc.opacity(Double(0.25 + 0.5 * tint)), location: 1)
+                ]),
+                startPoint: CGPoint(x: 0, y: -ry), endPoint: CGPoint(x: 0, y: ry)
+            ), lineWidth: max(1, R * 0.09))
         }
     }
 
@@ -1234,11 +1239,6 @@ final class BotEngine: ObservableObject {
             p.addRoundedRect(in: CGRect(x: -w/2, y: -hh/2, width: w, height: hh),
                              cornerSize: CGSize(width: min(w/2, hh/2), height: min(w/2, hh/2)))
             ctx.fill(p, with: .color(ink))
-            if !isMini && open > 0.6 && w > 3 {
-                var glint = Path()
-                glint.addEllipse(in: CompagnonStyle.catchlight(eyeWidth: w, eyeHeight: hh))
-                ctx.fill(glint, with: .color(Color.white.opacity(0.85)))
-            }
 
         case .dot:
             var p = Path()
