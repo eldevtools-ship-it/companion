@@ -32,15 +32,7 @@ final class IslandWindowController: NSWindowController {
     private var lastLoveTime: Double = 0
     private var botHoverStartPos: CGPoint = .zero
 
-    // Window attach drag (M8)
-    private var attachDragStart: NSPoint? = nil
     private var pendingIslandClick = false   // any island click → expand on mouseUp
-    private var inAttachDrag = false
-    private var dragGhostPanel: NSPanel? = nil
-    private var dragGhostSize: CGFloat = 0
-    private var ghostCurrentOrigin: NSPoint = .zero
-    private var highlightPanel: NSPanel? = nil
-    private var highlightWindowPid: pid_t = 0
 
     // Notch real dimensions (set on init)
     private var notchW: CGFloat = IslandConst.notchWidth
@@ -98,56 +90,20 @@ final class IslandWindowController: NSWindowController {
         hosting.frame = NSRect(origin: .zero, size: contentSize)
         hosting.autoresizingMask = [.width, .height]
 
-        // FileDropNSView sits below the hosting view (hitTest returns nil → no mouse interference).
-        // AppKit routes NSDraggingDestination events to registered views independently of hitTest.
-        let dropView = FileDropNSView(frame: NSRect(origin: .zero, size: contentSize))
-        dropView.autoresizingMask = [.width, .height]
-        dropView.onDragEntered = { [weak self] loc in
-            Task { @MainActor in
-                let iLoc = self?.windowToIsland(loc) ?? CGPoint(x: 320, y: 88)
-                AppState.shared.fileDragOver = true
-                // enterZone sets isActive=true BEFORE hookExpand triggers re-render,
-                // so IslandContainer sees isActive=true when state.view becomes .upload.
-                UploadSequenceEngine.shared.enterZone(x: iLoc.x, y: iLoc.y)
-                NotificationCenter.default.post(name: .hookExpand, object: IslandView.upload)
-                NotificationCenter.default.post(name: .botMorphTo, object: CGFloat(1))
-            }
-        }
-        dropView.onDragUpdated = { [weak self] loc in
-            Task { @MainActor in
-                let iLoc = self?.windowToIsland(loc) ?? CGPoint(x: 320, y: 88)
-                UploadSequenceEngine.shared.updateCursor(x: iLoc.x, y: iLoc.y)
-            }
-        }
-        dropView.onDragExited = {
-            Task { @MainActor in
-                AppState.shared.fileDragOver = false
-                // Do NOT collapse — drag session still active; island stays open.
-                NotificationCenter.default.post(name: .botMorphTo, object: CGFloat(0))
-                UploadSequenceEngine.shared.exitZone()
-            }
-        }
-        dropView.onFilesDropped = { urls in
-            Task { @MainActor in
-                await FileDropHandler.handle(urls: urls, state: AppState.shared)
-            }
-        }
-
-        container.addSubview(hosting)    // z-bottom: SwiftUI + mouse events
-        container.addSubview(dropView)   // z-top: drag only (hitTest→nil, transparent to mouse)
+        container.addSubview(hosting)
         panel.contentView = container
 
         startPolling()
         startKeyMonitor()
         wireFSM()
 
-        // Make panel key whenever the prompt/chat view becomes active
+        // Make panel key whenever the Harvest picker (note field) becomes active
         // (nonactivatingPanel never auto-becomes key, but TextField needs it)
         viewSubscription = state.$view
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newView in
                 guard let self else { return }
-                if newView == .prompt {
+                if newView == .harvest {
                     self.islandPanel.makeKey()
                 }
             }
@@ -281,12 +237,6 @@ final class IslandWindowController: NSWindowController {
                 botHoverTimer?.cancel()
                 scheduleLoveTimer()
             }
-        }
-
-        // Ghost Mochi follows cursor + window highlight during drag (60 Hz, no throttle)
-        if inAttachDrag {
-            updateDragGhost()
-            updateWindowHighlight()
         }
     }
 
@@ -422,9 +372,8 @@ final class IslandWindowController: NSWindowController {
             MainActor.assumeIsolated { self?.handleDizzy() }
         }
 
-        // Window attach drag.
+        // Clicks: slap the character, or open the island on mouseUp.
         // Uses MainActor.assumeIsolated (synchronous) to avoid race with pollFrame().
-        // Global mouseUp is the reliable fallback when cursor is outside our panel frame.
         NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             guard let self else { return event }
             MainActor.assumeIsolated {
@@ -433,71 +382,29 @@ final class IslandWindowController: NSWindowController {
                 self.hoverTimer?.cancel()
                 self.botHoverTimer?.cancel()
                 self.botHovering = false
-                // Drag only starts when clicking directly on the bot head
                 guard self.isBotHit(event.locationInWindow) else { return }
-                self.attachDragStart = NSEvent.mouseLocation
                 // Post slap only when expanded
                 guard self.state.mode == .expanded else { return }
                 NotificationCenter.default.post(name: .triggerSlap, object: nil)
             }
             return event
         }
-        NSEvent.addLocalMonitorForEvents(matching: .leftMouseDragged) { [weak self] event in
-            guard let self else { return event }
-            MainActor.assumeIsolated {
-                guard let start = self.attachDragStart, !self.inAttachDrag else { return }
-                let m = NSEvent.mouseLocation
-                guard hypot(m.x - start.x, m.y - start.y) > 3 else { return }
-                self.inAttachDrag = true
-                NotificationCenter.default.post(name: .triggerEmote, object: BotEmote.love)
-                self.showDragGhost()
-            }
-            return event
-        }
-
-        // mouseUp — local (cursor still in panel) + global (cursor moved outside panel frame)
-        let finishDrag: @Sendable () -> Void = { [weak self] in
-            Task { @MainActor in
-                guard let self, self.inAttachDrag else { return }
-                let mouse = NSEvent.mouseLocation
-                self.inAttachDrag = false
-                self.attachDragStart = nil
-                self.state.stateOverride = nil
-                self.hideDragGhost()
-                if let ctx = self.windowContextAtPoint(mouse) {
-                    self.state.promptContext = ctx
-                    SoundEngine.shared.play("approve")
-                    NotificationCenter.default.post(name: .triggerEmote, object: BotEmote.happy)
-                    self.expand(to: .prompt)
-                }
-            }
-        }
         NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
             guard let self else { return event }
             MainActor.assumeIsolated {
                 let hadPendingClick = self.pendingIslandClick
-                let wasDragging     = self.inAttachDrag
                 self.pendingIslandClick = false
-                if wasDragging {
-                    finishDrag()
-                } else {
-                    self.attachDragStart = nil
-                    if hadPendingClick && self.state.mode != .expanded {
-                        if self.fsm.state == .home {
-                            // FSM already thinks it's open (e.g. the view folded it): just reopen.
-                            self.expand(to: self.defaultView())
-                        } else {
-                            self.fsm.click()   // FSM petit/hidden→home; onTransition calls expand(to:)
-                        }
+                if hadPendingClick && self.state.mode != .expanded {
+                    if self.fsm.state == .home {
+                        // FSM already thinks it's open (e.g. the view folded it): just reopen.
+                        self.expand(to: self.defaultView())
+                    } else {
+                        self.fsm.click()   // FSM petit/hidden→home; onTransition calls expand(to:)
                     }
                 }
             }
             return event
         }
-        NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { _ in
-            finishDrag()
-        }
-
         // Global hotkey to show island
         NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             Task { @MainActor in
@@ -509,211 +416,6 @@ final class IslandWindowController: NSWindowController {
                 }
             }
         }
-
-        // Track last external app for window context capture
-        let ourBundle = Bundle.main.bundleIdentifier ?? ""
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification,
-            object: nil, queue: .main
-        ) { [weak self] note in
-            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-                  app.bundleIdentifier != ourBundle else { return }
-            MainActor.assumeIsolated {
-                self?.state.lastExternalApp = app
-            }
-        }
-    }
-
-    // MARK: - Drag ghost window (Mochi follows cursor during drag)
-
-    private func showDragGhost() {
-        guard dragGhostPanel == nil else { return }
-        // Same size as compact bot: diameter=20 → canvasSize≈33, scale 2× for grab comfort
-        let canvasSize: CGFloat = 40 / 0.6      // ~67
-        dragGhostSize = canvasSize
-
-        let mouse = NSEvent.mouseLocation
-        let s = dragGhostSize
-        ghostCurrentOrigin = NSPoint(x: mouse.x - s/2, y: mouse.y - s/2)
-
-        let panel = NSPanel(
-            contentRect: NSRect(x: ghostCurrentOrigin.x, y: ghostCurrentOrigin.y, width: s, height: s),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.hasShadow = false
-        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 4)
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        panel.ignoresMouseEvents = true
-
-        let hosting = NSHostingView(
-            rootView: GhostBotView(canvasSize: canvasSize)
-        )
-        hosting.frame = NSRect(x: 0, y: 0, width: s, height: s)
-        panel.contentView = hosting
-        panel.alphaValue = 0
-        panel.orderFront(nil)
-        dragGhostPanel = panel
-        AppState.shared.isDraggingBot = true
-
-        // Fade + scale-in handled by GhostBotView SwiftUI animation;
-        // also fade in the window itself for extra smoothness
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().alphaValue = 1
-        }
-    }
-
-    private func hideDragGhost() {
-        dragGhostPanel?.close()
-        dragGhostPanel = nil
-        highlightPanel?.close()
-        highlightPanel = nil
-        highlightWindowPid = 0
-        AppState.shared.isDraggingBot = false
-    }
-
-    private func updateDragGhost() {
-        guard let panel = dragGhostPanel else { return }
-        let s = dragGhostSize
-        let mouse = NSEvent.mouseLocation
-        // Direct follow — bot is "held", no trailing lag
-        ghostCurrentOrigin = NSPoint(x: mouse.x - s/2, y: mouse.y - s/2)
-        panel.setFrameOrigin(ghostCurrentOrigin)
-    }
-
-    // MARK: - Window highlight overlay (white border on target window during drag)
-
-    private func updateWindowHighlight() {
-        let mouse = NSEvent.mouseLocation
-        guard let (appKitBounds, pid) = windowBoundsAtScreenPoint(mouse) else {
-            // Fade out + close if no window under cursor
-            if let old = highlightPanel {
-                let captured = old
-                highlightPanel = nil
-                highlightWindowPid = 0
-                NSAnimationContext.runAnimationGroup({ ctx in
-                    ctx.duration = 0.12
-                    ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                    captured.animator().alphaValue = 0
-                }, completionHandler: { captured.close() })
-            }
-            return
-        }
-
-        if pid == highlightWindowPid, let existing = highlightPanel {
-            // Same window — just track position (windows rarely move, instant is fine)
-            existing.setFrame(appKitBounds, display: false)
-        } else {
-            // New window — close old immediately, fade-in new
-            highlightPanel?.close()
-            highlightPanel = nil
-            highlightWindowPid = pid
-
-            let panel = NSPanel(
-                contentRect: appKitBounds,
-                styleMask: [.borderless, .nonactivatingPanel],
-                backing: .buffered, defer: false
-            )
-            panel.backgroundColor = .clear
-            panel.isOpaque = false
-            panel.hasShadow = false
-            panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 2)
-            panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-            panel.ignoresMouseEvents = true
-
-            let hosting = NSHostingView(rootView:
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.75), lineWidth: 3)
-                    .shadow(color: Color.white.opacity(0.5), radius: 16)
-                    .padding(2)
-                    .ignoresSafeArea()
-            )
-            hosting.frame = CGRect(origin: .zero, size: appKitBounds.size)
-            hosting.autoresizingMask = [.width, .height]
-            panel.contentView = hosting
-            panel.alphaValue = 0
-            panel.orderFront(nil)
-            highlightPanel = panel
-
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.14
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                panel.animator().alphaValue = 1
-            }
-        }
-    }
-
-    private func windowBoundsAtScreenPoint(_ screenPoint: NSPoint) -> (CGRect, pid_t)? {
-        guard let screen = window?.screen ?? NSScreen.main else { return nil }
-        let screenMaxY = screen.frame.maxY
-        let cgPoint = CGPoint(x: screenPoint.x, y: screenMaxY - screenPoint.y)
-
-        guard let list = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
-        ) as? [[String: Any]] else { return nil }
-
-        let ourBundle = Bundle.main.bundleIdentifier ?? ""
-        for info in list {
-            guard let b = info[kCGWindowBounds as String] as? [String: Any],
-                  let x = b["X"] as? CGFloat, let y = b["Y"] as? CGFloat,
-                  let w = b["Width"] as? CGFloat, let h = b["Height"] as? CGFloat else { continue }
-            guard CGRect(x: x, y: y, width: w, height: h).contains(cgPoint) else { continue }
-            let pid = info[kCGWindowOwnerPID as String] as? pid_t ?? 0
-            guard let app = NSRunningApplication(processIdentifier: pid),
-                  app.bundleIdentifier != ourBundle,
-                  app.activationPolicy == .regular else { continue }
-            // CG → AppKit: flip Y
-            return (CGRect(x: x, y: screenMaxY - y - h, width: w, height: h), pid)
-        }
-        return nil
-    }
-
-    // MARK: - Window context at screen point (for drag-attach)
-
-    private func windowContextAtPoint(_ screenPoint: NSPoint) -> PromptContext? {
-        let screen = window?.screen ?? NSScreen.main
-        // CGWindowList uses top-left origin; NSEvent.mouseLocation uses bottom-left
-        let screenMaxY = screen?.frame.maxY ?? NSScreen.main!.frame.maxY
-        let cgPoint = CGPoint(x: screenPoint.x, y: screenMaxY - screenPoint.y)
-
-        guard let windowList = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
-        ) as? [[String: Any]] else { return nil }
-
-        let ourBundle = Bundle.main.bundleIdentifier ?? ""
-
-        for info in windowList {
-            guard let b = info[kCGWindowBounds as String] as? [String: Any],
-                  let x = b["X"] as? CGFloat, let y = b["Y"] as? CGFloat,
-                  let w = b["Width"] as? CGFloat, let h = b["Height"] as? CGFloat else { continue }
-            guard CGRect(x: x, y: y, width: w, height: h).contains(cgPoint) else { continue }
-
-            let pid = info[kCGWindowOwnerPID as String] as? pid_t ?? 0
-            guard let app = NSRunningApplication(processIdentifier: pid),
-                  app.bundleIdentifier != ourBundle,
-                  app.activationPolicy == .regular else { continue }
-
-            return WindowContextCapture.captureActive(from: app)
-        }
-        return nil
-    }
-
-    // MARK: - Coordinate conversion: window (AppKit, y-up) → island coords (y-down, 0,0 = island top-left)
-
-    func windowToIsland(_ loc: CGPoint) -> CGPoint {
-        let panelH = window?.frame.height ?? 320
-        let panelW = window?.frame.width  ?? 720
-        let islandLeft = (panelW - IslandConst.expandedWidth) / 2
-        // Island is glued to panel top; its bottom in AppKit = panelH - 176
-        return CGPoint(
-            x: loc.x - islandLeft,
-            y: panelH - loc.y                // AppKit y is from bottom; island y from top
-        )
     }
 
     // MARK: - Helpers
@@ -775,21 +477,11 @@ final class IslandWindowController: NSWindowController {
         let s = AppState.shared
         let panelH = window?.frame.height ?? 320
         let panelW = window?.frame.width  ?? 720
-        let (islandW, fixedH) = islandSize(mode: s.mode, view: s.view,
-                                            progress: s.uploadProgress, nw: notchW, nh: notchH)
-        // Chat view resizes dynamically — must match IslandContainer.chatPromptHeight
-        let islandH: CGFloat
-        if s.mode == .expanded && s.view == .prompt {
-            let base: CGFloat = 240
-            let perMsg: CGFloat = 40
-            islandH = min(300, base + CGFloat(s.chatHistory.count) * perMsg)
-        } else {
-            islandH = fixedH
-        }
+        let (islandW, islandH) = islandSize(mode: s.mode, view: s.view, nw: notchW, nh: notchH)
         let islandMinX = (panelW - islandW) / 2
         let (cx, cy, diameter, _) = botPosition(mode: s.mode, view: s.view,
                                                   islandW: islandW, islandH: islandH,
-                                                  uploadProgress: s.uploadProgress, hasNotch: s.hasNotch)
+                                                  hasNotch: s.hasNotch)
         let radius = (diameter / 0.6) / 2
         // botPosition cy is from island TOP; panel AppKit coords have y=0 at bottom
         // island top in AppKit coords = panelH (island glued to top of panel/screen)
@@ -841,35 +533,8 @@ final class IslandPanel: NSPanel {
 
     func currentIslandFrame(nw: CGFloat, nh: CGFloat) -> CGRect {
         let s = AppState.shared
-        let (w, fixedH) = islandSize(mode: s.mode, view: s.view,
-                                      progress: s.uploadProgress, nw: nw, nh: nh)
-        let h: CGFloat
-        if s.mode == .expanded && s.view == .prompt {
-            let base: CGFloat = 240
-            let perMsg: CGFloat = 40
-            h = min(300, base + CGFloat(s.chatHistory.count) * perMsg)
-        } else {
-            h = fixedH
-        }
+        let (w, h) = islandSize(mode: s.mode, view: s.view, nw: nw, nh: nh)
         return CGRect(x: (frame.width - w) / 2, y: frame.height - h, width: w, height: h)
-    }
-}
-
-// MARK: - Ghost bot view (animated scale-in on appear)
-
-struct GhostBotView: View {
-    let canvasSize: CGFloat
-    @State private var scale: CGFloat = 0.35
-
-    var body: some View {
-        BotCanvasView(state: AppState.shared)
-            .frame(width: canvasSize, height: canvasSize)
-            .scaleEffect(scale)
-            .onAppear {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.55)) {
-                    scale = 1.0
-                }
-            }
     }
 }
 
@@ -889,7 +554,6 @@ extension Notification.Name {
     static let islandNeedsKeyboard = Notification.Name("compagnon.islandNeedsKeyboard")
     static let openFullSettings = Notification.Name("compagnon.openFullSettings")
     static let hookReveal       = Notification.Name("compagnon.hookReveal")
-    static let musicReveal      = Notification.Name("compagnon.musicReveal")
     // Greeting ↔ IslandWindowController
     static let greetComplete    = Notification.Name("compagnon.greetComplete")
     static let greetingHover    = Notification.Name("compagnon.greetingHover")
@@ -899,7 +563,6 @@ extension Notification.Name {
 // MARK: - islandSize (takes real notch dimensions)
 
 func islandSize(mode: IslandMode, view: IslandView,
-                progress: Double = 0,
                 nw: CGFloat = IslandConst.notchWidth,
                 nh: CGFloat = IslandConst.notchHeight) -> (CGFloat, CGFloat) {
     switch mode {

@@ -26,14 +26,17 @@ struct HarvestEntry: Identifiable, Equatable {
     var label: String { "\(projectName) · \(taskName)" }
 }
 
-/// A project + task pair you can start a timer on.
-struct HarvestShortcut: Identifiable, Hashable {
-    let projectId: Int
-    let projectName: String
-    let taskId: Int
-    let taskName: String
-    var id: String { "\(projectId)-\(taskId)" }
-    var label: String { "\(projectName) · \(taskName)" }
+/// A project you're assigned to, with the tasks you can track time on.
+struct HarvestProject: Identifiable, Equatable {
+    let id: Int
+    let name: String
+    let clientName: String
+    let tasks: [HarvestTask]
+}
+
+struct HarvestTask: Identifiable, Equatable {
+    let id: Int
+    let name: String
 }
 
 @MainActor
@@ -47,6 +50,7 @@ final class HarvestService {
     private var userId: Int?
     private var noTimerSince: Date?
     private var lastReminder: Date?
+    private var projectsLoadedAt: Date?
 
     private init() {}
 
@@ -70,8 +74,9 @@ final class HarvestService {
         loop?.cancel()
         loop = nil
         userId = nil
+        projectsLoadedAt = nil
         AppState.shared.harvestRunning = nil
-        AppState.shared.harvestShortcuts = []
+        AppState.shared.harvestProjects = []
         AppState.shared.harvestError = nil
         start()
     }
@@ -144,13 +149,6 @@ final class HarvestService {
 
             state.harvestRunning = entries.first { $0.isRunning }
             state.harvestLast = entries.first { !$0.isRunning }
-            var seen = Set<String>()
-            state.harvestShortcuts = entries.compactMap { e -> HarvestShortcut? in
-                let s = HarvestShortcut(projectId: e.projectId, projectName: e.projectName,
-                                        taskId: e.taskId, taskName: e.taskName)
-                return seen.insert(s.id).inserted ? s : nil
-            }.prefix(8).map { $0 }
-            state.harvestToday = entries.filter { $0.spentDate == Self.today() }.reduce(0) { $0 + $1.elapsed(at: now) }
             state.harvestError = nil
             state.harvestLoaded = true
             syncPill()
@@ -175,20 +173,23 @@ final class HarvestService {
         await refresh()
     }
 
-    /// Starts a timer on `shortcut` (Harvest stops any other running timer).
-    func start(_ shortcut: HarvestShortcut) async {
+    /// Starts a timer (Harvest stops any other running timer).
+    func start(projectId: Int, taskId: Int, notes: String?) async {
+        let note = (notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             if let last = AppState.shared.harvestLast,
-               last.projectId == shortcut.projectId, last.taskId == shortcut.taskId,
-               last.spentDate == Self.today() {
-                // Same task today: keep counting on the same line
+               last.projectId == projectId, last.taskId == taskId,
+               last.spentDate == Self.today(), (last.notes ?? "") == note {
+                // Same line today: keep counting on it
                 _ = try await request("time_entries/\(last.id)/restart", method: "PATCH")
             } else {
-                _ = try await request("time_entries", method: "POST", body: [
-                    "project_id": shortcut.projectId,
-                    "task_id": shortcut.taskId,
+                var body: [String: Any] = [
+                    "project_id": projectId,
+                    "task_id": taskId,
                     "spent_date": Self.today(),
-                ])
+                ]
+                if !note.isEmpty { body["notes"] = note }
+                _ = try await request("time_entries", method: "POST", body: body)
             }
             SoundEngine.shared.play("approve")
             noTimerSince = nil
@@ -196,6 +197,37 @@ final class HarvestService {
             AppState.shared.harvestError = error.localizedDescription
         }
         await refresh()
+    }
+
+    /// Projects and tasks you're assigned to (cached 30 min).
+    func loadProjects(force: Bool = false) async {
+        if !force, let at = projectsLoadedAt, Date().timeIntervalSince(at) < 1800,
+           !AppState.shared.harvestProjects.isEmpty { return }
+        var projects: [HarvestProject] = []
+        var page = 1
+        do {
+            while page <= 10 {
+                let json = try await request("users/me/project_assignments?per_page=100&page=\(page)")
+                for a in json["project_assignments"] as? [[String: Any]] ?? [] {
+                    guard a["is_active"] as? Bool ?? true,
+                          let p = a["project"] as? [String: Any], let pid = p["id"] as? Int else { continue }
+                    let tasks = (a["task_assignments"] as? [[String: Any]] ?? []).compactMap { t -> HarvestTask? in
+                        guard t["is_active"] as? Bool ?? true,
+                              let task = t["task"] as? [String: Any], let tid = task["id"] as? Int else { return nil }
+                        return HarvestTask(id: tid, name: task["name"] as? String ?? "Tâche")
+                    }
+                    projects.append(HarvestProject(id: pid, name: p["name"] as? String ?? "Projet",
+                                                   clientName: (a["client"] as? [String: Any])?["name"] as? String ?? "Sans client",
+                                                   tasks: tasks.sorted { $0.name < $1.name }))
+                }
+                guard let next = json["next_page"] as? Int else { break }
+                page = next
+            }
+            AppState.shared.harvestProjects = projects
+            projectsLoadedAt = Date()
+        } catch {
+            AppState.shared.harvestError = error.localizedDescription
+        }
     }
 
     // MARK: Island
@@ -261,8 +293,9 @@ final class HarvestService {
         return f.string(from: Date())
     }
 
-    static func format(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        return String(format: "%d:%02d", total / 3600, (total % 3600) / 60)
+    /// 1:05:09
+    static func clock(_ seconds: TimeInterval) -> String {
+        let t = max(0, Int(seconds))
+        return String(format: "%d:%02d:%02d", t / 3600, (t % 3600) / 60, t % 60)
     }
 }

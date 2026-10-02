@@ -10,8 +10,8 @@ enum IslandMode: String, CaseIterable {
 
 enum IslandView: String, CaseIterable {
     case overview, empty, approval, question, error, finished
-    case confused, upload, uploading, choose, mail, prompt
-    case searching, result, note, settings, greeting
+    case confused, note, settings, greeting
+    case harvest    // Harvest: choose project, task and note
 }
 
 // MARK: - Bot State
@@ -63,48 +63,8 @@ struct AgentTask: Identifiable, Equatable {
 
 enum AgentSource: Equatable {
     case claudeCode
-    case n8n
+    case service  // Slack, Harvest, GitHub
     case agent   // third-party agent via compagnon_agent field
-}
-
-// MARK: - Chat provider
-
-enum ChatProvider: String, CaseIterable, Codable {
-    case anthropic = "anthropic"
-    case google    = "google"
-    case openai    = "openai"
-
-    var displayName: String {
-        switch self {
-        case .anthropic: "Anthropic"
-        case .google:    "Google"
-        case .openai:    "OpenAI"
-        }
-    }
-
-    var accentHex: String {
-        switch self {
-        case .anthropic: "#E07950"
-        case .google:    "#4285F4"
-        case .openai:    "#10A37F"
-        }
-    }
-
-    var defaultModel: String {
-        switch self {
-        case .anthropic: "claude-sonnet-4-6"
-        case .google:    "gemini-2.0-flash"
-        case .openai:    "gpt-4o"
-        }
-    }
-
-    var keychainKey: String {
-        switch self {
-        case .anthropic: "anthropic-api-key"
-        case .google:    "google-api-key"
-        case .openai:    "openai-api-key"
-        }
-    }
 }
 
 // MARK: - View dimensions (from VIEWS in prototype)
@@ -129,27 +89,25 @@ enum IslandConst {
     static let expandedWidth: CGFloat = 640
     static let earRadius: CGFloat   = 14
     static let roundedCorner: CGFloat = 14    // hidden/peek/compact
-    static let expandedCorner: CGFloat = 22
+
+    // Corner radii follow one rule: inner radius = outer radius − the gap between them.
+    static let expandedCorner: CGFloat = 24                          // island, expanded
+    static let contentInset: CGFloat = 10                            // island edge → cards
+    static let cardRadius: CGFloat = expandedCorner - contentInset   // 14
+    static let cardInset: CGFloat = 8                                // card edge → inner boxes
+    static let innerRadius: CGFloat = cardRadius - cardInset         // 6
 
     static let viewLayouts: [IslandView: ViewLayout] = [
-        // Home is the reference: height 150
         .overview:  ViewLayout(height: 160, botX: 68,  botY: nil, botDiameter: 58, agentMode: .pills),
-        // All non-chat views match home height (150) — law
         .empty:     ViewLayout(height: 160, botX: 70,  botY: nil, botDiameter: 62, agentMode: .none),
         .approval:  ViewLayout(height: 160, botX: 62,  botY: nil, botDiameter: 56, agentMode: .column),
         .question:  ViewLayout(height: 160, botX: 62,  botY: nil, botDiameter: 56, agentMode: .column),
         .error:     ViewLayout(height: 160, botX: 62,  botY: nil, botDiameter: 58, agentMode: .column),
         .finished:  ViewLayout(height: 160, botX: 62,  botY: nil, botDiameter: 58, agentMode: .column),
         .confused:  ViewLayout(height: 160, botX: 76,  botY: nil, botDiameter: 66, agentMode: .column),
-        .upload:    ViewLayout(height: 176, botX: 140, botY: 104, botDiameter: 62, agentMode: .column),
-        .uploading: ViewLayout(height: 176, botX: 46,  botY: 118, botDiameter: 20, agentMode: .none),
-        .choose:    ViewLayout(height: 176, botX: 60,  botY: 101, botDiameter: 52, agentMode: .column),
-        .mail:      ViewLayout(height: 240, botX: 56,  botY: nil, botDiameter: 46, agentMode: .column),
-        .prompt:    ViewLayout(height: 160, botX: 52,  botY: nil, botDiameter: 44, agentMode: .column),
-        .searching: ViewLayout(height: 160, botX: 52,  botY: nil, botDiameter: 44, agentMode: .column),
-        .result:    ViewLayout(height: 160, botX: 52,  botY: nil, botDiameter: 44, agentMode: .column),
         .note:      ViewLayout(height: 160, botX: 60,  botY: nil, botDiameter: 50, agentMode: .column),
         .settings:  ViewLayout(height: 160, botX: 54,  botY: nil, botDiameter: 46, agentMode: .none),
+        .harvest:   ViewLayout(height: 160, botX: 52,  botY: nil, botDiameter: 44, agentMode: .none),
         // Greeting: bot drawn by GreetingCanvasView; no BotPlacement needed
         .greeting:  ViewLayout(height: 150, botX: 320, botY: 90,  botDiameter: 0,  agentMode: .none),
     ]
@@ -178,8 +136,5 @@ enum IslandConst {
         .error:     "rgba(244,80,94,0.55)",
         .finished:  "rgba(52,211,153,0.5)",
         .confused:  "rgba(244,114,182,0.55)",
-        .searching: "rgba(99,102,241,0.5)",
-        .result:    "rgba(52,211,153,0.22)",
-        .prompt:    "rgba(99,102,241,0.22)",
     ]
 }

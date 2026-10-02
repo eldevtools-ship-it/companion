@@ -116,18 +116,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         islandController?.showWindow(nil)
         islandController?.fsm.launch()
         HookServer.shared.start()
-        N8nPoller.shared.start()
-        VercelPoller.shared.start()
-        ResendPoller.shared.start()
         GithubPoller.shared.start()
-        StripePoller.shared.start()
-        CalcomPoller.shared.start()
-        NotionPoller.shared.start()
         SlackService.shared.start()
         HarvestService.shared.start()
         UpdateService.shared.start()
         NotificationCenter.default.addObserver(self, selector: #selector(openSettingsFromNotification(_:)),
                                                name: .openFullSettings, object: nil)
-        _ = MusicController.shared
     }
 }
