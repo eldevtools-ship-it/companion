@@ -2,8 +2,10 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusItem: NSStatusItem?
+    private let versionItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let updateItem = NSMenuItem(title: "Rechercher une mise à jour", action: nil, keyEquivalent: "u")
     private(set) var islandController: IslandWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -26,35 +28,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.image?.accessibilityDescription = "Compagnon"
         button.image?.isTemplate = true
 
+        // Same menu on left and right click
         let menu = NSMenu()
-        menu.addItem(withTitle: "Ouvrir Compagnon", action: #selector(openIsland), keyEquivalent: "")
+        menu.delegate = self
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Ouvrir Compagnon", action: #selector(openIsland), keyEquivalent: "")
         menu.addItem(withTitle: "Réglages…", action: #selector(openSettings), keyEquivalent: ",")
-        menu.addItem(withTitle: "Rechercher une mise à jour", action: #selector(checkForUpdate), keyEquivalent: "")
+        menu.addItem(.separator())
+        updateItem.target = self
+        updateItem.action = #selector(checkForUpdate)
+        menu.addItem(updateItem)
+        let force = NSMenuItem(title: "Réinstaller la dernière version", action: #selector(forceUpdate), keyEquivalent: "")
+        force.target = self
+        menu.addItem(force)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quitter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         statusItem?.menu = menu
+        refreshMenu()
+    }
+
+    // MARK: - Menu state
+
+    func menuWillOpen(_ menu: NSMenu) { refreshMenu() }
+
+    private func refreshMenu() {
+        versionItem.title = "Compagnon · version \(UpdateService.currentBuild)"
+        switch AppState.shared.updateStatus {
+        case .available(let build): updateItem.title = "Installer la version \(build)"
+        case .checking:             updateItem.title = "Recherche en cours…"
+        case .installing:           updateItem.title = "Installation en cours…"
+        default:                    updateItem.title = "Rechercher une mise à jour"
+        }
+        let busy = AppState.shared.updateStatus == .checking || AppState.shared.updateStatus == .installing
+        updateItem.isEnabled = !busy
     }
 
     // MARK: - Actions
 
+    /// Checks now and installs right away if there's something newer (no waiting for a quiet moment).
     @objc private func checkForUpdate() {
         Task { @MainActor in
             await UpdateService.shared.check()
             if case .available = AppState.shared.updateStatus {
                 await UpdateService.shared.install()
-            } else {
-                let alert = NSAlert()
-                alert.messageText = AppState.shared.updateStatus == .upToDate
-                    ? "Compagnon est à jour (version \(UpdateService.currentBuild))."
-                    : "Mise à jour impossible"
-                if AppState.shared.updateStatus != .upToDate {
-                    alert.informativeText = AppState.shared.updateStatus.label
-                }
-                NSApp.activate(ignoringOtherApps: true)
-                alert.runModal()
             }
+            // Only reached when nothing was installed (a successful install relaunches the app)
+            showUpdateResult()
+        }
+    }
+
+    /// Downloads and reinstalls the latest release even if it's the same version.
+    @objc private func forceUpdate() {
+        Task { @MainActor in
+            await UpdateService.shared.install(force: true)
+            showUpdateResult()
+        }
+    }
+
+    private func showUpdateResult() {
+        let status = AppState.shared.updateStatus
+        let alert = NSAlert()
+        if status == .upToDate {
+            alert.messageText = "Compagnon est à jour"
+            alert.informativeText = "Tu as la dernière version (\(UpdateService.currentBuild))."
+        } else {
+            alert.messageText = "Mise à jour impossible"
+            alert.informativeText = status.label
+            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: "Ouvrir les réglages")
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn {
+            UserDefaults.standard.set("updates", forKey: "settingsSection")
+            openSettings()
         }
     }
 
@@ -117,6 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         islandController?.fsm.launch()
         HookServer.shared.start()
         GithubPoller.shared.start()
+        VercelService.shared.start()
         SlackService.shared.start()
         HarvestService.shared.start()
         UpdateService.shared.start()

@@ -20,6 +20,7 @@ struct SettingsView: View {
     @State private var harvestToken: String   = KeychainStore.shared.get(HarvestService.tokenKey)   ?? ""
     @State private var harvestAccount: String = KeychainStore.shared.get(HarvestService.accountKey) ?? ""
     @State private var githubToken: String    = KeychainStore.shared.get("github-token")            ?? ""
+    @State private var vercelToken: String    = KeychainStore.shared.get(VercelService.tokenKey)    ?? ""
     @State private var updateToken: String    = KeychainStore.shared.get(UpdateService.tokenKey)    ?? ""
 
     // Hotkey
@@ -70,6 +71,7 @@ struct SettingsView: View {
                         SettingsSidebarRow(title: "Claude Code",   icon: "terminal.fill",              color: "#D97757").tag("claude")
                         SettingsSidebarRow(title: "Slack",         icon: "bubble.left.fill",           color: "#E01E5A").tag("slack")
                         SettingsSidebarRow(title: "Harvest",       icon: "clock.fill",                 color: "#FA5D00").tag("harvest")
+                        SettingsSidebarRow(title: "Vercel",        icon: "triangle.fill",              color: "#111111").tag("vercel")
                         SettingsSidebarRow(title: "GitHub",        icon: "chevron.left.forwardslash.chevron.right", color: "#6E7681").tag("github")
                         SettingsSidebarRow(title: "Mises à jour",  icon: "arrow.down.circle.fill",     color: "#22C55E").tag("updates")
                     }
@@ -114,6 +116,7 @@ struct SettingsView: View {
         case "claude":  return "Claude Code"
         case "slack":   return "Slack"
         case "harvest": return "Harvest"
+        case "vercel":  return "Vercel"
         case "github":  return "GitHub"
         case "updates": return "Mises à jour"
         default:        return "Général"
@@ -125,6 +128,7 @@ struct SettingsView: View {
         case "claude":  claudeSection
         case "slack":   slackSection
         case "harvest": harvestSection
+        case "vercel":  vercelSection
         case "github":  githubSection
         case "updates": updatesSection
         default:        generalSection
@@ -312,6 +316,36 @@ struct SettingsView: View {
         GroupBox("Rappel") {
             Toggle("Me rappeler de lancer un timer (jours ouvrés, 9 h – 19 h)", isOn: $state.harvestReminder)
                 .padding(6)
+        }
+    }
+
+    // MARK: - Vercel
+
+    @ViewBuilder private var vercelSection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    StatusDot(ok: VercelService.shared.isConfigured && state.vercelError == nil)
+                    Text(state.vercelError.map { "Erreur : \($0)" }
+                         ?? (VercelService.shared.isConfigured ? "Connecté" : "Non configuré"))
+                        .font(.system(size: 12, weight: .medium))
+                }
+                Text("Tes derniers déploiements dans l'île, et une alerte quand l'un d'eux est en ligne ou échoue. Crée un jeton sur vercel.com/account/tokens.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Ouvrir vercel.com") { open("https://vercel.com/account/tokens") }
+                SecureField("Jeton Vercel", text: $vercelToken)
+                    .textFieldStyle(.roundedBorder)
+                Button("Enregistrer") {
+                    saveKey(VercelService.tokenKey, vercelToken)
+                    VercelService.shared.restart()
+                    state.refreshPills()
+                    statusMessage = "✓ Jeton Vercel enregistré."
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(6)
         }
     }
 

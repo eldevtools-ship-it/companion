@@ -49,6 +49,7 @@ private struct FocusCard: View {
         case SlackService.pillId:   SlackCard(state: state)
         case HarvestService.pillId: HarvestCard(state: state)
         case "integration_github":  GitHubCard(state: state)
+        case VercelService.pillId:  VercelCard(state: state)
         default:
             if task.state != .idle || !task.steps.isEmpty {
                 SessionCard(task: task)
@@ -564,6 +565,58 @@ private struct PickerField<Items: View>: View {
     }
 }
 
+// MARK: - Vercel
+
+private struct VercelCard: View {
+    @ObservedObject var state: AppState
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            if let err = state.vercelError {
+                CardHeader(color: "#F4505E", title: "Vercel", subtitle: err)
+            } else if let d = state.vercelDeployments.first {
+                CardHeader(color: d.statusColor, title: d.projectName,
+                           subtitle: [d.branch, d.timeAgo].compactMap { $0 }.joined(separator: " · "))
+                if let msg = d.commitMessage, !msg.isEmpty {
+                    Text(msg)
+                        .font(.system(size: 11))
+                        .foregroundColor(Color(hex: "#8E939C"))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .padding(.top, CardLayout.headerTop + 18)
+                        .padding(.leading, CardLayout.contentLeading)
+                        .padding(.trailing, 34)
+                }
+                InsetBox(tint: Color(hex: d.statusColor)) {
+                    HStack(spacing: 8) {
+                        Circle().fill(Color(hex: d.statusColor)).frame(width: 7, height: 7)
+                        Text(d.statusLabel)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Color(hex: d.statusColor))
+                        Spacer(minLength: 4)
+                        if state.vercelDeployments.count > 1 {
+                            let others = state.vercelDeployments.dropFirst().prefix(3)
+                            HStack(spacing: 3) {
+                                ForEach(Array(others)) { o in
+                                    Circle().fill(Color(hex: o.statusColor).opacity(0.8)).frame(width: 5, height: 5)
+                                }
+                            }
+                            .help("Déploiements précédents")
+                        }
+                        if !d.url.isEmpty {
+                            CardLink(title: "Ouvrir", icon: "arrow.up.right") {
+                                if let u = URL(string: d.url) { NSWorkspace.shared.open(u) }
+                            }
+                        }
+                    }
+                }
+            } else {
+                CardHeader(color: "#E5E7EB", title: "Vercel", subtitle: "Chargement…")
+            }
+        }
+    }
+}
+
 // MARK: - GitHub
 
 private struct GitHubCard: View {
@@ -613,6 +666,10 @@ func openTarget(_ task: AgentTask?) {
         if let url = URL(string: "https://id.getharvest.com/harvest") { NSWorkspace.shared.open(url) }
     case "integration_github":
         if let url = URL(string: "https://github.com") { NSWorkspace.shared.open(url) }
+    case VercelService.pillId:
+        let target = AppState.shared.vercelDeployments.first.flatMap { URL(string: $0.url) }
+            ?? URL(string: "https://vercel.com/dashboard")
+        if let target { NSWorkspace.shared.open(target) }
     default:
         openClaude()
     }

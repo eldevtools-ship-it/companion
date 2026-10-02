@@ -79,7 +79,8 @@ final class UpdateService {
 
     // MARK: Check
 
-    func check() async {
+    /// `force` keeps the latest release ready to install even if it isn't newer.
+    func check(force: Bool = false) async {
         let state = AppState.shared
         guard let token else {
             state.updateStatus = .failed("ajoute un jeton GitHub dans les réglages")
@@ -94,7 +95,13 @@ final class UpdateService {
             let (data, response) = try await URLSession.shared.data(for: req)
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard code == 200 else {
-                state.updateStatus = .failed(code == 401 || code == 404 ? "jeton sans accès au dépôt" : "erreur \(code)")
+                let which = KeychainStore.shared.get(Self.tokenKey) == nil
+                    ? "le jeton de la section GitHub" : "le jeton de mise à jour"
+                switch code {
+                case 401: state.updateStatus = .failed("\(which) est invalide ou expiré")
+                case 403, 404: state.updateStatus = .failed("\(which) n'a pas accès au dépôt companion (Contents : lecture)")
+                default:  state.updateStatus = .failed("erreur GitHub \(code)")
+                }
                 return
             }
             guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
@@ -106,10 +113,10 @@ final class UpdateService {
                 state.updateStatus = .failed("release illisible")
                 return
             }
-            if build > Self.currentBuild {
+            if build > Self.currentBuild || force {
                 self.assetURL = assetURL
                 availableBuild = build
-                state.updateStatus = .available(build: build)
+                state.updateStatus = build > Self.currentBuild ? .available(build: build) : .upToDate
             } else {
                 state.updateStatus = .upToDate
             }
@@ -136,8 +143,9 @@ final class UpdateService {
 
     // MARK: Install
 
-    func install() async {
+    func install(force: Bool = false) async {
         let state = AppState.shared
+        if force { await check(force: true) }
         guard let assetURL, let token else { return }
         state.updateStatus = .installing
         do {
@@ -157,7 +165,7 @@ final class UpdateService {
 
             let newApp = work.appendingPathComponent("Compagnon.app")
             guard let info = NSDictionary(contentsOf: newApp.appendingPathComponent("Contents/Info.plist")),
-                  let v = info["CFBundleVersion"] as? String, (Int(v) ?? 0) > Self.currentBuild else {
+                  let v = info["CFBundleVersion"] as? String, force || (Int(v) ?? 0) > Self.currentBuild else {
                 throw UpdateError("archive inattendue")
             }
             try? run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", newApp.path])

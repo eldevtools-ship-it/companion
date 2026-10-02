@@ -94,6 +94,10 @@ final class AppState: ObservableObject {
     // GitHub (GithubPoller)
     @Published var githubStats: GitHubStats? = nil
 
+    // Vercel (VercelService)
+    @Published var vercelDeployments: [VercelDeployment] = []
+    @Published var vercelError: String? = nil
+
     // Slack (SlackService)
     @Published var slackMessages: [SlackMessage] = []
     @Published var slackUnread: Int = 0
