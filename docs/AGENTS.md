@@ -2,9 +2,9 @@
 
 Any tool that can write to a Unix domain socket (macOS, Linux) or a named pipe (Windows) can send events to Coucou and have its own pill next to Claude Code.
 
-## The `coucou_agent` field
+## The `compagnon_agent` field
 
-Add the optional field `coucou_agent` to any hook JSON payload. Coucou will create a pill labelled with the agent name and route all events to it.
+Add the optional field `compagnon_agent` to any hook JSON payload. Coucou will create a pill labelled with the agent name and route all events to it.
 
 **Validation:** the name must match `^[a-z0-9-]{1,24}$` (lowercase letters, digits and hyphens, 1–24 characters). An absent or invalid name routes the event to the Claude Code pill instead.
 
@@ -54,13 +54,13 @@ Same pattern with the Linux relay. Coucou copies the relay to `~/.local/share/co
 
 ## Payload format
 
-The relay adds `coucou_agent` to the JSON it forwards. You can also add it yourself if you talk to the socket directly:
+The relay adds `compagnon_agent` to the JSON it forwards. You can also add it yourself if you talk to the socket directly:
 
 ```json
 {
   "hook_event_name": "UserPromptSubmit",
   "session_id": "my-session-1",
-  "coucou_agent": "my-tool",
+  "compagnon_agent": "my-tool",
   "prompt": "Running task…"
 }
 ```
@@ -146,7 +146,7 @@ and let the relay forward the event.
 With Coucou running:
 
 ```sh
-echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","coucou_agent":"demo"}' \
+echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","compagnon_agent":"demo"}' \
   | ~/.local/share/coucou/bin/coucou-hook --agent demo
 ```
 
@@ -157,7 +157,7 @@ A "demo" pill should appear in the island.
 With Coucou running:
 
 ```sh
-echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","coucou_agent":"demo"}' \
+echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","compagnon_agent":"demo"}' \
   | /bin/sh ~/Library/Application\ Support/NotchBuddy/nb-hook --agent demo
 ```
 

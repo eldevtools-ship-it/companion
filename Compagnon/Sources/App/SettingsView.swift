@@ -32,7 +32,6 @@ struct SettingsView: View {
     @State private var pendingHookJSON: String = ""
     @State private var hookNeedsUpdate: Bool = HookServer.hooksNeedUpdate()
 
-    #if !APPSTORE
     @State private var geminiHooksInstalled: Bool = HookServer.geminiHooksInstalled()
     @State private var showGeminiDiff: Bool = false
     @State private var pendingGeminiJSON: String = ""
@@ -47,7 +46,6 @@ struct SettingsView: View {
     @State private var showCodexDiff: Bool = false
     @State private var pendingCodexJSON: String = ""
     @State private var codexPendingInstall: Bool = true
-    #endif
 
     // Multi-provider chat keys
     @State private var googleKey: String  = KeychainStore.shared.get("google-api-key") ?? ""
@@ -105,7 +103,7 @@ struct SettingsView: View {
                             .resizable()
                             .frame(width: 32, height: 32)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Coucou")
+                            Text("Compagnon")
                                 .font(.system(size: 13, weight: .semibold))
                             Text(appVersion)
                                 .font(.system(size: 11))
@@ -273,7 +271,7 @@ struct SettingsView: View {
     @ViewBuilder private var activePillsSection: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Choose the tools you use. Coucou only shows what you declare here.")
+                Text("Choose the tools you use. Compagnon only shows what you declare here.")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
 
@@ -322,24 +320,9 @@ struct SettingsView: View {
                             .font(.system(size: 11))
                             .foregroundColor(.orange)
                     }
-                    #if APPSTORE
-                    Button("Update hooks") { installHooksAppStore() }
-                    #else
                     Button("Update hooks") { installHooks() }
-                    #endif
                 }
-                #if APPSTORE
-                Text("~/.claude/coucou/nb-hook")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.secondary)
-                HStack(spacing: 10) {
-                    Button("Install hooks") { installHooksAppStore() }
-                        .buttonStyle(.borderedProminent)
-                    Button("Uninstall") { uninstallHooksAppStore() }
-                        .buttonStyle(.bordered)
-                }
-                #else
-                Text("nb-hook : \(HookServer.hookScriptPath)")
+                Text("compagnon-hook : \(HookServer.hookScriptPath)")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary)
                 HStack(spacing: 10) {
@@ -348,9 +331,7 @@ struct SettingsView: View {
                     Button("Uninstall") { uninstallHooks() }
                         .buttonStyle(.bordered)
                 }
-                #endif
 
-                #if !APPSTORE
                 if showDiff {
                     ScrollView {
                         Text(pendingHookJSON)
@@ -368,12 +349,10 @@ struct SettingsView: View {
                             .buttonStyle(.bordered)
                     }
                 }
-                #endif
             }
             .padding(6)
         }
 
-        #if !APPSTORE
         GroupBox("Gemini CLI Hooks") {
             VStack(alignment: .leading, spacing: 10) {
                 Text(geminiHooksInstalled
@@ -472,7 +451,6 @@ struct SettingsView: View {
             }
             .padding(6)
         }
-        #endif
     }
 
     // MARK: - Chat section
@@ -673,54 +651,6 @@ struct SettingsView: View {
 
     // MARK: - App Store: hooks via NSOpenPanel + security-scoped bookmark
 
-    #if APPSTORE
-    private func pickClaudeFolder(prompt: String) -> URL? {
-        let panel = NSOpenPanel()
-        panel.message = "Select your .claude folder (press ⇧⌘. to show hidden files)"
-        panel.prompt = prompt
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.showsHiddenFiles = true
-        let realHomePath = getpwuid(getuid()).flatMap { String(cString: $0.pointee.pw_dir, encoding: .utf8) }
-            ?? "/Users/\(NSUserName())"
-        panel.directoryURL = URL(fileURLWithPath: realHomePath)
-        guard panel.runModal() == .OK, let url = panel.url else { return nil }
-        guard url.lastPathComponent == ".claude" else {
-            statusMessage = "❌ Select the .claude folder (hidden, in your Home directory)."
-            return nil
-        }
-        return url
-    }
-
-    private func installHooksAppStore() {
-        guard let claudeURL = pickClaudeFolder(prompt: "Select") else { return }
-        let alert = NSAlert()
-        alert.messageText = "Install Coucou hooks in ~/.claude?"
-        alert.informativeText = "Will write:\n• ~/.claude/coucou/nb-hook\n• ~/.claude/settings.json (backup created first)"
-        alert.addButton(withTitle: "Install")
-        alert.addButton(withTitle: "Cancel")
-        alert.alertStyle = .informational
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        do {
-            try HookServer.shared.installAndWriteClaudeHooksAppStore(claudeURL: claudeURL)
-            hookNeedsUpdate = false
-            statusMessage = "✓ Hooks installed — restart VS Code to activate."
-        } catch {
-            statusMessage = "❌ \(error.localizedDescription)"
-        }
-    }
-
-    private func uninstallHooksAppStore() {
-        guard let claudeURL = pickClaudeFolder(prompt: "Select") else { return }
-        do {
-            try HookServer.shared.uninstallClaudeHooksAppStore(claudeURL: claudeURL)
-            statusMessage = "✓ Hooks removed."
-        } catch {
-            statusMessage = "❌ \(error.localizedDescription)"
-        }
-    }
-    #endif
 
     private func installHooks() {
         do {
@@ -753,14 +683,13 @@ struct SettingsView: View {
         }
     }
 
-    #if !APPSTORE
     private func triggerGeminiPreview(install: Bool) {
         do {
             geminiPendingInstall = install
             pendingGeminiJSON = try HookServer.shared.previewGeminiHooks(install: install)
             showGeminiDiff = true
             statusMessage = "Review the JSON below before confirming."
-        } catch let e as NSError where e.domain == "CoucouNoop" {
+        } catch let e as NSError where e.domain == "CompagnonNoop" {
             statusMessage = e.localizedDescription
         } catch {
             statusMessage = "❌ \(error.localizedDescription)"
@@ -787,7 +716,7 @@ struct SettingsView: View {
             pendingAgyJSON = try HookServer.shared.previewAgyHooks(install: install)
             showAgyDiff = true
             statusMessage = "Review the JSON below before confirming."
-        } catch let e as NSError where e.domain == "CoucouNoop" {
+        } catch let e as NSError where e.domain == "CompagnonNoop" {
             statusMessage = e.localizedDescription
         } catch {
             statusMessage = "❌ \(error.localizedDescription)"
@@ -814,7 +743,7 @@ struct SettingsView: View {
             pendingCodexJSON = try HookServer.shared.previewCodexHooks(install: install)
             showCodexDiff = true
             statusMessage = "Review the JSON below before confirming."
-        } catch let e as NSError where e.domain == "CoucouNoop" {
+        } catch let e as NSError where e.domain == "CompagnonNoop" {
             statusMessage = e.localizedDescription
         } catch {
             statusMessage = "❌ \(error.localizedDescription)"
@@ -834,7 +763,6 @@ struct SettingsView: View {
             statusMessage = "❌ \(error.localizedDescription)"
         }
     }
-    #endif
 
     private func saveIntegrations() {
         saveKey("resend-api-key",  value: resendKey)
@@ -934,11 +862,9 @@ struct SettingsView: View {
         let hint: String? = {
             if isMain { return nil }
             if def.comingSoon { return "Coming soon" }
-            #if !APPSTORE
             if def.id == "agent_gemini"        && !HookServer.geminiHooksInstalled()  { return "Hooks not installed" }
             if def.id == "agent_antigravity"   && !HookServer.agyHooksInstalled()    { return "Hooks not installed" }
             if def.id == "agent_codex"         && !HookServer.codexHooksInstalled()  { return "Hooks not installed" }
-            #endif
             if def.category == .ai {
                 let keyId = def.id == "ai_anthropic" ? "anthropic-api-key"
                            : def.id == "ai_google"    ? "google-api-key" : "openai-api-key"

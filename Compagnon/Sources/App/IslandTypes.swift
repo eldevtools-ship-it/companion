@@ -64,7 +64,7 @@ struct AgentTask: Identifiable, Equatable {
 enum AgentSource: Equatable {
     case claudeCode
     case n8n
-    case agent   // third-party agent via coucou_agent field
+    case agent   // third-party agent via compagnon_agent field
 }
 
 // MARK: - Chat provider
@@ -156,16 +156,8 @@ enum IslandConst {
 
     // Project colors — keyed by lowercase display name or slug
     static let projectColors: [String: String] = [
-        "korus":             "#FF5A4E",
-        "sbe hub":           "#2EC4A0",
-        "morning ai brief":  "#F29B38",
-        "publication ig":    "#7C5CFF",
-        "ig post":           "#7C5CFF",
-        "louisraille.fr":    "#38BDF8",
-        "louisraille":       "#38BDF8",
-        "notch buddy":       "#EC4899",
-        "notch-buddy":       "#EC4899",
-        "notchbuddy":        "#EC4899",
+        "compagnon":         "#EC4899",
+        "raneo-cep":         "#38BDF8",
     ]
 
     static let fallbackColors = ["#22C55E", "#EAB308", "#60A5FA", "#E879F9"]

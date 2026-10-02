@@ -23,7 +23,7 @@ final class AppState: ObservableObject {
     var notchHeight: CGFloat = IslandConst.notchHeight
     var hasNotch = true
 
-    // Last app active before NotchBuddy (for window context capture)
+    // Last app active before Compagnon (for window context capture)
     var lastExternalApp: NSRunningApplication? = nil
 
     // Bot drag-attach state (hides original bot while ghost follows cursor)
@@ -239,10 +239,8 @@ final class AppState: ObservableObject {
     // Pending approval request from Claude Code hook
     @Published var pendingApproval: ApprovalInfo? = nil
 
-    #if !APPSTORE
     @Published var musicPlaying: Bool = false
     @Published var musicAutomationDenied: Bool = false
-    #endif
 
     // MARK: - Init (loads persisted settings)
 

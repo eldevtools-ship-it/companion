@@ -163,7 +163,7 @@ final class IslandWindowController: NSWindowController {
                 self.setMode(.hidden)
 
             case .petit:
-                if from == .coucou {
+                if from == .greeting {
                     // Fire interrupt first so canvas collapse starts before mode change
                     NotificationCenter.default.post(name: .greetingInterrupt, object: nil)
                 } else if from == .hidden {
@@ -176,7 +176,7 @@ final class IslandWindowController: NSWindowController {
                 // setMode BEFORE changing view: onChange(of: state.view) guards on .expanded,
                 // so setting view while already compact won't trigger a spurious open animation.
                 self.setMode(.compact)
-                if from == .coucou { self.state.view = self.defaultView() }
+                if from == .greeting { self.state.view = self.defaultView() }
                 // Start 60s hide timer if mouse is not currently over the island
                 if !self.wasInIsland { self.fsm.mouseLeft() }
 
@@ -187,7 +187,7 @@ final class IslandWindowController: NSWindowController {
                     self.fsm.mouseLeft()
                 }
 
-            case .coucou:
+            case .greeting:
                 self.expand(to: .greeting)
             }
         }
@@ -252,8 +252,8 @@ final class IslandWindowController: NSWindowController {
         // Feed FSM hover enter/leave
         if inIsland && !wasInIsland {
             guard !inAttachDrag else { wasInIsland = inIsland; return }
-            // If in coucou: tell greeting to stay open (tc → infinity)
-            if fsm.state == .coucou {
+            // If in greeting: tell greeting to stay open (tc → infinity)
+            if fsm.state == .greeting {
                 NotificationCenter.default.post(name: .greetingHover, object: nil)
             }
             fsm.mouseEntered()
@@ -359,7 +359,7 @@ final class IslandWindowController: NSWindowController {
         guard fsm.isHeldOpen?() != true else { return }
         state.isPinned = false
         finishedPinTimer?.cancel()
-        // Keep the FSM in step with what is on screen (home/coucou → petit now).
+        // Keep the FSM in step with what is on screen (home/greeting → petit now).
         fsm.collapse()
         setMode(.compact)
         window?.resignKey()
@@ -452,14 +452,12 @@ final class IslandWindowController: NSWindowController {
                 self.attachDragStart = nil
                 self.state.stateOverride = nil
                 self.hideDragGhost()
-                #if !APPSTORE
                 if let ctx = self.windowContextAtPoint(mouse) {
                     self.state.promptContext = ctx
                     SoundEngine.shared.play("approve")
                     NotificationCenter.default.post(name: .triggerEmote, object: BotEmote.happy)
                     self.expand(to: .prompt)
                 }
-                #endif
             }
         }
         NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
@@ -866,23 +864,23 @@ struct GhostBotView: View {
 // MARK: - Notification names
 
 extension Notification.Name {
-    static let triggerEmote     = Notification.Name("notchBuddy.triggerEmote")
-    static let triggerSlap      = Notification.Name("notchBuddy.triggerSlap")
-    static let botDizzy         = Notification.Name("notchBuddy.botDizzy")
-    static let botGreet         = Notification.Name("notchBuddy.botGreet")
-    static let botBlink         = Notification.Name("notchBuddy.botBlink")
-    static let botSetTgEs       = Notification.Name("notchBuddy.botSetTgEs")
-    static let botGulp          = Notification.Name("notchBuddy.botGulp")
-    static let botMorphTo       = Notification.Name("notchBuddy.botMorphTo")
-    static let islandAction     = Notification.Name("notchBuddy.islandAction")
-    static let islandCollapse   = Notification.Name("notchBuddy.islandCollapse")
-    static let openFullSettings = Notification.Name("notchBuddy.openFullSettings")
-    static let hookReveal       = Notification.Name("notchBuddy.hookReveal")
-    static let musicReveal      = Notification.Name("notchBuddy.musicReveal")
+    static let triggerEmote     = Notification.Name("compagnon.triggerEmote")
+    static let triggerSlap      = Notification.Name("compagnon.triggerSlap")
+    static let botDizzy         = Notification.Name("compagnon.botDizzy")
+    static let botGreet         = Notification.Name("compagnon.botGreet")
+    static let botBlink         = Notification.Name("compagnon.botBlink")
+    static let botSetTgEs       = Notification.Name("compagnon.botSetTgEs")
+    static let botGulp          = Notification.Name("compagnon.botGulp")
+    static let botMorphTo       = Notification.Name("compagnon.botMorphTo")
+    static let islandAction     = Notification.Name("compagnon.islandAction")
+    static let islandCollapse   = Notification.Name("compagnon.islandCollapse")
+    static let openFullSettings = Notification.Name("compagnon.openFullSettings")
+    static let hookReveal       = Notification.Name("compagnon.hookReveal")
+    static let musicReveal      = Notification.Name("compagnon.musicReveal")
     // Greeting ↔ IslandWindowController
-    static let greetComplete    = Notification.Name("notchBuddy.greetComplete")
-    static let greetingHover    = Notification.Name("notchBuddy.greetingHover")
-    static let greetingInterrupt = Notification.Name("notchBuddy.greetingInterrupt")
+    static let greetComplete    = Notification.Name("compagnon.greetComplete")
+    static let greetingHover    = Notification.Name("compagnon.greetingHover")
+    static let greetingInterrupt = Notification.Name("compagnon.greetingInterrupt")
 }
 
 // MARK: - islandSize (takes real notch dimensions)
