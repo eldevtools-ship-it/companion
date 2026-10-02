@@ -115,6 +115,8 @@ enum CardLayout {
     static let botCenterYOffset: CGFloat = botDiameter * 0.104
     static let leftCardWidth: CGFloat = 322
     static let headerTop: CGFloat = IslandConst.cardInset + 2
+    /// Top of the line under a card's title — the same gap in every card.
+    static let secondLineTop: CGFloat = headerTop + 21
 }
 
 // MARK: - Constants (from NW, NH, EW in prototype)
@@ -138,7 +140,7 @@ enum IslandConst {
     static let headerHeight: CGFloat = 34
     static let cardTop: CGFloat = headerTop + headerHeight          // 42
     /// Concave flare joining the island to the top of the screen.
-    static let flareExpanded: CGFloat = 12
+    static let flareExpanded: CGFloat = 17
     static let flareCompact: CGFloat = 8
     /// Width of each "ear" on either side of the notch when compact (bot left, minis right).
     static let compactEar: CGFloat = IslandRestingLayout.compactEar

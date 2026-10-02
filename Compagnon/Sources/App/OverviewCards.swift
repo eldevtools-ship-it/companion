@@ -175,13 +175,16 @@ private struct SessionCard: View {
             .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, 34)
 
+            Spacer(minLength: 0)
+
+            // Steps sit at the bottom of the card, like the boxes of the other cards
             TickerView(task: task)
                 .frame(height: 44)
-                .padding(.top, 6)
                 .padding(.leading, CardLayout.contentLeading)
                 .padding(.trailing, 12)
+                .padding(.bottom, IslandConst.cardInset)
         }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -249,7 +252,7 @@ private struct SlackCard: View {
                     .foregroundColor(Color(hex: "#C5C8CD"))
                     .lineLimit(2)
                     .truncationMode(.tail)
-                    .padding(.top, CardLayout.headerTop + 20)
+                    .padding(.top, CardLayout.secondLineTop)
                     .padding(.leading, CardLayout.contentLeading)
                     .padding(.trailing, 14)
                     .opacity(replying ? 0 : 1)
@@ -297,7 +300,7 @@ private struct SlackCard: View {
                     .font(.system(size: 11))
                     .foregroundColor(Color(hex: "#6B7079"))
                     .lineLimit(2)
-                    .padding(.top, CardLayout.headerTop + 22)
+                    .padding(.top, CardLayout.secondLineTop)
                     .padding(.leading, CardLayout.contentLeading)
                     .padding(.trailing, 14)
             }
@@ -377,11 +380,11 @@ private struct HarvestCard: View {
     private func runningView(_ entry: HarvestEntry) -> some View {
         ZStack(alignment: .topLeading) {
             CardHeader(color: "#FA5D00", title: entry.projectName)
-            Text(entry.clientName.map { "\(entry.taskName) · \($0)" } ?? entry.taskName)
+            Text(entry.clientName.map { "\($0) / \(entry.taskName)" } ?? entry.taskName)
                 .font(.system(size: 11))
                 .foregroundColor(Color(hex: "#8E939C"))
                 .lineLimit(1)
-                .padding(.top, CardLayout.headerTop + 18)
+                .padding(.top, CardLayout.secondLineTop)
                 .padding(.leading, CardLayout.contentLeading)
                 .padding(.trailing, 34)
 
@@ -426,13 +429,13 @@ private struct HarvestCard: View {
     // No timer: restart the last task in one click, or pick another.
     private var idle: some View {
         ZStack(alignment: .topLeading) {
-            CardHeader(color: "#6B7079", title: "Harvest", subtitle: "Aucun timer")
+            CardHeader(color: "#6B7079", title: "Harvest")
             if let last = state.harvestLast {
                 Text("Dernier : \(last.label)")
                     .font(.system(size: 11))
                     .foregroundColor(Color(hex: "#8E939C"))
                     .lineLimit(1)
-                    .padding(.top, CardLayout.headerTop + 18)
+                    .padding(.top, CardLayout.secondLineTop)
                     .padding(.leading, CardLayout.contentLeading)
                     .padding(.trailing, 34)
             }
@@ -525,7 +528,7 @@ struct HarvestPickerView: View {
                 .foregroundColor(Color(hex: "#F5F6F8"))
                 .fixedSize()
                 .padding(.trailing, 4)
-            FieldButton(value: project.map { "\($0.clientName) · \($0.name)" }, placeholder: "Projet",
+            FieldButton(value: project.map { "\($0.clientName) / \($0.name)" }, placeholder: "Projet",
                         open: list == .project, height: fieldHeight,
                         loading: state.harvestProjects.isEmpty) {
                 show(list == .project ? .closed : .project)
@@ -803,7 +806,7 @@ private struct MeetingCard: View {
                         .foregroundColor(Color(hex: "#8E939C"))
                         .lineLimit(1)
                 }
-                .padding(.top, CardLayout.headerTop + 18)
+                .padding(.top, CardLayout.secondLineTop)
                 .padding(.leading, CardLayout.contentLeading)
                 .padding(.trailing, 34)
                 InsetBox(tint: Color(hex: PillColor.calendar)) {
@@ -840,7 +843,7 @@ private struct MeetingCard: View {
                 Text("Aucune réunion dans les prochaines 36 h.")
                     .font(.system(size: 11))
                     .foregroundColor(Color(hex: "#6B7079"))
-                    .padding(.top, CardLayout.headerTop + 22)
+                    .padding(.top, CardLayout.secondLineTop)
                     .padding(.leading, CardLayout.contentLeading)
             }
         }
@@ -865,7 +868,7 @@ private struct VercelCard: View {
                         .foregroundColor(Color(hex: "#8E939C"))
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .padding(.top, CardLayout.headerTop + 18)
+                        .padding(.top, CardLayout.secondLineTop)
                         .padding(.leading, CardLayout.contentLeading)
                         .padding(.trailing, 34)
                 }

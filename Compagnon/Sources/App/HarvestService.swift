@@ -23,7 +23,7 @@ struct HarvestEntry: Identifiable, Equatable {
         hours * 3600 + (isRunning ? now.timeIntervalSince(fetchedAt) : 0)
     }
 
-    var label: String { "\(projectName) · \(taskName)" }
+    var label: String { "\(projectName) / \(taskName)" }
 }
 
 /// A project you're assigned to, with the tasks you can track time on.

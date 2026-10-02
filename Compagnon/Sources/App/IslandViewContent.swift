@@ -567,7 +567,8 @@ struct AgentPill: View {
                     }
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 8)
+                // Same gap left of the mini-bot as above and below it (capped for tall tiles)
+                .padding(.horizontal, min(12, max(9, (height - 22) / 2)))
                 .frame(maxWidth: .infinity)
                 .frame(height: height)
                 .background(tile.fill(isHovered ? Color(hex: task.color).opacity(0.16) : Color(hex: "#0E0F11")))

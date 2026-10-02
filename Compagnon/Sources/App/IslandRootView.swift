@@ -399,15 +399,17 @@ struct CompactMiniGrid: View {
     }
 
     var body: some View {
-        let cols = [GridItem(.fixed(12), spacing: 4), GridItem(.fixed(12), spacing: 4)]
-        LazyVGrid(columns: cols, spacing: 4) {
+        let size = IslandRestingLayout.miniSize
+        let gap = IslandRestingLayout.miniGap
+        let cols = [GridItem(.fixed(size), spacing: gap), GridItem(.fixed(size), spacing: gap)]
+        LazyVGrid(columns: cols, spacing: gap) {
             ForEach(others) { task in
                 MiniBotCanvasView(task: task)
-                    .frame(width: 12 / 0.6, height: 12 / 0.6)
-                    .frame(width: 12, height: 12, alignment: .center)
+                    .frame(width: size / 0.6, height: size / 0.6)
+                    .frame(width: size, height: size, alignment: .center)
             }
         }
-        .frame(width: 28, height: 28)
+        .frame(width: IslandRestingLayout.miniGridSide, height: IslandRestingLayout.miniGridSide)
     }
 }
 

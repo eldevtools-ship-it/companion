@@ -38,8 +38,16 @@ struct IslandRestingLayout {
     let width: CGFloat
     let height: CGFloat
 
-    var botDiameter: CGFloat { min(20, max(0, height - 6)) }
-    var botCenterY: CGFloat { height / 2 }
-    var miniGridScale: CGFloat { min(1, max(0, height - 4) / 28) }
+    /// Mini-bot grid: 2 × 2 bots of `miniSize`, `miniGap` apart.
+    static let miniSize: CGFloat = 10
+    static let miniGap: CGFloat = 3
+    static var miniGridSide: CGFloat { miniSize * 2 + miniGap }
+
+    /// Small enough to leave the same breathing room above the antenna and below the body.
+    var botDiameter: CGFloat { min(18, max(0, height - 13)) }
+    /// The body + antenna block (−0.71 D … +0.47 D around the canvas centre) is centred
+    /// when the canvas centre sits 0.104 D below the middle.
+    var botCenterY: CGFloat { height / 2 + botDiameter * 0.104 }
+    var miniGridScale: CGFloat { min(1, max(0, height - 11) / Self.miniGridSide) }
     var miniGridCenterX: CGFloat { width - Self.compactEar / 2 }
 }

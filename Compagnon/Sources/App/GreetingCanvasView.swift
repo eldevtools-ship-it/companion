@@ -493,7 +493,7 @@ private func drawMinis(_ ctx: CGContext, alpha: Double, compact: IslandRestingLa
     guard alpha > 0.01 else { return }
     let cx = 320 - compact.width/2 + compact.miniGridCenterX
     let cy = compact.botCenterY
-    let sp: CGFloat = 6 * compact.miniGridScale
+    let sp: CGFloat = (IslandRestingLayout.miniSize + IslandRestingLayout.miniGap) / 2 * compact.miniGridScale
     let offsets: [(CGFloat, CGFloat)] = [(-sp,-sp),(sp,-sp),(-sp,sp),(sp,sp)]
     for (i,(dx,dy)) in offsets.enumerated() {
         ctx.saveGState()
@@ -501,7 +501,7 @@ private func drawMinis(_ ctx: CGContext, alpha: Double, compact: IslandRestingLa
         let scale = CGFloat(alpha) * compact.miniGridScale
         ctx.scaleBy(x: scale, y: scale)
         ctx.setFillColor(gHex(miniColors[i]))
-        ctx.addPath(characterPath(hw: 5.3, hh: 4)); ctx.fillPath()
+        ctx.addPath(characterPath(hw: 4.4, hh: 3.3)); ctx.fillPath()
         ctx.restoreGState()
     }
 }
