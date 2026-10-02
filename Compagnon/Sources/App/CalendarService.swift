@@ -90,7 +90,7 @@ final class CalendarService {
     }
 
     private func meeting(_ e: EKEvent) -> Meeting {
-        let color = e.calendar.flatMap { NSColor(cgColor: $0.cgColor) }?.hexString ?? "#7C5CFF"
+        let color = e.calendar.flatMap { NSColor(cgColor: $0.cgColor) }?.hexString ?? PillColor.calendar
         let title = e.title ?? ""
         return Meeting(id: e.calendarItemIdentifier + "@\(e.startDate.timeIntervalSince1970)",
                        title: title.isEmpty ? "Sans titre" : title,

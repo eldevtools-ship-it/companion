@@ -46,6 +46,9 @@ final class AppState: ObservableObject {
     // True while you type in the island (Slack reply): keeps it open
     @Published var isEditingText: Bool = false
 
+    // Harvest picker: the project / task list is open (the island grows to show it)
+    @Published var harvestListOpen: Bool = false
+
     // MARK: Settings (persisted)
 
     @Published var soundEnabled: Bool = true {
@@ -60,8 +63,9 @@ final class AppState: ObservableObject {
         }
     }
 
-    @Published var autoCloseInterval: TimeInterval = 15 {
-        didSet { UserDefaults.standard.set(autoCloseInterval, forKey: "autoCloseInterval") }
+    /// Seconds before the open island folds once the pointer has left it.
+    @Published var autoCloseDelay: TimeInterval = 3 {
+        didSet { UserDefaults.standard.set(autoCloseDelay, forKey: "autoCloseDelay") }
     }
 
     var absenceInterval: TimeInterval = 3 * 60 {
@@ -136,7 +140,7 @@ final class AppState: ObservableObject {
         let ud = UserDefaults.standard
         if let v = ud.object(forKey: "soundEnabled") as? Bool      { soundEnabled = v }
         if let v = ud.object(forKey: "soundVolume") as? Double     { soundVolume = v }
-        if let v = ud.object(forKey: "autoCloseInterval") as? Double { autoCloseInterval = v }
+        if let v = ud.object(forKey: "autoCloseDelay") as? Double  { autoCloseDelay = v }
         if let v = ud.object(forKey: "absenceInterval") as? Double { absenceInterval = v }
         if let v = ud.object(forKey: "greetThreshold") as? Double  { greetThresholdSeconds = v }
         if let v = ud.object(forKey: "hotkeyEnabled") as? Bool     { hotkeyEnabled = v }

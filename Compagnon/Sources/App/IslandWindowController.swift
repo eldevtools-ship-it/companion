@@ -160,10 +160,12 @@ final class IslandWindowController: NSWindowController {
             MainActor.assumeIsolated { self?.fsm.greetComplete() }
         }
 
+        fsm.homeToPetitDelay = { max(1, AppState.shared.autoCloseDelay) }
+
         // Stay open while Claude waits for an answer or while you're typing / picking
         fsm.isHeldOpen = {
             let s = AppState.shared
-            return s.pendingApproval != nil || s.pendingQuestion != nil || s.isEditingText || s.view == .harvest
+            return s.pendingApproval != nil || s.pendingQuestion != nil || s.isEditingText || s.harvestListOpen
         }
     }
 
@@ -193,6 +195,13 @@ final class IslandWindowController: NSWindowController {
         let hoverRect = !hasNotch && state.mode != .expanded
             ? islandRect : islandRect.insetBy(dx: -6, dy: -6)
         let inIsland = hoverRect.contains(local)
+
+        // Pointer over the island: show our cursor (hand on buttons), not the one the
+        // app underneath keeps setting (often a text I-beam).
+        if inIsland && (local != lastLocal || !wasInIsland) {
+            IslandCursor.apply()
+        }
+        lastLocal = local
 
         // Toggle click-through
         let shouldAcceptMouse = inIsland
@@ -244,6 +253,7 @@ final class IslandWindowController: NSWindowController {
     }
 
     private var lastMouse: CGPoint = .zero
+    private var lastLocal: CGPoint = .zero
 
     // MARK: - Bot-head hover (love emote — mirrors prototype botHover())
 
@@ -313,6 +323,13 @@ final class IslandWindowController: NSWindowController {
         state.lastActivity = .now
     }
 
+    /// Opens the island from outside the FSM (menu bar, hotkey) and keeps the FSM in step,
+    /// so leaving it afterwards folds it like any other time.
+    func open(to view: IslandView) {
+        fsm.openedExternally(pointerInside: wasInIsland)
+        expand(to: view)
+    }
+
     func collapse() {
         guard fsm.isHeldOpen?() != true else { return }
         state.isPinned = false
@@ -342,7 +359,7 @@ final class IslandWindowController: NSWindowController {
             let view = note.object as? IslandView
             MainActor.assumeIsolated {
                 guard let self, let view else { return }
-                self.fsm.openedExternally()
+                self.fsm.openedExternally(pointerInside: self.wasInIsland)
                 self.expand(to: view)
             }
         }
@@ -405,7 +422,7 @@ final class IslandWindowController: NSWindowController {
                 let pressed = event.modifierFlags.intersection([.command, .control, .option, .shift]).rawValue
                 guard pressed == self.state.hotkeyFlags, event.keyCode == self.state.hotkeyCode else { return }
                 if self.state.mode == .hidden || self.state.mode == .compact {
-                    self.expand(to: .overview)
+                    self.open(to: .overview)
                 }
             }
         }
@@ -555,14 +572,18 @@ extension Notification.Name {
 
 // MARK: - islandSize (takes real notch dimensions)
 
+@MainActor
 func islandSize(mode: IslandMode, view: IslandView,
                 nw: CGFloat = IslandConst.notchWidth,
                 nh: CGFloat = IslandConst.notchHeight) -> (CGFloat, CGFloat) {
     switch mode {
     case .hidden:   return (nw, nh)
-    case .compact:  return (nw + 160, nh)
+    case .compact:  return (nw + IslandConst.compactEar * 2, nh)
     case .expanded:
         let layout = IslandConst.viewLayouts[view]!
+        if view == .harvest && AppState.shared.harvestListOpen {
+            return (IslandConst.expandedWidth, IslandConst.harvestListHeight)
+        }
         return (IslandConst.expandedWidth, layout.height)
     }
 }

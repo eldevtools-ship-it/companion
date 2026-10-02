@@ -41,7 +41,7 @@ struct EmptyStateView: View {
                 }
                 Spacer()
             }
-            .padding(.leading, 118)
+            .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, 18)
         }
     }
@@ -75,7 +75,7 @@ struct ApprovalView: View {
                     }
                 }
             }
-            .padding(.leading, 116)
+            .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, 16)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -145,6 +145,7 @@ struct QuestionView: View {
                                 .frame(height: 26)
                                 .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
                                     .fill(Color.white.opacity(0.07)))
+                                .textCursor()
                             choiceButton("Envoyer", prominent: true,
                                          disabled: custom.trimmingCharacters(in: .whitespaces).isEmpty) { answer(custom) }
                         }
@@ -171,7 +172,7 @@ struct QuestionView: View {
                         }
                     }
                 }
-                .padding(.leading, 104)
+                .padding(.leading, CardLayout.contentLeading)
                 .padding(.trailing, IslandConst.cardInset + 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -193,6 +194,7 @@ struct QuestionView: View {
                     .fill(prominent ? Color(hex: "#22D3EE") : Color.white.opacity(0.09)))
         }
         .buttonStyle(.plain)
+        .pointingHand()
         .disabled(disabled)
         .opacity(disabled ? 0.45 : 1)
     }
@@ -241,7 +243,7 @@ struct ErrorView: View {
                     SecondaryButton("Ouvrir dans n8n") { /* open */ }
                 }
             }
-            .padding(.leading, 116)
+            .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, 16)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -277,7 +279,7 @@ struct FinishedView: View {
                     }
                 }
             }
-            .padding(.leading, 116)
+            .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, 16)
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -296,7 +298,7 @@ struct ConfusedView: View {
                 Text("Laisse-moi souffler — je reprends dans trois secondes.")
                     .font(.system(size: 13)).foregroundColor(Color(hex: "#9398A1"))
             }
-            .padding(.leading, 128)
+            .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, 18)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -315,7 +317,7 @@ struct NoteView: View {
                 Text(state.noteMessage ?? "")
                     .font(.system(size: 15, weight: .semibold))
             }
-            .padding(.leading, 98)
+            .padding(.leading, CardLayout.contentLeading)
         }
     }
 }
@@ -578,6 +580,7 @@ struct AgentPill: View {
             }
         }
         .buttonStyle(.plain)
+        .pointingHand()
         .brightness(isHovered ? 0.04 : 0)
         .onHover { newHover in
             guard !swapping else { return }
@@ -831,6 +834,7 @@ struct PrimaryButton: View {
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .pointingHand()
     }
 }
 
@@ -860,6 +864,7 @@ struct SecondaryButton: View {
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .pointingHand()
     }
 }
 
@@ -915,21 +920,22 @@ struct SettingsIslandView: View {
                         .font(.system(size: 12))
                         .foregroundColor(Color(hex: "#8E939C"))
                         .frame(width: 16)
-                    Text("Fermeture auto · \(Int(state.autoCloseInterval)) s")
+                    Text("Refermer après · \(Int(state.autoCloseDelay)) s")
                         .font(.system(size: 12))
                         .foregroundColor(Color(hex: "#C5C8CD"))
                     Spacer()
                     HStack(spacing: 6) {
-                        ForEach([10, 15, 30], id: \.self) { s in
+                        ForEach([2, 3, 5], id: \.self) { s in
                             Button("\(s) s") {
-                                state.autoCloseInterval = Double(s)
+                                state.autoCloseDelay = Double(s)
                             }
                             .font(.system(size: 11))
                             .padding(.horizontal, 7).padding(.vertical, 3)
-                            .background(state.autoCloseInterval == Double(s) ? Color(hex: "#252830") : Color.clear)
-                            .foregroundColor(state.autoCloseInterval == Double(s) ? Color(hex: "#F5F6F8") : Color(hex: "#6B7079"))
+                            .background(state.autoCloseDelay == Double(s) ? Color(hex: "#252830") : Color.clear)
+                            .foregroundColor(state.autoCloseDelay == Double(s) ? Color(hex: "#F5F6F8") : Color(hex: "#6B7079"))
                             .clipShape(Capsule())
                             .buttonStyle(.plain)
+                            .pointingHand()
                         }
                     }
                 }
@@ -946,9 +952,10 @@ struct SettingsIslandView: View {
                     .font(.system(size: 11.5))
                     .foregroundColor(Color(hex: "#8E939C"))
                     .buttonStyle(.plain)
+                    .pointingHand()
                 }
             }
-            .padding(.leading, 84)
+            .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, 16)
             .padding(.vertical, 14)
         }

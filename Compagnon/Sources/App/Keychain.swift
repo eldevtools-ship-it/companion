@@ -62,7 +62,7 @@ final class KeychainStore: @unchecked Sendable {
 
     private static let allKeys = [
         "github-token",
-        "vercel-token",
+        "vercel-token", "vercel-token-2",
         "slack-user-token", "slack-app-token",
         "harvest-token", "harvest-account-id",
         "update-token",

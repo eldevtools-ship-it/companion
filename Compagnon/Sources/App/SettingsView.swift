@@ -22,6 +22,7 @@ struct SettingsView: View {
     @State private var githubToken: String    = KeychainStore.shared.get("github-token")            ?? ""
     @State private var calendarAccess: Bool = CalendarService.shared.hasAccess
     @State private var vercelToken: String    = KeychainStore.shared.get(VercelService.tokenKey)    ?? ""
+    @State private var vercelToken2: String   = KeychainStore.shared.get(VercelService.secondTokenKey) ?? ""
     @State private var updateToken: String    = KeychainStore.shared.get(UpdateService.tokenKey)    ?? ""
 
     // Hotkey
@@ -69,12 +70,12 @@ struct SettingsView: View {
                         set: { if let v = $0 { selectedSection = v; statusMessage = "" } }
                     )) {
                         SettingsSidebarRow(title: "Général",       icon: "gearshape.fill",             color: "#8E939C").tag("general")
-                        SettingsSidebarRow(title: "Claude Code",   icon: "terminal.fill",              color: "#D97757").tag("claude")
+                        SettingsSidebarRow(title: "Claude Code",   icon: "terminal.fill",              color: PillColor.claude).tag("claude")
                         SettingsSidebarRow(title: "Slack",         icon: "bubble.left.fill",           color: "#E01E5A").tag("slack")
                         SettingsSidebarRow(title: "Harvest",       icon: "clock.fill",                 color: "#FA5D00").tag("harvest")
-                        SettingsSidebarRow(title: "Agenda",        icon: "calendar",                   color: "#7C5CFF").tag("calendar")
+                        SettingsSidebarRow(title: "Agenda",        icon: "calendar",                   color: PillColor.calendar).tag("calendar")
                         SettingsSidebarRow(title: "Vercel",        icon: "triangle.fill",              color: "#111111").tag("vercel")
-                        SettingsSidebarRow(title: "GitHub",        icon: "chevron.left.forwardslash.chevron.right", color: "#6E7681").tag("github")
+                        SettingsSidebarRow(title: "GitHub",        icon: "chevron.left.forwardslash.chevron.right", color: PillColor.github).tag("github")
                         SettingsSidebarRow(title: "Mises à jour",  icon: "arrow.down.circle.fill",     color: "#22C55E").tag("updates")
                     }
                     .listStyle(.sidebar)
@@ -161,11 +162,11 @@ struct SettingsView: View {
         GroupBox("Comportement") {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    Text("Fermer après")
-                    TextField("15", value: $state.autoCloseInterval, format: .number)
+                    Text("Refermer")
+                    TextField("3", value: $state.autoCloseDelay, format: .number)
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 64)
-                    Text("s d'inactivité")
+                        .frame(width: 48)
+                    Text("s après que la souris est sortie de l'île")
                 }
                 HStack(spacing: 8) {
                     Text("Masquer après")
@@ -381,18 +382,21 @@ struct SettingsView: View {
                          ?? (VercelService.shared.isConfigured ? "Connecté" : "Non configuré"))
                         .font(.system(size: 12, weight: .medium))
                 }
-                Text("Tes derniers déploiements dans l'île, et une alerte quand l'un d'eux est en ligne ou échoue. Crée un jeton sur vercel.com/account/tokens.")
+                Text("Tes derniers déploiements dans l'île, et une alerte quand l'un d'eux est en ligne ou échoue. Crée un jeton sur vercel.com/account/tokens avec la portée « Full Account » : Compagnon suit alors ton compte et toutes tes équipes (perso et boulot). Un deuxième compte Vercel, connecté avec un autre e-mail, a besoin de son propre jeton.")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Ouvrir vercel.com") { open("https://vercel.com/account/tokens") }
                 SecureField("Jeton Vercel", text: $vercelToken)
                     .textFieldStyle(.roundedBorder)
+                SecureField("Jeton d'un deuxième compte (facultatif)", text: $vercelToken2)
+                    .textFieldStyle(.roundedBorder)
                 Button("Enregistrer") {
                     saveKey(VercelService.tokenKey, vercelToken)
+                    saveKey(VercelService.secondTokenKey, vercelToken2)
                     VercelService.shared.restart()
                     state.refreshPills()
-                    statusMessage = "✓ Jeton Vercel enregistré."
+                    statusMessage = "✓ Jetons Vercel enregistrés."
                 }
                 .buttonStyle(.borderedProminent)
             }

@@ -23,16 +23,19 @@ struct IslandContainer: View {
     @State private var islandWidth:  CGFloat = IslandConst.notchWidth
     @State private var islandHeight: CGFloat = IslandConst.notchHeight
     @State private var cornerRadius: CGFloat = IslandConst.roundedCorner
-    // topRadius > 0 → convex expanded corners; < 0 → concave ear cutouts
-    @State private var islandTopRadius: CGFloat = 0
+    @State private var flare: CGFloat = 0
     @State private var greetNotif: Bool = false
 
     private let openSpring = Animation.spring(response: 0.5, dampingFraction: 0.72)
     private let closeEase  = Animation.timingCurve(0.45, 0, 0.2, 1, duration: 0.34)
 
-    /// Pixels the content must be pushed down to clear the concave ear transparent area.
-    /// = 0 in expanded mode (no ears), = earRadius in compact/notch mode.
-    private var earOffset: CGFloat { max(0, -islandTopRadius) }
+    private func flare(for mode: IslandMode) -> CGFloat {
+        switch mode {
+        case .hidden:   return 0
+        case .compact:  return IslandConst.flareCompact
+        case .expanded: return IslandConst.flareExpanded
+        }
+    }
 
     var body: some View {
         let greetingActive = state.mode == .expanded && state.view == .greeting
@@ -40,7 +43,7 @@ struct IslandContainer: View {
         return ZStack(alignment: .topLeading) {
             // Black island shape
             IslandShape(width: islandWidth, height: islandHeight,
-                        cornerRadius: cornerRadius, topRadius: islandTopRadius)
+                        cornerRadius: cornerRadius, flare: flare)
                 .fill(Color.black)
 
             // Content
@@ -51,14 +54,13 @@ struct IslandContainer: View {
                         .frame(width: IslandConst.expandedWidth, height: 150)
                         .offset(x: (islandWidth - IslandConst.expandedWidth) / 2)
                         .clipShape(IslandShape(width: islandWidth, height: islandHeight,
-                                              cornerRadius: cornerRadius, topRadius: islandTopRadius))
+                                              cornerRadius: cornerRadius, flare: 0))
                         .transition(.opacity)
                 } else {
                     IslandContentView(state: state)
-                        .frame(width: islandWidth, height: islandHeight - earOffset)
-                        .offset(y: earOffset)
+                        .frame(width: islandWidth, height: islandHeight)
                         .clipShape(IslandShape(width: islandWidth, height: islandHeight,
-                                              cornerRadius: cornerRadius, topRadius: islandTopRadius))
+                                              cornerRadius: cornerRadius, flare: 0))
                         .transition(.opacity)
                 }
             }
@@ -76,13 +78,11 @@ struct IslandContainer: View {
                 .opacity(greetingActive ? 0 : 1)
                 .animation(.easeInOut(duration: 0.25), value: greetingActive)
 
-            CountdownBar(state: state, islandW: islandWidth)
-
             Group {
                 if state.mode == .compact {
                     CompactMiniGrid(state: state)
                         .scaleEffect(IslandRestingLayout(width: islandWidth, height: islandHeight).miniGridScale)
-                        .position(x: islandWidth - 40, y: islandHeight / 2)
+                        .position(x: islandWidth - IslandConst.compactEar / 2, y: islandHeight / 2)
                         .transition(.opacity)
                 }
             }
@@ -95,17 +95,26 @@ struct IslandContainer: View {
             let (w, h) = islandSize(mode: newMode, view: state.view,
                                     nw: state.notchWidth, nh: state.notchHeight)
             let cr  = newMode == .expanded ? IslandConst.expandedCorner : IslandConst.roundedCorner
-            let tr: CGFloat = 0
             withAnimation(anim) {
                 islandWidth      = w
                 islandHeight     = h
                 cornerRadius     = cr
-                islandTopRadius  = tr
+                flare            = flare(for: newMode)
             }
         }
         .onChange(of: state.view) { _, newView in
             guard state.mode == .expanded else { return }
             let (w, h) = islandSize(mode: .expanded, view: newView,
+                                    nw: state.notchWidth, nh: state.notchHeight)
+            withAnimation(openSpring) {
+                islandWidth  = w
+                islandHeight = h
+            }
+        }
+        // The Harvest list grows the island downwards while you pick
+        .onChange(of: state.harvestListOpen) { _, _ in
+            guard state.mode == .expanded else { return }
+            let (w, h) = islandSize(mode: .expanded, view: state.view,
                                     nw: state.notchWidth, nh: state.notchHeight)
             withAnimation(openSpring) {
                 islandWidth  = w
@@ -118,7 +127,7 @@ struct IslandContainer: View {
             islandWidth      = w
             islandHeight     = h
             cornerRadius     = state.mode == .expanded ? IslandConst.expandedCorner : IslandConst.roundedCorner
-            islandTopRadius  = 0
+            flare            = flare(for: state.mode)
         }
         .onReceive(NotificationCenter.default.publisher(for: .botGreet)) { _ in
             greetNotif.toggle()
@@ -132,79 +141,43 @@ struct IslandContainer: View {
 
 // MARK: - Island shape
 //
-// topRadius > 0  → convex rounded top corners (expanded mode)
-// topRadius < 0  → concave ear cutouts, |topRadius| = ear radius (compact/notch mode)
-// topRadius = 0  → sharp top corners (transient during animation)
+// The body is `width` × `height` with rounded bottom corners. At the top, a concave
+// `flare` curves outwards on both sides (drawn outside the frame), so the island
+// grows out of the screen edge instead of meeting it at a hard right angle.
 
 struct IslandShape: Shape {
     var width: CGFloat
     var height: CGFloat
     var cornerRadius: CGFloat   // bottom corners
-    var topRadius: CGFloat      // see above
+    var flare: CGFloat          // top flare, outside the frame
 
-    var animatableData: AnimatablePair<AnimatablePair<AnimatablePair<CGFloat, CGFloat>, CGFloat>, CGFloat> {
-        get { .init(.init(.init(width, height), cornerRadius), topRadius) }
+    var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>, AnimatablePair<CGFloat, CGFloat>> {
+        get { .init(.init(width, height), .init(cornerRadius, flare)) }
         set {
-            width        = newValue.first.first.first
-            height       = newValue.first.first.second
-            cornerRadius = newValue.first.second
-            topRadius    = newValue.second
+            width        = newValue.first.first
+            height       = newValue.first.second
+            cornerRadius = newValue.second.first
+            flare        = newValue.second.second
         }
     }
 
     func path(in rect: CGRect) -> Path {
-        let cr = max(0, cornerRadius)
+        let cr = max(0, min(cornerRadius, width / 2, height / 2))
+        let f  = max(0, min(flare, height - cr))
         var p  = Path()
-
-        if topRadius >= 0 {
-            // ── Convex rounded top corners (expanded) ──────────────────────────
-            let tr = min(topRadius, min(width / 2, height / 2))
-            p.move(to: CGPoint(x: tr, y: 0))
-            p.addLine(to: CGPoint(x: width - tr, y: 0))
-            // Top-right convex corner
-            p.addArc(center: CGPoint(x: width - tr, y: tr), radius: tr,
-                     startAngle: .degrees(270), endAngle: .degrees(0), clockwise: false)
-            // Right edge
-            p.addLine(to: CGPoint(x: width, y: height - cr))
-            // Bottom-right corner
-            p.addArc(center: CGPoint(x: width - cr, y: height - cr), radius: cr,
-                     startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
-            // Bottom edge
-            p.addLine(to: CGPoint(x: cr, y: height))
-            // Bottom-left corner
-            p.addArc(center: CGPoint(x: cr, y: height - cr), radius: cr,
-                     startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
-            // Left edge
-            p.addLine(to: CGPoint(x: 0, y: tr))
-            // Top-left convex corner
-            p.addArc(center: CGPoint(x: tr, y: tr), radius: tr,
-                     startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-        } else {
-            // ── Concave ear cutouts (compact / notch) ─────────────────────────
-            let er = -topRadius   // positive ear radius
-            p.move(to: CGPoint(x: 0, y: 0))
-            // Top-left ear
-            p.addArc(center: CGPoint(x: 0, y: er), radius: er,
-                     startAngle: .degrees(270), endAngle: .degrees(0), clockwise: false)
-            // Top edge
-            p.addLine(to: CGPoint(x: width - er, y: er))
-            // Top-right ear
-            p.addArc(center: CGPoint(x: width, y: er), radius: er,
-                     startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
-            // Right edge
-            p.addLine(to: CGPoint(x: width, y: height - cr))
-            // Bottom-right corner
-            p.addArc(center: CGPoint(x: width - cr, y: height - cr), radius: cr,
-                     startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
-            // Bottom edge
-            p.addLine(to: CGPoint(x: cr, y: height))
-            // Bottom-left corner
-            p.addArc(center: CGPoint(x: cr, y: height - cr), radius: cr,
-                     startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
-            // Left edge back to top-left corner
-            p.addLine(to: CGPoint(x: 0, y: 0))
-        }
-
+        p.move(to: CGPoint(x: -f, y: 0))
+        p.addLine(to: CGPoint(x: width + f, y: 0))
+        // Top-right flare: from the screen edge down into the right side
+        p.addQuadCurve(to: CGPoint(x: width, y: f), control: CGPoint(x: width, y: 0))
+        p.addLine(to: CGPoint(x: width, y: height - cr))
+        p.addArc(center: CGPoint(x: width - cr, y: height - cr), radius: cr,
+                 startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+        p.addLine(to: CGPoint(x: cr, y: height))
+        p.addArc(center: CGPoint(x: cr, y: height - cr), radius: cr,
+                 startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+        p.addLine(to: CGPoint(x: 0, y: f))
+        // Top-left flare
+        p.addQuadCurve(to: CGPoint(x: -f, y: 0), control: CGPoint(x: 0, y: 0))
         p.closeSubpath()
         return p
     }
@@ -284,7 +257,7 @@ func botPosition(mode: IslandMode, view: IslandView, islandW: CGFloat, islandH: 
     case .hidden:
         return hasNotch ? (46, 16, 6, 0)
             : (islandW / 2, resting.botCenterY, resting.botDiameter, 1)
-    case .compact: return (40, resting.botCenterY, resting.botDiameter, 1)
+    case .compact: return (IslandConst.compactEar / 2, resting.botCenterY, resting.botDiameter, 1)
     case .expanded:
         let layout = IslandConst.viewLayouts[view]!
         let diameter = layout.botDiameter
@@ -293,55 +266,11 @@ func botPosition(mode: IslandMode, view: IslandView, islandW: CGFloat, islandH: 
         if let fixedY = layout.botY {
             cy = fixedY
         } else {
-            // Center of the fixed 84pt card (VStack top=8, header=34 → content starts at y=42)
-            let headerBottom: CGFloat = 42
-            let cardH: CGFloat = 84
-            cy = headerBottom + (islandH - headerBottom - cardH) / 2 + cardH / 2
+            // Centred in the card, which runs from below the header to contentInset above the bottom
+            let cardH = islandH - IslandConst.cardTop - IslandConst.contentInset
+            cy = IslandConst.cardTop + cardH / 2 + CardLayout.botCenterYOffset
         }
         return (cx, cy, diameter, 1)
-    }
-}
-
-// MARK: - Countdown bar
-
-struct CountdownBar: View {
-    @ObservedObject var state: AppState
-    let islandW: CGFloat
-    @State private var barWidth: CGFloat = 0
-    @State private var timer: Timer? = nil
-
-    var body: some View {
-        GeometryReader { _ in
-            Rectangle()
-                .fill(Color.white.opacity(0.35))
-                .frame(width: barWidth, height: 2)
-                .cornerRadius(2)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        }
-        .onAppear { startTimer() }
-        .onDisappear { timer?.invalidate() }
-    }
-
-    private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            MainActor.assumeIsolated { updateBar() }
-        }
-    }
-
-    private func updateBar() {
-        guard state.mode == .expanded && !state.isPinned else {
-            barWidth = 0
-            return
-        }
-        let autoClose = state.autoCloseInterval
-        let window = min(10.0, autoClose * 0.6)
-        let elapsed = Date.now.timeIntervalSince(state.lastActivity)
-        let remaining = autoClose - elapsed
-        if remaining < window {
-            barWidth = max(0, CGFloat(remaining / window) * 160)
-        } else {
-            barWidth = 0
-        }
     }
 }
 
@@ -353,7 +282,7 @@ struct IslandContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             IslandHeader(state: state)
-                .frame(height: 34)
+                .frame(height: IslandConst.headerHeight)
                 .opacity(state.view == .confused ? 0 : 1)
                 .animation(.easeInOut(duration: 0.2), value: state.view == .confused)
 
@@ -364,8 +293,7 @@ struct IslandContentView: View {
                         ? .spring(response: 0.4, dampingFraction: 0.8).delay(0.16)
                         : .easeIn(duration: 0.16)
                     IslandViewContent(view: v, state: state)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 98)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .opacity(active ? 1 : 0)
                         .scaleEffect(active ? 1 : 0.97)
                         .allowsHitTesting(active)
@@ -375,7 +303,7 @@ struct IslandContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, IslandConst.contentInset)
         }
-        .padding(.top, 8)
+        .padding(.top, IslandConst.headerTop)
         .padding(.bottom, IslandConst.contentInset)
         .foregroundColor(Color(hex: "#F5F6F8"))
     }
@@ -410,6 +338,7 @@ struct IslandHeader: View {
                         .foregroundColor(state.view == .settings ? Color(hex: "#F5F6F8") : Color(hex: "#8E939C"))
                 }
                 .buttonStyle(.plain)
+                .pointingHand()
 
                 Button(action: { state.soundEnabled.toggle() }) {
                     Image(systemName: state.soundEnabled ? "speaker.wave.2" : "speaker.slash")
@@ -417,6 +346,7 @@ struct IslandHeader: View {
                         .foregroundColor(Color(hex: "#8E939C"))
                 }
                 .buttonStyle(.plain)
+                .pointingHand()
             }
             .padding(.trailing, 16)
         }
@@ -454,6 +384,7 @@ struct TabButton: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .pointingHand()
         .onHover { isHovered = $0 }
     }
 }

@@ -30,7 +30,7 @@ private enum GT {
 private let GC0     = CGPoint(x: 320, y: 90)   // character center
 private let GHB:    CGFloat = 58                // body height at full size
 private let GASP:   CGFloat = 1.34             // body width/height ratio
-private let GEAR_X: CGFloat = 40               // ear x from small island left edge (matches BotPlacement compact x=40)
+private let GEAR_X: CGFloat = IslandConst.compactEar / 2   // bot x in the compact island (matches BotPlacement)
 private let GEAR_HB:CGFloat = 17               // ear body height
 private let GCARD   = CGRect(x: 10, y: 36, width: 620, height: 104)
 private let GCARD_R:CGFloat = 20
@@ -100,7 +100,7 @@ private func greetPose(_ t: Double, compact: IslandRestingLayout) -> GreetPose {
     // island size interpolation (used as reference for clip, not drawn)
     let gx = gSeg(t, 0, 0.5)
     let g  = sin(.pi*gx/2) + 0.04*sin(.pi*gx)*gx
-    let iw = gLerp(Double(compact.width - 160), 640, g)
+    let iw = gLerp(Double(compact.width - IslandConst.compactEar * 2), 640, g)
     let ih = gLerp(Double(compact.height), 150, g)
 
     // body grows with back-ease (tiny → full size)
@@ -557,7 +557,7 @@ struct GreetingCanvasView: View {
             Canvas { context, size in
                 context.withCGContext { cgCtx in
                     drawGreeting(cgCtx, size: size, t: t, tc: tc,
-                                 compact: IslandRestingLayout(width: state.notchWidth + 160,
+                                 compact: IslandRestingLayout(width: state.notchWidth + IslandConst.compactEar * 2,
                                                               height: state.notchHeight))
                 }
             }

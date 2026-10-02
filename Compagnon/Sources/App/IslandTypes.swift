@@ -97,6 +97,26 @@ enum AgentLayoutMode {
     case none, grid, pills, column
 }
 
+// MARK: - Card layout
+// Every expanded view is the same: the character sits in the left of the card,
+// centred, with the same gap between card edge → character → content.
+
+enum CardLayout {
+    static let botDiameter: CGFloat = 54
+    /// The gumdrop body is 1.14 × the diameter wide (BotEngine: rx = 0.57 D).
+    static let botBodyWidth: CGFloat = botDiameter * 1.14
+    static let botMargin: CGFloat = 22
+    /// Where text and boxes start, measured from the card's left edge.
+    static let contentLeading: CGFloat = (botMargin * 2 + botBodyWidth).rounded()
+    /// Character centre, measured from the island's left edge.
+    static let botCenterX: CGFloat = IslandConst.contentInset + botMargin + botBodyWidth / 2
+    /// The body + antenna block is centred when the canvas centre sits this far below
+    /// the card centre (antenna tip at −0.71 D, body bottom at +0.44 D, body offset +0.03 D).
+    static let botCenterYOffset: CGFloat = botDiameter * 0.104
+    static let leftCardWidth: CGFloat = 322
+    static let headerTop: CGFloat = IslandConst.cardInset + 2
+}
+
 // MARK: - Constants (from NW, NH, EW in prototype)
 
 enum IslandConst {
@@ -113,20 +133,28 @@ enum IslandConst {
     static let cardInset: CGFloat = 8                                // card edge → inner boxes
     static let innerRadius: CGFloat = cardRadius - cardInset         // 6
 
-    static let viewLayouts: [IslandView: ViewLayout] = [
-        .overview:  ViewLayout(height: 160, botX: 68,  botY: nil, botDiameter: 58, agentMode: .pills),
-        .empty:     ViewLayout(height: 160, botX: 70,  botY: nil, botDiameter: 62, agentMode: .none),
-        .approval:  ViewLayout(height: 160, botX: 62,  botY: nil, botDiameter: 56, agentMode: .column),
-        .question:  ViewLayout(height: 160, botX: 62,  botY: nil, botDiameter: 56, agentMode: .column),
-        .error:     ViewLayout(height: 160, botX: 62,  botY: nil, botDiameter: 58, agentMode: .column),
-        .finished:  ViewLayout(height: 160, botX: 62,  botY: nil, botDiameter: 58, agentMode: .column),
-        .confused:  ViewLayout(height: 160, botX: 76,  botY: nil, botDiameter: 66, agentMode: .column),
-        .note:      ViewLayout(height: 160, botX: 60,  botY: nil, botDiameter: 50, agentMode: .column),
-        .settings:  ViewLayout(height: 160, botX: 54,  botY: nil, botDiameter: 46, agentMode: .none),
-        .harvest:   ViewLayout(height: 160, botX: 52,  botY: nil, botDiameter: 44, agentMode: .none),
+    // Island chrome: header strip (back / gear / sound), then the cards.
+    static let headerTop: CGFloat = 8
+    static let headerHeight: CGFloat = 34
+    static let cardTop: CGFloat = headerTop + headerHeight          // 42
+    /// Concave flare joining the island to the top of the screen.
+    static let flareExpanded: CGFloat = 12
+    static let flareCompact: CGFloat = 8
+    /// Width of each "ear" on either side of the notch when compact (bot left, minis right).
+    static let compactEar: CGFloat = 42
+    /// Island height while the Harvest project / task list is open.
+    static let harvestListHeight: CGFloat = 284
+
+    static let viewLayouts: [IslandView: ViewLayout] = {
+        var d: [IslandView: ViewLayout] = [:]
+        for v in IslandView.allCases where v != .greeting {
+            d[v] = ViewLayout(height: 160, botX: CardLayout.botCenterX, botY: nil,
+                              botDiameter: CardLayout.botDiameter, agentMode: .none)
+        }
         // Greeting: bot drawn by GreetingCanvasView; no BotPlacement needed
-        .greeting:  ViewLayout(height: 150, botX: 320, botY: 90,  botDiameter: 0,  agentMode: .none),
-    ]
+        d[.greeting] = ViewLayout(height: 150, botX: 320, botY: 90, botDiameter: 0, agentMode: .none)
+        return d
+    }()
 
     // Project colors — keyed by lowercase display name or slug
     static let projectColors: [String: String] = [

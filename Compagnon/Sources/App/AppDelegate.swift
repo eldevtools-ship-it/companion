@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Warm up Keychain cache on main thread BEFORE any poller or view touches it
         _ = KeychainStore.shared
         NSApp.setActivationPolicy(.accessory)
+        IslandCursor.allowInBackground()
         setupMenuBarItem()
         setupIsland()
     }
@@ -108,7 +109,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openIsland() {
-        islandController?.expand(to: .overview)
+        islandController?.open(to: .overview)
     }
 
     private var settingsWindow: NSWindow?

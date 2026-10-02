@@ -5,7 +5,7 @@ dans l'encoche du Mac et fait trois choses, pour un seul utilisateur :
 - suivre les sessions Claude Code via leurs hooks et autoriser / refuser depuis l'encoche ;
 - afficher les messages directs et mentions Slack, et y répondre ;
 - piloter le timer Harvest (projet, tâche, note, start / stop, rappel).
-Plus une carte GitHub. C'est un fork de [Coucou](https://github.com/Louis-CFM/coucou)
+Plus l'Agenda, Vercel et GitHub. C'est un fork de [Coucou](https://github.com/Louis-CFM/coucou)
 (MIT), entièrement en français et avec sa propre identité. Garder l'app minimale :
 pas de nouvelle fonction sans usage réel.
 
@@ -18,10 +18,14 @@ pas de nouvelle fonction sans usage réel.
 - `Compagnon/Sources/App/HookServer.swift` — le pont avec Claude Code : socket
   `~/Library/Application Support/Compagnon/compagnon.sock`, script relais
   `compagnon-hook`, installation des hooks dans `~/.claude/settings.json`.
-- `Compagnon/Sources/App/PillCatalog.swift` — les quatre pastilles (Claude Code
-  toujours ; Slack, Harvest, GitHub dès que leurs clés sont enregistrées).
+- `Compagnon/Sources/App/PillCatalog.swift` — les pastilles (Claude Code toujours ;
+  Slack, Harvest, Agenda, Vercel, GitHub dès qu'elles sont configurées) et leurs
+  couleurs (`PillColor`, une teinte distincte par pastille).
 - `Compagnon/Sources/App/OverviewCards.swift` — la vue d'ensemble et les cartes
-  (Claude Code, Slack, Harvest + sélecteur de projet, GitHub).
+  (Claude Code, Slack, Harvest + sélecteur de projet, Agenda, Vercel, GitHub).
+- `Compagnon/Sources/App/IslandTypes.swift` — `CardLayout` : la grille commune à
+  toutes les vues (personnage centré à gauche, même marge bord → personnage → contenu).
+- `Compagnon/Sources/App/IslandCursor.swift` — curseur main / texte au survol de l'île.
 - `SlackService.swift`, `HarvestService.swift`, `GithubPoller.swift`,
   `UpdateService.swift` (mise à jour automatique depuis les releases GitHub).
 - `Compagnon/Resources/sounds/` — générés par `scripts/gen-sounds.py`.
@@ -44,6 +48,10 @@ cd Compagnon && xcodegen && xcodebuild -scheme Compagnon -configuration Debug bu
 - Arrondis concentriques : rayon intérieur = rayon extérieur − marge. Utiliser
   `IslandConst.expandedCorner` / `cardRadius` / `innerRadius` et les marges
   `contentInset` / `cardInset`, jamais de rayon en dur.
+- Mise en page : le contenu d'une carte commence à `CardLayout.contentLeading`, les
+  encadrés aussi (alignés sur le texte). Tout bouton de l'île porte `.pointingHand()`,
+  tout champ texte `.textCursor()`.
+- L'île se replie `autoCloseDelay` secondes (3 par défaut) après la sortie de la souris.
 - Ne jamais réintroduire le nom « Coucou », le personnage Mochi, l'icône, les
   sons ou les médias de Coucou (`LICENSE-ASSETS.md`). Garder la notice MIT de
   Louis Raillé dans `LICENSE`.

@@ -3,15 +3,9 @@ import AppKit
 
 // MARK: - Layout
 // The overview is two cards side by side. The character sits on the left of the
-// left card, so card content starts at `contentLeading`. Boxes inside a card keep
-// `IslandConst.cardInset` from its edges and use `IslandConst.innerRadius`, so every
-// corner is concentric with the one around it.
-
-enum CardLayout {
-    static let leftCardWidth: CGFloat = 322
-    static let contentLeading: CGFloat = 104
-    static let headerTop: CGFloat = 10
-}
+// left card, so card content starts at `CardLayout.contentLeading`. Boxes inside a
+// card keep `IslandConst.cardInset` from its edges and use `IslandConst.innerRadius`,
+// so every corner is concentric with the one around it.
 
 // MARK: - Overview
 
@@ -90,7 +84,8 @@ struct CardHeader: View {
     }
 }
 
-/// A box pinned to the bottom of the card, concentric with the card's corner.
+/// A box pinned to the bottom of the card, concentric with the card's corner. Its left
+/// edge lines up with the text above it, so it keeps the same gap from the character.
 struct InsetBox<Content: View>: View {
     var tint: Color = .white
     @ViewBuilder let content: () -> Content
@@ -104,7 +99,7 @@ struct InsetBox<Content: View>: View {
                 RoundedRectangle(cornerRadius: IslandConst.innerRadius)
                     .fill(tint.opacity(0.07))
             )
-            .padding(.leading, CardLayout.contentLeading - 10)
+            .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, IslandConst.cardInset)
             .padding(.bottom, IslandConst.cardInset)
             .frame(maxHeight: .infinity, alignment: .bottom)
@@ -123,6 +118,7 @@ struct OpenButton: View {
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)
+        .pointingHand()
         .help("Ouvrir")
     }
 }
@@ -142,8 +138,10 @@ struct CardLink: View {
             }
             .font(.system(size: 11, weight: .medium))
             .foregroundColor(Color(hex: color))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .pointingHand()
     }
 }
 
@@ -194,7 +192,7 @@ private struct ClaudeIdleCard: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            CardHeader(color: "#D97757", title: "Claude Code",
+            CardHeader(color: PillColor.claude, title: "Claude Code",
                        subtitle: !installed ? "Hooks non installés" : (outdated ? "Hooks à mettre à jour" : "En attente"))
             InsetBox {
                 HStack(spacing: 12) {
@@ -229,9 +227,14 @@ private struct SlackCard: View {
     @State private var draft = ""
     @State private var sending = false
     @State private var note: String? = nil
+    @State private var shown = 0          // 0 = latest; ‹ › walk through the others
     @FocusState private var fieldFocused: Bool
 
-    private var latest: SlackMessage? { state.slackMessages.first }
+    private var latest: SlackMessage? {
+        let list = state.slackMessages
+        guard !list.isEmpty else { return nil }
+        return list[min(shown, list.count - 1)]
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -261,6 +264,7 @@ private struct SlackCard: View {
                                 .focused($fieldFocused)
                                 .onSubmit { send(to: msg) }
                                 .onExitCommand { replying = false; draft = ""; state.isEditingText = false }
+                                .textCursor()
                             Button { send(to: msg) } label: {
                                 Image(systemName: sending ? "ellipsis" : "paperplane.fill")
                                     .font(.system(size: 10, weight: .semibold))
@@ -268,6 +272,7 @@ private struct SlackCard: View {
                             }
                             .buttonStyle(.plain)
                             .disabled(sending || draft.trimmingCharacters(in: .whitespaces).isEmpty)
+                            .pointingHand()
                         } else {
                             CardLink(title: "Répondre", icon: "arrowshape.turn.up.left.fill", color: "#36C5F0") {
                                 replying = true
@@ -282,10 +287,7 @@ private struct SlackCard: View {
                                     .font(.system(size: 10.5, weight: .medium))
                                     .foregroundColor(Color(hex: "#22C55E"))
                             } else if state.slackMessages.count > 1 {
-                                Text("+\(state.slackMessages.count - 1)")
-                                    .font(.system(size: 10.5, weight: .medium))
-                                    .foregroundColor(Color(hex: "#6B7079"))
-                                    .monospacedDigit()
+                                pager
                             }
                         }
                     }
@@ -302,8 +304,39 @@ private struct SlackCard: View {
         }
         .onAppear { SlackService.shared.markRead() }
         .onChange(of: state.slackUnread) { _, n in if n > 0 { SlackService.shared.markRead() } }
-        .onChange(of: latest?.id) { _, _ in replying = false; draft = ""; state.isEditingText = false }
+        .onChange(of: state.slackMessages.first?.id) { _, _ in
+            shown = 0; replying = false; draft = ""; state.isEditingText = false
+        }
         .onDisappear { state.isEditingText = false }
+    }
+
+    /// ‹ 2/5 › — older messages are one click away.
+    private var pager: some View {
+        let count = state.slackMessages.count
+        let index = min(shown, count - 1)
+        return HStack(spacing: 2) {
+            pageButton("chevron.left", enabled: index + 1 < count) { shown = index + 1 }
+            Text("\(index + 1)/\(count)")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundColor(Color(hex: "#8E939C"))
+                .monospacedDigit()
+                .frame(minWidth: 26)
+            pageButton("chevron.right", enabled: index > 0) { shown = index - 1 }
+        }
+    }
+
+    private func pageButton(_ icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(Color.white.opacity(enabled ? 0.85 : 0.25))
+                .frame(width: 18, height: 18)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .pointingHand()
+        .help(icon == "chevron.left" ? "Message précédent" : "Message suivant")
     }
 
     private func send(to msg: SlackMessage) {
@@ -369,6 +402,7 @@ private struct HarvestCard: View {
                             .background(Circle().fill(Color.white.opacity(0.08)))
                     }
                     .buttonStyle(.plain)
+                    .pointingHand()
                     .help("Changer de tâche")
                     Button {
                         busy = true
@@ -382,6 +416,7 @@ private struct HarvestCard: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(busy)
+                    .pointingHand()
                     .help("Arrêter le timer")
                 }
             }
@@ -422,16 +457,26 @@ private struct HarvestCard: View {
 }
 
 /// Full-width card: pick the project (grouped by client), the task, an optional note, start.
+/// The project and task lists open inside the island (it grows downwards), no system menu.
 struct HarvestPickerView: View {
     @ObservedObject var state: AppState
     @State private var projectId: Int? = nil
     @State private var taskId: Int? = nil
     @State private var notes = ""
     @State private var busy = false
+    @State private var list: ListMode = .closed
+    @State private var filter = ""
     @FocusState private var notesFocused: Bool
+    @FocusState private var filterFocused: Bool
+
+    private enum ListMode { case closed, project, task }
+
+    private let fieldHeight: CGFloat = 30
+    private static let orange = "#FA5D00"
 
     private var project: HarvestProject? { state.harvestProjects.first { $0.id == projectId } }
     private var task: HarvestTask? { project?.tasks.first { $0.id == taskId } }
+
     private struct ClientGroup: Identifiable {
         let name: String
         let projects: [HarvestProject]
@@ -439,7 +484,11 @@ struct HarvestPickerView: View {
     }
 
     private var clients: [ClientGroup] {
-        Dictionary(grouping: state.harvestProjects, by: { $0.clientName })
+        let q = filter.trimmingCharacters(in: .whitespaces).lowercased()
+        let shown = q.isEmpty ? state.harvestProjects : state.harvestProjects.filter {
+            $0.name.lowercased().contains(q) || $0.clientName.lowercased().contains(q)
+        }
+        return Dictionary(grouping: shown, by: { $0.clientName })
             .map { ClientGroup(name: $0.key, projects: $0.value.sorted { $0.name < $1.name }) }
             .sorted { $0.name < $1.name }
     }
@@ -447,85 +496,198 @@ struct HarvestPickerView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             CardBackground(wash: nil)
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Text(state.harvestRunning == nil ? "Nouveau timer" : "Changer de tâche")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color(hex: "#F5F6F8"))
-                    if state.harvestProjects.isEmpty {
-                        ProgressView().controlSize(.mini)
-                        Text("Chargement des projets…")
-                            .font(.system(size: 11))
-                            .foregroundColor(Color(hex: "#8E939C"))
-                    }
-                    Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 10) {
+                fieldsRow
+                if list == .closed {
+                    noteRow
+                } else {
+                    listPanel
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
-                HStack(spacing: 8) {
-                    PickerField(label: project.map { "\($0.clientName) · \($0.name)" } ?? "Projet") {
+            }
+            .padding(.leading, CardLayout.contentLeading)
+            .padding(.trailing, IslandConst.cardInset)
+            .padding(.vertical, IslandConst.cardInset + 4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: list == .closed ? .leading : .topLeading)
+        }
+        .onAppear { if state.view == .harvest { prepare() } }
+        .onChange(of: state.view) { _, v in
+            if v == .harvest { prepare() } else if list != .closed { show(.closed) }
+        }
+        .onDisappear { if list != .closed { show(.closed) } }
+    }
+
+    // [Nouveau timer] [Projet ⌄] [Tâche ⌄]
+    private var fieldsRow: some View {
+        HStack(spacing: 8) {
+            Text(state.harvestRunning == nil ? "Nouveau timer" : "Changer de tâche")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(Color(hex: "#F5F6F8"))
+                .fixedSize()
+                .padding(.trailing, 4)
+            FieldButton(value: project.map { "\($0.clientName) · \($0.name)" }, placeholder: "Projet",
+                        open: list == .project, height: fieldHeight,
+                        loading: state.harvestProjects.isEmpty) {
+                show(list == .project ? .closed : .project)
+            }
+            FieldButton(value: task?.name, placeholder: "Tâche",
+                        open: list == .task, height: fieldHeight) {
+                show(list == .task ? .closed : .task)
+            }
+            .frame(width: 150)
+            .disabled(project == nil)
+            .opacity(project == nil ? 0.5 : 1)
+        }
+    }
+
+    // [Note (facultatif)…] Annuler [▶ Démarrer]
+    private var noteRow: some View {
+        HStack(spacing: 8) {
+            ZStack(alignment: .leading) {
+                if notes.isEmpty {
+                    Text("Note (facultatif)")
+                        .font(.system(size: 11.5))
+                        .foregroundColor(Color.white.opacity(0.48))
+                        .allowsHitTesting(false)
+                }
+                TextField("", text: $notes)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11.5))
+                    .foregroundColor(Color(hex: "#F5F6F8"))
+                    .focused($notesFocused)
+                    .onSubmit { start() }
+            }
+            .padding(.horizontal, 10)
+            .frame(height: fieldHeight)
+            .background(FieldBackground(highlighted: notesFocused))
+            .textCursor()
+
+            Button("Annuler") { state.view = .overview }
+                .buttonStyle(.plain)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundColor(Color.white.opacity(0.6))
+                .padding(.horizontal, 6)
+                .keyboardShortcut(.cancelAction)
+                .pointingHand()
+
+            Button(action: start) {
+                HStack(spacing: 5) {
+                    Image(systemName: busy ? "ellipsis" : "play.fill").font(.system(size: 9, weight: .bold))
+                    Text("Démarrer")
+                }
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundColor(.black)
+                .padding(.horizontal, 14)
+                .frame(height: fieldHeight)
+                .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
+                    .fill(Color(hex: Self.orange).opacity(task == nil ? 0.35 : 1)))
+            }
+            .buttonStyle(.plain)
+            .disabled(task == nil || busy)
+            .pointingHand()
+        }
+    }
+
+    // The open list: projects grouped by client (with a filter), or the project's tasks.
+    private var listPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if list == .project {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Color.white.opacity(0.48))
+                    ZStack(alignment: .leading) {
+                        if filter.isEmpty {
+                            Text("Chercher un projet ou un client")
+                                .font(.system(size: 11.5))
+                                .foregroundColor(Color.white.opacity(0.48))
+                                .allowsHitTesting(false)
+                        }
+                        TextField("", text: $filter)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 11.5))
+                            .foregroundColor(Color(hex: "#F5F6F8"))
+                            .focused($filterFocused)
+                            .onSubmit {
+                                if let only = clients.first?.projects.first, clients.count == 1,
+                                   clients[0].projects.count == 1 { pick(only) }
+                            }
+                    }
+                    .textCursor()
+                }
+                .padding(.horizontal, 10)
+                .frame(height: 28)
+                Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+            }
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 1) {
+                    if list == .project {
+                        if clients.isEmpty {
+                            Text(state.harvestProjects.isEmpty ? "Chargement des projets…" : "Aucun projet trouvé")
+                                .font(.system(size: 11.5))
+                                .foregroundColor(Color.white.opacity(0.48))
+                                .padding(10)
+                        }
                         ForEach(clients) { client in
-                            Section(client.name) {
-                                ForEach(client.projects) { p in
-                                    Button(p.name) {
-                                        projectId = p.id
-                                        taskId = p.tasks.count == 1 ? p.tasks[0].id : nil
-                                    }
-                                }
+                            Text(client.name.uppercased())
+                                .font(.system(size: 9.5, weight: .semibold))
+                                .kerning(0.4)
+                                .foregroundColor(Color.white.opacity(0.4))
+                                .padding(.horizontal, 10)
+                                .padding(.top, 8)
+                                .padding(.bottom, 3)
+                            ForEach(client.projects) { p in
+                                ListRow(title: p.name, selected: p.id == projectId) { pick(p) }
+                            }
+                        }
+                    } else {
+                        ForEach(project?.tasks ?? []) { t in
+                            ListRow(title: t.name, selected: t.id == taskId) {
+                                taskId = t.id
+                                show(.closed)
                             }
                         }
                     }
-                    PickerField(label: task?.name ?? "Tâche") {
-                        ForEach(project?.tasks ?? []) { t in
-                            Button(t.name) { taskId = t.id }
-                        }
-                    }
-                    .disabled(project == nil)
-                    .frame(width: 150)
                 }
-                HStack(spacing: 8) {
-                    TextField("Note (facultatif)", text: $notes)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 11.5))
-                        .foregroundColor(Color(hex: "#F5F6F8"))
-                        .focused($notesFocused)
-                        .onSubmit { start() }
-                        .padding(.horizontal, 10)
-                        .frame(height: 26)
-                        .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
-                            .fill(Color.white.opacity(0.07)))
-                    Button("Annuler") { state.view = .overview }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundColor(Color(hex: "#8E939C"))
-                        .keyboardShortcut(.cancelAction)
-                    Button(action: start) {
-                        HStack(spacing: 5) {
-                            Image(systemName: busy ? "ellipsis" : "play.fill").font(.system(size: 9, weight: .bold))
-                            Text("Démarrer")
-                        }
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 12)
-                        .frame(height: 26)
-                        .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
-                            .fill(Color(hex: "#FA5D00").opacity(task == nil ? 0.35 : 1)))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(task == nil || busy)
-                }
-            }
-            .padding(.leading, 96)
-            .padding(.trailing, IslandConst.cardInset)
-            .padding(.vertical, IslandConst.cardInset)
-        }
-        .onAppear {
-            Task { await HarvestService.shared.loadProjects() }
-            // Preselect what you were doing last
-            let base = state.harvestRunning ?? state.harvestLast
-            if projectId == nil, let base {
-                projectId = base.projectId
-                taskId = base.taskId
+                .padding(4)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius).fill(Color.white.opacity(0.05)))
+        .overlay(RoundedRectangle(cornerRadius: IslandConst.innerRadius).stroke(Color.white.opacity(0.06), lineWidth: 1))
+    }
+
+    private func pick(_ p: HarvestProject) {
+        let changed = p.id != projectId
+        projectId = p.id
+        if p.tasks.count == 1 {
+            taskId = p.tasks[0].id
+            show(.closed)
+        } else {
+            if changed { taskId = nil }
+            show(.task)
+        }
+    }
+
+    private func show(_ mode: ListMode) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { list = mode }
+        filter = ""
+        let grow = mode != .closed
+        if state.harvestListOpen != grow { state.harvestListOpen = grow }
+        if mode == .project {
+            NotificationCenter.default.post(name: .islandNeedsKeyboard, object: nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { filterFocused = true }
+        }
+    }
+
+    /// Fresh form each time the picker opens, preset on what you were doing last.
+    private func prepare() {
+        Task { await HarvestService.shared.loadProjects() }
+        let base = state.harvestRunning ?? state.harvestLast
+        projectId = base?.projectId
+        taskId = base?.taskId
+        notes = ""
+        if list != .closed { show(.closed) }
     }
 
     private func start() {
@@ -541,34 +703,88 @@ struct HarvestPickerView: View {
     }
 }
 
-/// A menu that looks like a field: label on the left, chevron on the right.
-private struct PickerField<Items: View>: View {
-    let label: String
-    @ViewBuilder let items: () -> Items
+/// Field-looking button that opens a list: value (or placeholder) and a white chevron.
+private struct FieldButton: View {
+    let value: String?
+    let placeholder: String
+    let open: Bool
+    let height: CGFloat
+    var loading: Bool = false
+    let action: () -> Void
+    @State private var hovered = false
 
     var body: some View {
-        Menu {
-            items()
-        } label: {
+        Button(action: action) {
             HStack(spacing: 6) {
-                Text(label)
-                    .font(.system(size: 11.5))
-                    .foregroundColor(Color(hex: "#E5E7EB"))
+                Text(value ?? placeholder)
+                    .font(.system(size: 11.5, weight: value == nil ? .regular : .medium))
+                    .foregroundColor(value == nil ? Color.white.opacity(0.48) : Color(hex: "#F5F6F8"))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 4)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 8, weight: .semibold))
-                    .foregroundColor(Color(hex: "#8E939C"))
+                if loading {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.white)
+                        .rotationEffect(.degrees(open ? 180 : 0))
+                }
             }
             .padding(.horizontal, 10)
-            .frame(height: 26)
+            .frame(height: height)
             .frame(maxWidth: .infinity)
-            .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius).fill(Color.white.opacity(0.07)))
+            .background(FieldBackground(highlighted: open || hovered))
             .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
+        .buttonStyle(.plain)
+        .onHover { hovered = $0 }
+        .pointingHand()
+        .animation(.easeOut(duration: 0.15), value: open)
+    }
+}
+
+private struct FieldBackground: View {
+    let highlighted: Bool
+    var body: some View {
+        RoundedRectangle(cornerRadius: IslandConst.innerRadius)
+            .fill(Color.white.opacity(highlighted ? 0.11 : 0.08))
+            .overlay(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
+                .stroke(Color.white.opacity(highlighted ? 0.18 : 0.08), lineWidth: 1))
+    }
+}
+
+/// One row in the island list (project or task).
+private struct ListRow: View {
+    let title: String
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.system(size: 12, weight: selected ? .semibold : .regular))
+                    .foregroundColor(Color(hex: "#F5F6F8"))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 4)
+                if selected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Color(hex: "#FA5D00"))
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 26)
+            .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius - 2)
+                .fill(Color.white.opacity(hovered ? 0.08 : 0)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovered = $0 }
+        .pointingHand()
     }
 }
 
@@ -590,7 +806,7 @@ private struct MeetingCard: View {
                 .padding(.top, CardLayout.headerTop + 18)
                 .padding(.leading, CardLayout.contentLeading)
                 .padding(.trailing, 34)
-                InsetBox(tint: Color(hex: "#7C5CFF")) {
+                InsetBox(tint: Color(hex: PillColor.calendar)) {
                     HStack(spacing: 10) {
                         if m.joinURL != nil {
                             Button { CalendarService.shared.join(m) } label: {
@@ -603,9 +819,10 @@ private struct MeetingCard: View {
                                 .padding(.horizontal, 10)
                                 .frame(height: 24)
                                 .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius - 2)
-                                    .fill(Color(hex: "#7C5CFF")))
+                                    .fill(Color(hex: PillColor.calendar)))
                             }
                             .buttonStyle(.plain)
+                            .pointingHand()
                         }
                         if let loc = m.location, m.joinURL == nil || !loc.lowercased().hasPrefix("http") {
                             Text(loc)
@@ -619,7 +836,7 @@ private struct MeetingCard: View {
                     }
                 }
             } else {
-                CardHeader(color: "#7C5CFF", title: "Agenda", subtitle: "Rien de prévu")
+                CardHeader(color: PillColor.calendar, title: "Agenda", subtitle: "Rien de prévu")
                 Text("Aucune réunion dans les prochaines 36 h.")
                     .font(.system(size: 11))
                     .foregroundColor(Color(hex: "#6B7079"))
@@ -641,7 +858,7 @@ private struct VercelCard: View {
                 CardHeader(color: "#F4505E", title: "Vercel", subtitle: err)
             } else if let d = state.vercelDeployments.first {
                 CardHeader(color: d.statusColor, title: d.projectName,
-                           subtitle: [d.branch, d.timeAgo].compactMap { $0 }.joined(separator: " · "))
+                           subtitle: [d.account, d.branch, d.timeAgo].compactMap { $0 }.joined(separator: " · "))
                 if let msg = d.commitMessage, !msg.isEmpty {
                     Text(msg)
                         .font(.system(size: 11))
@@ -676,7 +893,7 @@ private struct VercelCard: View {
                     }
                 }
             } else {
-                CardHeader(color: "#E5E7EB", title: "Vercel", subtitle: "Chargement…")
+                CardHeader(color: PillColor.vercel, title: "Vercel", subtitle: "Chargement…")
             }
         }
     }
@@ -689,7 +906,7 @@ private struct GitHubCard: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            CardHeader(color: "#8B949E", title: "GitHub", subtitle: state.githubStats == nil ? "Chargement…" : "Aperçu")
+            CardHeader(color: PillColor.github, title: "GitHub", subtitle: state.githubStats == nil ? "Chargement…" : "Aperçu")
             if let stats = state.githubStats {
                 InsetBox {
                     HStack(spacing: 16) {

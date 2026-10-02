@@ -20,8 +20,12 @@ final class IslandStateMachine {
     /// When non-nil and returns true, timers and mouse-leave never auto-collapse or hide the island.
     var isHeldOpen: (() -> Bool)?
 
-    /// home → petit delay (seconds). Override for debug.
-    var homeToPetitDelay: TimeInterval = 15
+    /// home → petit delay once the pointer has left (seconds). Read on every use, so a
+    /// settings change applies right away.
+    var homeToPetitDelay: () -> TimeInterval = { 3 }
+    /// home → petit delay when the app opened the island on its own and the pointer
+    /// isn't over it (an alert, a reminder): long enough to read it.
+    var externalOpenDelay: TimeInterval = 6
     /// petit → hidden delay (seconds). Override for debug.
     var petitToHiddenDelay: TimeInterval = 60
     /// greeting → petit delay after greeting animation ends (no hover). ~0.6s syncs with canvas collapse.
@@ -72,7 +76,7 @@ final class IslandStateMachine {
         case .petit:
             schedulePetitHide()
         case .home:
-            if isHeldOpen?() != true { scheduleHomeCollapse() }
+            scheduleHomeCollapse()
         case .greeting:
             if isHeldOpen?() != true {
                 // Interrupt greeting immediately → compact (overrides 10s auto-collapse)
@@ -103,10 +107,10 @@ final class IslandStateMachine {
     /// The app expanded the island externally (hookExpand for an alert).
     /// Cancel timers and sync state to `.home` without firing `onTransition`, so the
     /// next hover/mouseLeft behave correctly instead of collapsing the island.
-    func openedExternally() {
+    func openedExternally(pointerInside: Bool = false) {
         cancelTimers()
-        guard state != .home && state != .greeting else { return }
-        state = .home
+        if state != .home && state != .greeting { state = .home }
+        if !pointerInside && state == .home { scheduleHomeCollapse(after: externalOpenDelay) }
     }
 
     /// The app folded the island itself (Escape, Settings, OK button, auto-close).
@@ -158,14 +162,21 @@ final class IslandStateMachine {
         DispatchQueue.main.asyncAfter(deadline: .now() + petitToHiddenDelay, execute: item)
     }
 
-    private func scheduleHomeCollapse() {
+    /// Folds the island after a delay. While something holds it open (an approval,
+    /// a question, typing), checks again later instead of giving up, so it still folds
+    /// once that's done even if the pointer never comes back.
+    private func scheduleHomeCollapse(after delay: TimeInterval? = nil) {
         homeCollapseWork?.cancel()
         let item = DispatchWorkItem { [weak self] in
-            guard let self, self.state == .home, !(self.isHeldOpen?() ?? false) else { return }
-            self.transition(to: .petit)
+            guard let self, self.state == .home else { return }
+            if self.isHeldOpen?() == true {
+                self.scheduleHomeCollapse()
+            } else {
+                self.transition(to: .petit)
+            }
         }
         homeCollapseWork = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + homeToPetitDelay, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + (delay ?? homeToPetitDelay()), execute: item)
     }
 
     func cancelTimers() {

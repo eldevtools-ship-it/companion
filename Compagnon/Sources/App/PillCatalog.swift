@@ -7,6 +7,18 @@ enum PillCategory: String, CaseIterable {
     case service     // shown as soon as it is configured
 }
 
+// MARK: - Colours
+// One distinct hue per pill, so you can tell them apart at a glance.
+
+enum PillColor {
+    static let claude   = "#D9A27E"   // Claude: soft clay, clearly not Harvest's orange
+    static let slack    = "#E01E5A"
+    static let harvest  = "#FA5D00"
+    static let calendar = "#4C8DFF"
+    static let vercel   = "#FFFFFF"
+    static let github   = "#A371F7"
+}
+
 // MARK: - Pill definition
 
 struct PillDefinition {
@@ -29,25 +41,25 @@ struct PillDefinition {
 
 enum PillCatalog {
     static let all: [PillDefinition] = [
-        .init(id: "integration_claude",  name: "Claude Code", color: "#F5F6F8",
+        .init(id: "integration_claude",  name: "Claude Code", color: PillColor.claude,
               category: .workspace, subtitle: "Sessions",    source: .claudeCode,
               isConfigured: { true }),
-        .init(id: "integration_slack",   name: "Slack",       color: "#E01E5A",
+        .init(id: "integration_slack",   name: "Slack",       color: PillColor.slack,
               category: .service,   subtitle: "Messages",    source: .service,
               isConfigured: {
                   KeychainStore.shared.get(SlackService.userTokenKey) != nil
                       && KeychainStore.shared.get(SlackService.appTokenKey) != nil
               }),
-        .init(id: "integration_harvest", name: "Harvest",     color: "#FA5D00",
+        .init(id: "integration_harvest", name: "Harvest",     color: PillColor.harvest,
               category: .service,   subtitle: "Temps",       source: .service,
               isConfigured: { HarvestService.shared.isConfigured }),
-        .init(id: "integration_calendar", name: "Agenda",     color: "#7C5CFF",
+        .init(id: "integration_calendar", name: "Agenda",     color: PillColor.calendar,
               category: .service,   subtitle: "Réunions",    source: .service,
               isConfigured: { CalendarService.shared.isConfigured }),
-        .init(id: "integration_vercel",  name: "Vercel",      color: "#E5E7EB",
+        .init(id: "integration_vercel",  name: "Vercel",      color: PillColor.vercel,
               category: .service,   subtitle: "Déploiements", source: .service,
               isConfigured: { VercelService.shared.isConfigured }),
-        .init(id: "integration_github",  name: "GitHub",      color: "#8B949E",
+        .init(id: "integration_github",  name: "GitHub",      color: PillColor.github,
               category: .service,   subtitle: "Dépôts",      source: .service,
               isConfigured: { KeychainStore.shared.get("github-token") != nil }),
     ]
