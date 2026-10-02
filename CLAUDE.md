@@ -1,44 +1,51 @@
-# Compagnon — règles propres à notre fork
+# Compagnon — guide pour les agents
 
-Ce dépôt est **Compagnon**, notre fork de Coucou (voir `README.md`). Les règles
-ci-dessous priment sur celles de Coucou qui suivent :
-- Le nom « Coucou », le personnage Mochi, l'icône, les sons et les médias de
-  Coucou ne sont pas sous MIT (`LICENSE-ASSETS.md`) : ne jamais les réintroduire.
-- La règle « garder le bundle identifier `fr.louisraille.NotchBuddy` » ne
-  s'applique pas : on passe à notre propre identifiant (étape 1 de la feuille de route).
-- La règle « ne jamais modifier l'apparence de l'existant » ne s'applique pas :
-  on retravaille l'app librement, en français.
-- Garder la notice MIT de Louis Raillé dans `LICENSE`.
+Compagnon est une app macOS native (`Compagnon/`) : un petit personnage qui vit
+dans l'encoche du Mac, suit les sessions Claude Code (et d'autres agents) via
+leurs hooks, et permet d'autoriser, répondre, discuter et déposer des fichiers
+depuis l'encoche. C'est un fork de [Coucou](https://github.com/Louis-CFM/coucou)
+(MIT), entièrement en français et avec sa propre identité.
 
----
-
-# Coucou — guide for AI coding agents
-
-Coucou is a native macOS app (`NotchBuddy/`); `windows/` is the Tauri version for Windows and Linux. Mochi, a small animated character living in the MacBook notch, shows AI coding agent sessions (Claude Code, Gemini CLI, Antigravity and more) and a few integrations, and lets the user approve, answer, chat and drop files from the notch.
-
-## Where things are
-- `NotchBuddy/Sources/App/` — all Swift code. `NotchBuddy/Resources/sounds/` — the 28 WAV sounds. `NotchBuddy/project.yml` — XcodeGen project (never edit the `.xcodeproj` by hand).
-- `NotchBuddy/Sources/App/PillCatalog.swift` — single source of truth for all declared pills (workspace tools, agents, AI providers, services). Every pill ID, color, category and subtitle lives here.
-- `docs/SPEC.md`, `docs/INTEGRATIONS.md` — behaviour, views, states, integrations (in French).
-- `design/prototype/notch-buddy.html` — original prototype, the visual source of truth. `design/captures/` — target screenshots.
-- `windows/` — the Tauri app for Windows and Linux: Rust in `src-tauri/`, TypeScript in `src/`, the `coucou-hook` relay in `hook/`. `windows/README.md` lists what differs from the Mac.
-- `docs/*.html` — the GitHub Pages site (privacy, terms, support, legal notice).
+## Où est quoi
+- `Compagnon/Sources/App/` — tout le code Swift. `Compagnon/project.yml` — projet
+  XcodeGen (le `.xcodeproj` est généré, jamais commité).
+- `Compagnon/Sources/App/CompagnonStyle.swift` — l'apparence du personnage
+  (couleurs, silhouette, antenne), partagée par `BotEngine.swift` (personnage
+  principal), `GreetingCanvasView.swift` (accueil) et `UploadCanvasView.swift`.
+- `Compagnon/Sources/App/HookServer.swift` — le pont avec Claude Code : socket
+  `~/Library/Application Support/Compagnon/compagnon.sock`, script relais
+  `compagnon-hook`, installation des hooks dans `~/.claude/settings.json`.
+- `Compagnon/Sources/App/PillCatalog.swift` — la liste des pastilles (outils,
+  agents, services).
+- `Compagnon/Resources/sounds/` — générés par `scripts/gen-sounds.py`.
+  `Compagnon/Assets.xcassets/` — icônes générées par `scripts/gen-icons.py`.
+  On modifie les scripts, puis on relance, plutôt que d'éditer les fichiers.
+- `docs/SPEC.md`, `docs/INTEGRATIONS.md` — spécifications héritées de Coucou.
+- `windows/` — version Windows/Linux (Tauri) héritée de Coucou, **pas encore
+  migrée** (encore nommée Coucou, non utilisée).
 
 ## Build
+Le conteneur cloud ne peut pas compiler d'app macOS : chaque push est compilé
+par GitHub Actions (`.github/workflows/build.yml`), qui publie `Compagnon.zip`.
+En local sur un Mac :
 ```
-cd NotchBuddy && xcodegen && xcodebuild -scheme NotchBuddy -configuration Debug build
+cd Compagnon && xcodegen && xcodebuild -scheme Compagnon -configuration Debug build
 ```
-Windows and Linux: `cd windows && npm install && npm run tauri dev`
 
-## Rules
-- Swift 6, SwiftUI + AppKit. No third-party dependencies unless truly unavoidable. The character is drawn in code (`Canvas` + `TimelineView`), no Rive/Lottie/images.
-- Secrets live in the Keychain, never on disk or in git.
-- No telemetry. Network calls only to services the user configured.
-- Never block Claude Code: if the app doesn't answer, the hook exits immediately.
-- Never overwrite `~/.claude/settings.json`: dated backup, merge, show the diff, write only after the user confirms.
-- Never send an email or approve a Claude Code or Codex permission without an explicit click.
-- Performance: 0 % CPU when the island is hidden.
-- Keep the bundle identifier `fr.louisraille.NotchBuddy` (Keychain items, preferences and permissions depend on it).
-- Never restyle what already ships (pills, cards, Settings, chat…): existing views stay exactly as they are in `main`, which is the App Store build. Change the look of an existing view only when explicitly asked.
-- Pill IDs are stable contract values (Keychain, UserDefaults, hook routing): never rename an existing pill ID.
-- New views follow the existing app style. `design/prototype/notch-buddy.html` and `design/captures/` are references for new work, not a reason to change existing views.
+## Règles
+- Swift 6, SwiftUI + AppKit, sans dépendance tierce sauf nécessité absolue.
+  Le personnage est dessiné en code (`Canvas` + `TimelineView`).
+- Tout texte visible est en français, au tutoiement, court (l'île est petite).
+- Ne jamais réintroduire le nom « Coucou », le personnage Mochi, l'icône, les
+  sons ou les médias de Coucou (`LICENSE-ASSETS.md`). Garder la notice MIT de
+  Louis Raillé dans `LICENSE`.
+- Les hooks de Compagnon sont reconnus par `HookServer.isOwnHook` (nom du script
+  `compagnon-hook`) : ne jamais toucher aux hooks d'une autre app (Coucou…).
+- Secrets dans le Trousseau, jamais sur disque ni dans git. Pas de télémétrie.
+- Ne jamais bloquer Claude Code : si l'app ne répond pas, le hook sort aussitôt.
+- Ne jamais écraser `~/.claude/settings.json` : sauvegarde datée, fusion, diff
+  montré, écriture seulement après confirmation.
+- Ne jamais envoyer un mail ni autoriser une action sans clic explicite.
+- Performance : 0 % de CPU quand l'île est cachée.
+- Les identifiants de pastilles sont des valeurs stables (Trousseau, réglages,
+  routage des hooks) : ne pas les renommer.

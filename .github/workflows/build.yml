@@ -7,10 +7,13 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
+      - name: Version d'Xcode
+        run: xcodebuild -version
 
       - name: Installer XcodeGen
         run: brew install xcodegen
@@ -31,8 +34,9 @@ jobs:
             -scheme Compagnon \
             -configuration Release \
             -derivedDataPath build \
-            build | tee build.log | grep -E "error:|warning: .*Compagnon|BUILD (SUCCEEDED|FAILED)" || true
-          test -d build/Build/Products/Release/Compagnon.app
+            build > build.log 2>&1 && status=0 || status=$?
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build.log | sort -u || true
+          exit $status
 
       - name: Signer (ad hoc) et zipper
         run: |

@@ -2,80 +2,90 @@
 
 Un petit assistant qui vit dans l'encoche du Mac (ou en haut de l'écran) et qui
 suit tes sessions Claude Code : il te prévient quand Claude a besoin de toi, et
-tu peux accepter ou refuser une action sans revenir dans Claude.
+tu peux autoriser ou refuser une action sans revenir dans Claude.
 
 Compagnon est notre version de [Coucou](https://github.com/Louis-CFM/coucou)
-(Louis Raillé, licence MIT), qu'on fait évoluer à notre façon : en français,
-avec notre propre nom, notre personnage et nos fonctionnalités.
+(Louis Raillé, licence MIT) : même base, mais en français, avec notre propre
+nom, notre personnage, nos sons et notre icône.
 
-> **État actuel : import de base.** Le code est celui de Coucou au commit
-> indiqué dans [`UPSTREAM_COMMIT`](UPSTREAM_COMMIT), sans encore le renommer.
-> L'app s'appelle encore « Coucou » dans le code (voir la feuille de route).
+## Le personnage
 
-## Ce qui a été retiré par rapport à Coucou, et pourquoi
+Une petite boule menthe en forme de bonbon, aux yeux bleu nuit, avec une
+**antenne** : sa lampe est corail quand tout est calme, prend la couleur de ce
+que fait Claude (bleu il travaille, violet il réfléchit, vert c'est fini…) et
+**clignote quand Claude a besoin de toi**. Elle se balance quand il saute ou
+qu'on le secoue. Toutes les animations de Coucou sont conservées.
 
-Le **code** de Coucou est sous licence MIT : on peut le reprendre, le modifier
-et l'utiliser, à condition de garder la notice de copyright ([`LICENSE`](LICENSE)).
+Les couleurs et la forme sont dans `Compagnon/Sources/App/CompagnonStyle.swift`.
 
-Le **nom « Coucou », le personnage Mochi, l'icône, les sons et les images** ne
-sont pas sous MIT ([`LICENSE-ASSETS.md`](LICENSE-ASSETS.md)). On ne les a donc
-pas copiés ici :
+## Installer et mettre à jour (sans Xcode)
 
-| Retiré | Conséquence en attendant nos versions |
-|---|---|
-| `NotchBuddy/Resources/sounds/*.wav` (28 sons) | l'app tourne sans son |
-| icônes de l'app et de la barre des menus | icône générique (la barre des menus affiche un rond) |
-| `windows/src-tauri/icons/*` | la version Windows/Linux ne se compile pas sans icônes : `node windows/scripts/gen-icons.mjs` les régénère (dessin Mochi, à remplacer par le nôtre) |
-| `docs/media`, `design/`, site web | aucune |
+Chaque modification poussée sur GitHub est compilée automatiquement.
 
-Le personnage reste dessiné dans le code (`BotCanvasView.swift`) : c'est le
-design de Mochi, à remplacer par notre propre personnage avant de partager
-l'app hors de chez nous.
+1. Sur GitHub : onglet **Actions** → dernier build vert → en bas, **Artifacts**
+   → **Compagnon** (un zip qui contient `Compagnon.zip`).
+2. Dézippe, glisse **Compagnon.app** dans `/Applications` (remplace l'ancienne).
+3. Première ouverture : clic droit sur l'app → **Ouvrir** → **Ouvrir**
+   (l'app n'est pas signée par Apple, c'est normal pour un usage perso).
+   Si macOS refuse quand même : `xattr -cr /Applications/Compagnon.app`.
+4. Icône Compagnon dans la barre des menus → **Réglages…** → **Installer les
+   hooks** pour brancher Claude Code.
 
-## Lancer l'app sur le Mac
+Après une mise à jour, macOS peut redemander une fois l'accès au Trousseau
+(clés API enregistrées) : clique **Toujours autoriser**.
 
-Prérequis : macOS 15 ou plus, Xcode 16 ou plus, [XcodeGen](https://github.com/yonaskolb/XcodeGen).
-Pas besoin de compte développeur Apple payant pour l'utiliser sur son propre Mac.
+Compagnon et Coucou peuvent tourner en même temps : chacun a ses propres
+hooks, son dossier et ses réglages.
+
+## Ce que Compagnon voit
+
+Les sessions Claude Code qui tournent **sur ton Mac** : terminal, VS Code,
+Cursor, ou l'app Claude (onglet Code) en mode local. Les sessions cloud
+(claude.ai/code) s'exécutent sur les serveurs d'Anthropic et n'envoient rien à
+ton Mac.
+
+## Compiler soi-même (optionnel)
+
+Prérequis : macOS 15+, Xcode 16+, [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash
 brew install xcodegen
-git clone https://github.com/eldevtools-ship-it/companion.git
-cd companion/NotchBuddy
-xcodegen
-open NotchBuddy.xcodeproj   # puis ⌘R
+cd Compagnon && xcodegen && open Compagnon.xcodeproj   # puis ⌘R
 ```
 
-Puis icône dans la barre des menus → **Settings…** → **Install hooks** pour
-brancher Claude Code. ⚠️ Tant que l'app n'est pas renommée, elle utilise les
-mêmes réglages, le même trousseau et les mêmes hooks que Coucou : **quitte
-Coucou avant de lancer Compagnon**.
+## Sons et icônes
 
-## Mettre à jour l'app sur le Mac
+Générés par script, rien n'est repris de Coucou :
 
 ```bash
-cd companion && git pull && cd NotchBuddy && xcodegen
+python3 scripts/gen-sounds.py   # 28 sons dans Compagnon/Resources/sounds/
+python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 ```
 
-puis relancer depuis Xcode (⌘R). Un script de mise à jour en une commande est
-prévu dans la feuille de route.
+## Licence et origine
+
+- Le **code** vient de Coucou, sous licence MIT ([`LICENSE`](LICENSE)) : la
+  notice de copyright de Louis Raillé doit rester.
+- Le nom « Coucou », le personnage Mochi, son icône, ses sons et ses médias ne
+  sont pas sous MIT ([`LICENSE-ASSETS.md`](LICENSE-ASSETS.md)) : ils ne sont pas
+  dans ce dépôt et ne doivent pas y revenir.
+- Le commit de Coucou de départ est noté dans [`UPSTREAM_COMMIT`](UPSTREAM_COMMIT).
 
 ## Feuille de route
 
-1. **Renommer en Compagnon** : nom de l'app, identifiant (bundle id), dossier
-   de support, socket et hooks propres, pour pouvoir tourner à côté de Coucou.
-2. **Tout en français** : interface, réglages, messages.
-3. **Notre identité** : personnage, icône et sons à nous.
-4. **Répondre aux questions de Claude** depuis Compagnon (aujourd'hui seules
-   les autorisations Autoriser / Refuser sont gérées ; les questions à choix
-   ne font qu'une notification).
-5. **Écrire à Claude depuis Compagnon** dans la session en cours (aujourd'hui
-   le chat de l'app est un chat séparé via une clé API Anthropic, payante).
-6. **Mise à jour en une commande** (`scripts/update.sh` : pull, build, relance).
+- [x] Renommer en Compagnon (identifiant, dossiers, hooks séparés)
+- [x] Interface en français
+- [x] Personnage, sons et icône à nous
+- [x] Build automatique sur GitHub (pas besoin d'Xcode)
+- [ ] Slack : messages directs et mentions dans l'île
+- [ ] Harvest : timer en cours, démarrer / arrêter
+- [ ] Répondre aux questions de Claude depuis Compagnon
+- [ ] Écrire à Claude depuis Compagnon
+- [ ] Nettoyer ou migrer `windows/` (version Windows/Linux héritée, pas utilisée)
 
 ## Où est quoi
 
-- `NotchBuddy/` — l'app macOS (Swift 6, SwiftUI, AppKit, sans dépendance).
-  Le pont avec Claude Code est dans `NotchBuddy/Sources/App/HookServer.swift`.
-- `windows/` — la version Windows et Linux (Tauri 2 : Rust + TypeScript).
-- `docs/SPEC.md`, `docs/INTEGRATIONS.md` — spécifications (en français).
+- `Compagnon/` — l'app macOS (Swift 6, SwiftUI, AppKit, sans dépendance).
+- `scripts/` — génération des sons et icônes, petits tests.
+- `docs/SPEC.md`, `docs/INTEGRATIONS.md` — spécifications.
 - `docs/COUCOU-README.md` — le README d'origine de Coucou.
