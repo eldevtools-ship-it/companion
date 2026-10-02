@@ -5,6 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -34,6 +37,8 @@ jobs:
             -scheme Compagnon \
             -configuration Release \
             -derivedDataPath build \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            MARKETING_VERSION=0.1.${{ github.run_number }} \
             build > build.log 2>&1 && status=0 || status=$?
           grep -E "error:|BUILD (SUCCEEDED|FAILED)" build.log | sort -u || true
           exit $status
@@ -45,6 +50,20 @@ jobs:
             --entitlements Compagnon/Resources/Compagnon.entitlements -s - "$APP"
           codesign --verify --deep --strict "$APP"
           ditto -c -k --keepParent "$APP" Compagnon.zip
+
+      # Each green build of the main branches becomes a release the app updates from.
+      - name: Publier la release (mise à jour automatique)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/hopeful-hopper-x3puq8')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N=${{ github.run_number }}
+          git log -1 --pretty=%B > notes.txt
+          gh release create "build-$N" Compagnon.zip --target "$GITHUB_SHA" \
+            --title "Compagnon — version $N" --notes-file notes.txt --latest
+          # Keep the 10 most recent releases
+          gh release list --limit 100 --json tagName --jq '.[10:][].tagName' \
+            | while read -r tag; do gh release delete "$tag" --yes --cleanup-tag; done
 
       - uses: actions/upload-artifact@v4
         with:

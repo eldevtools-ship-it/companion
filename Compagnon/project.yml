@@ -47,8 +47,9 @@ targets:
         CFBundleName: Compagnon
         CFBundleDisplayName: Compagnon
         CFBundleIdentifier: com.eldevtools.Compagnon
-        CFBundleVersion: "1"
-        CFBundleShortVersionString: "0.1.0"
+        # Set by CI from the build number (UpdateService compares it with the latest release)
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundlePackageType: APPL
         CFBundleDevelopmentRegion: fr
         LSUIElement: YES
@@ -65,3 +66,5 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: "15.0"
         ENABLE_SANDBOX: NO
         DEVELOPMENT_LANGUAGE: fr
+        CURRENT_PROJECT_VERSION: "0"
+        MARKETING_VERSION: "0.1.0"

@@ -63,6 +63,7 @@ struct SettingsView: View {
     @State private var notionKey: String    = KeychainStore.shared.get("notion-api-key")  ?? ""
     @State private var slackUserToken: String = KeychainStore.shared.get(SlackService.userTokenKey) ?? ""
     @State private var slackAppToken: String  = KeychainStore.shared.get(SlackService.appTokenKey)  ?? ""
+    @State private var updateToken: String    = KeychainStore.shared.get(UpdateService.tokenKey)    ?? ""
     @State private var harvestToken: String   = KeychainStore.shared.get(HarvestService.tokenKey)   ?? ""
     @State private var harvestAccount: String = KeychainStore.shared.get(HarvestService.accountKey) ?? ""
 
@@ -267,6 +268,44 @@ struct SettingsView: View {
             Toggle("Lancer au démarrage du Mac", isOn: $launchAtStartup)
                 .onChange(of: launchAtStartup) { _, on in toggleStartup(on) }
                 .padding(6)
+        }
+        GroupBox("Mises à jour") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Version \(UpdateService.currentBuild)")
+                    Text(state.updateStatus.label).foregroundColor(.secondary)
+                    Spacer()
+                    if case .available = state.updateStatus {
+                        Button("Installer maintenant") { Task { await UpdateService.shared.install() } }
+                            .buttonStyle(.borderedProminent)
+                    } else {
+                        Button("Rechercher") { Task { await UpdateService.shared.check() } }
+                            .disabled(state.updateStatus == .checking || state.updateStatus == .installing)
+                    }
+                }
+                Toggle("Installer automatiquement (quand rien n'est en cours)", isOn: $state.autoUpdate)
+                Text("Compagnon récupère la dernière version publiée sur GitHub. Le dépôt étant privé, il faut un jeton GitHub avec accès en lecture au dépôt companion (sinon le jeton de l'intégration GitHub est utilisé).")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    SecureField("Jeton GitHub (lecture du dépôt)", text: $updateToken)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Enregistrer") {
+                        let t = updateToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if t.isEmpty { KeychainStore.shared.remove(UpdateService.tokenKey) }
+                        else { KeychainStore.shared.set(UpdateService.tokenKey, value: t) }
+                        Task { await UpdateService.shared.check() }
+                    }
+                }
+                Button("Créer un jeton sur GitHub") {
+                    if let url = URL(string: "https://github.com/settings/personal-access-tokens/new") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .buttonStyle(.link)
+            }
+            .padding(6)
         }
     }
 

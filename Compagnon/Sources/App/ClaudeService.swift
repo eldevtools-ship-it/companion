@@ -73,6 +73,7 @@ final class KeychainStore: @unchecked Sendable {
         "notion-api-key",
         "slack-user-token", "slack-app-token",
         "harvest-token", "harvest-account-id",
+        "update-token",
     ]
 
     private init() {

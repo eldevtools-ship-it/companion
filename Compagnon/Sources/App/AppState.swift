@@ -245,6 +245,12 @@ final class AppState: ObservableObject {
     @Published var harvestToday: TimeInterval = 0
     @Published var harvestLoaded: Bool = false
     @Published var harvestError: String? = nil
+    // Self-update (UpdateService)
+    @Published var updateStatus: UpdateStatus = .idle
+    @Published var autoUpdate: Bool = true {
+        didSet { UserDefaults.standard.set(autoUpdate, forKey: "autoUpdate") }
+    }
+
     @Published var harvestReminder: Bool = true {
         didSet { UserDefaults.standard.set(harvestReminder, forKey: "harvestReminder") }
     }
@@ -265,6 +271,7 @@ final class AppState: ObservableObject {
 
         if let v = ud.object(forKey: "soundEnabled") as? Bool   { soundEnabled = v }
         if let v = ud.object(forKey: "harvestReminder") as? Bool { harvestReminder = v }
+        if let v = ud.object(forKey: "autoUpdate") as? Bool { autoUpdate = v }
         if let v = ud.object(forKey: "soundVolume")  as? Double { soundVolume  = v }
         if let v = ud.string(forKey: "claudeModel"),
            !v.trimmingCharacters(in: .whitespaces).isEmpty { claudeModel = v }

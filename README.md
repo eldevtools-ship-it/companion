@@ -20,25 +20,42 @@ qu'on le secoue. Toutes les animations de Coucou sont conservées.
 
 Les couleurs et la forme sont dans `Compagnon/Sources/App/CompagnonStyle.swift`.
 
-## Installer et mettre à jour (sans Xcode)
-
-Chaque modification poussée sur GitHub est compilée automatiquement.
+## Installer (une seule fois)
 
 1. Sur GitHub : onglet **Actions** → dernier build vert → en bas, **Artifacts**
-   → **Compagnon** (un zip qui contient `Compagnon.zip`).
-2. Dézippe, glisse **Compagnon.app** dans `/Applications` (remplace l'ancienne).
+   → **Compagnon** (ou onglet **Releases** → dernière version → `Compagnon.zip`).
+2. Dézippe, glisse **Compagnon.app** dans `/Applications`.
 3. Première ouverture : macOS affiche « Élément Compagnon non ouvert » (l'app
    n'est pas signée par Apple, c'est normal pour un usage perso). Clique
    **Terminé**, puis au choix :
    - **Réglages Système → Confidentialité et sécurité**, tout en bas :
      **Ouvrir quand même**, mot de passe, puis relance l'app ;
    - ou dans le Terminal : `xattr -dr com.apple.quarantine /Applications/Compagnon.app`
-   À refaire après chaque nouvelle version téléchargée.
 4. Icône Compagnon dans la barre des menus → **Réglages…** → **Installer les
    hooks** pour brancher Claude Code.
 
-Après une mise à jour, macOS peut redemander une fois l'accès au Trousseau
-(clés API enregistrées) : clique **Toujours autoriser**.
+## Mises à jour automatiques
+
+Chaque modification poussée sur GitHub est compilée puis publiée comme une
+**release** numérotée. Compagnon vérifie toutes les 30 minutes, télécharge la
+nouvelle version, attend un moment calme (aucune autorisation en attente,
+aucun agent au travail, île fermée), se remplace et se relance tout seul. Pas
+d'alerte macOS cette fois : c'est l'app qui télécharge, pas le navigateur.
+
+Une seule chose à faire, puisque le dépôt est privé : donner à Compagnon un
+**jeton GitHub en lecture seule** sur ce dépôt.
+
+1. <https://github.com/settings/personal-access-tokens/new> (jeton
+   *fine-grained*) : nom « Compagnon mises à jour », **Repository access →
+   Only select repositories → companion**, **Permissions → Contents :
+   Read-only**, expiration au choix, **Generate token**.
+2. Compagnon → **Réglages… → Général → Mises à jour** : colle le jeton,
+   **Enregistrer**. Le statut affiche « À jour » ou la version disponible.
+
+Tu peux aussi forcer une vérification depuis le menu de la barre des menus
+(**Rechercher une mise à jour**) ou couper l'installation automatique dans les
+réglages. Après une mise à jour, macOS peut redemander une fois l'accès au
+Trousseau (clés enregistrées) : clique **Toujours autoriser**.
 
 Compagnon et Coucou peuvent tourner en même temps : chacun a ses propres
 hooks, son dossier et ses réglages.
@@ -83,6 +100,7 @@ python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 - [x] Interface en français
 - [x] Personnage, sons et icône à nous
 - [x] Build automatique sur GitHub (pas besoin d'Xcode)
+- [x] Mises à jour automatiques de l'app sur le Mac
 - [x] Slack : messages directs et mentions en temps réel, réponse depuis l'île ([docs/SLACK.md](docs/SLACK.md))
 - [x] Harvest : timer en cours, démarrer / arrêter, rappel ([docs/HARVEST.md](docs/HARVEST.md))
 - [ ] Répondre aux questions de Claude depuis Compagnon

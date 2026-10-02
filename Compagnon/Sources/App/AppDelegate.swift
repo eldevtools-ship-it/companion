@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Ouvrir Compagnon", action: #selector(openIsland), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Réglages…", action: #selector(openSettings), keyEquivalent: ",")
+        menu.addItem(withTitle: "Rechercher une mise à jour", action: #selector(checkForUpdate), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quitter", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
@@ -37,6 +38,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Actions
+
+    @objc private func checkForUpdate() {
+        Task { @MainActor in
+            await UpdateService.shared.check()
+            if case .available = AppState.shared.updateStatus {
+                await UpdateService.shared.install()
+            } else {
+                let alert = NSAlert()
+                alert.messageText = AppState.shared.updateStatus == .upToDate
+                    ? "Compagnon est à jour (version \(UpdateService.currentBuild))."
+                    : "Mise à jour impossible"
+                if AppState.shared.updateStatus != .upToDate {
+                    alert.informativeText = AppState.shared.updateStatus.label
+                }
+                NSApp.activate(ignoringOtherApps: true)
+                alert.runModal()
+            }
+        }
+    }
 
     @objc private func openIsland() {
         islandController?.expand(to: .overview)
@@ -105,6 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotionPoller.shared.start()
         SlackService.shared.start()
         HarvestService.shared.start()
+        UpdateService.shared.start()
         NotificationCenter.default.addObserver(self, selector: #selector(openSettingsFromNotification(_:)),
                                                name: .openFullSettings, object: nil)
         _ = MusicController.shared
