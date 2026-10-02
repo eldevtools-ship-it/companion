@@ -10,18 +10,19 @@ lancer un timer quand tu travailles sans.
    token**, donne-lui un nom (« Compagnon »).
 2. Copie le **jeton** et l'**Account ID** affichés (si tu as plusieurs comptes
    Harvest, prends l'ID du compte du boulot).
-3. Compagnon → **Réglages… → Intégrations → Harvest** : colle les deux, puis
-   **Enregistrer les intégrations**.
-4. **Réglages… → Pastilles actives** : vérifie que **Harvest** est coché.
+3. Compagnon → **Réglages… → Harvest** : colle les deux, puis **Enregistrer**.
+   La pastille Harvest apparaît aussitôt.
 
 Le jeton reste dans le Trousseau du Mac.
 
 ## Dans l'île
 
-- **Timer en cours** : projet, tâche et client, le temps qui défile, et un
-  bouton ■ pour l'arrêter. En haut à droite : le total de la journée.
+- **Timer en cours** : le projet, la tâche et le client, le temps en grand, ■
+  pour arrêter et ⟳ pour changer de tâche.
 - **Pas de timer** : **Relancer** reprend ta dernière tâche (sur la même ligne
-  si c'était aujourd'hui), **Autre…** liste tes projets et tâches récents.
+  si c'était aujourd'hui), **Nouveau timer** ouvre le sélecteur.
+- **Sélecteur** : tous les projets auxquels tu es affecté, rangés par client,
+  puis la tâche, une note facultative, et **Démarrer** (ou Entrée).
 - La lampe de l'antenne est bleue tant qu'un timer tourne.
 
 ## Le rappel

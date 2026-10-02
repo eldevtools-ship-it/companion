@@ -1,8 +1,16 @@
 # Compagnon
 
-Un petit assistant qui vit dans l'encoche du Mac (ou en haut de l'écran) et qui
-suit tes sessions Claude Code : il te prévient quand Claude a besoin de toi, et
-tu peux autoriser ou refuser une action sans revenir dans Claude.
+Un petit assistant qui vit dans l'encoche du Mac et fait trois choses :
+
+- **Claude Code** : il te prévient quand Claude a besoin de toi, et tu autorises
+  ou refuses une action sans revenir dans Claude ;
+- **Slack** : tes messages directs et tes mentions en temps réel, avec réponse
+  rapide ;
+- **Harvest** : le timer en cours bien visible, start / stop, choix du projet,
+  de la tâche et d'une note, et un rappel si tu travailles sans timer.
+
+Plus un aperçu GitHub. Les pastilles apparaissent toutes seules dès que le
+service est configuré.
 
 Compagnon est notre version de [Coucou](https://github.com/Louis-CFM/coucou)
 (Louis Raillé, licence MIT) : même base, mais en français, avec notre propre
@@ -31,8 +39,8 @@ Les couleurs et la forme sont dans `Compagnon/Sources/App/CompagnonStyle.swift`.
    - **Réglages Système → Confidentialité et sécurité**, tout en bas :
      **Ouvrir quand même**, mot de passe, puis relance l'app ;
    - ou dans le Terminal : `xattr -dr com.apple.quarantine /Applications/Compagnon.app`
-4. Icône Compagnon dans la barre des menus → **Réglages…** → **Installer les
-   hooks** pour brancher Claude Code.
+4. Icône Compagnon dans la barre des menus → **Réglages… → Claude Code →
+   Installer les hooks** pour brancher Claude Code.
 
 ## Mises à jour automatiques
 
@@ -49,7 +57,7 @@ Une seule chose à faire, puisque le dépôt est privé : donner à Compagnon un
    *fine-grained*) : nom « Compagnon mises à jour », **Repository access →
    Only select repositories → companion**, **Permissions → Contents :
    Read-only**, expiration au choix, **Generate token**.
-2. Compagnon → **Réglages… → Général → Mises à jour** : colle le jeton,
+2. Compagnon → **Réglages… → Mises à jour** : colle le jeton,
    **Enregistrer**. Le statut affiche « À jour » ou la version disponible.
 
 Tu peux aussi forcer une vérification depuis le menu de la barre des menus
@@ -105,11 +113,11 @@ python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 - [x] Harvest : timer en cours, démarrer / arrêter, rappel ([docs/HARVEST.md](docs/HARVEST.md))
 - [ ] Répondre aux questions de Claude depuis Compagnon
 - [ ] Écrire à Claude depuis Compagnon
-- [ ] Nettoyer ou migrer `windows/` (version Windows/Linux héritée, pas utilisée)
+- [x] Recentrer l'app sur Claude Code, Slack, Harvest et GitHub
 
 ## Où est quoi
 
 - `Compagnon/` — l'app macOS (Swift 6, SwiftUI, AppKit, sans dépendance).
 - `scripts/` — génération des sons et icônes, petits tests.
-- `docs/SPEC.md`, `docs/INTEGRATIONS.md` — spécifications.
+- `docs/SLACK.md`, `docs/HARVEST.md` — mise en place des intégrations.
 - `docs/COUCOU-README.md` — le README d'origine de Coucou.

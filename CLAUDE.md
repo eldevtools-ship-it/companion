@@ -1,28 +1,33 @@
 # Compagnon — guide pour les agents
 
 Compagnon est une app macOS native (`Compagnon/`) : un petit personnage qui vit
-dans l'encoche du Mac, suit les sessions Claude Code (et d'autres agents) via
-leurs hooks, et permet d'autoriser, répondre, discuter et déposer des fichiers
-depuis l'encoche. C'est un fork de [Coucou](https://github.com/Louis-CFM/coucou)
-(MIT), entièrement en français et avec sa propre identité.
+dans l'encoche du Mac et fait trois choses, pour un seul utilisateur :
+- suivre les sessions Claude Code via leurs hooks et autoriser / refuser depuis l'encoche ;
+- afficher les messages directs et mentions Slack, et y répondre ;
+- piloter le timer Harvest (projet, tâche, note, start / stop, rappel).
+Plus une carte GitHub. C'est un fork de [Coucou](https://github.com/Louis-CFM/coucou)
+(MIT), entièrement en français et avec sa propre identité. Garder l'app minimale :
+pas de nouvelle fonction sans usage réel.
 
 ## Où est quoi
 - `Compagnon/Sources/App/` — tout le code Swift. `Compagnon/project.yml` — projet
   XcodeGen (le `.xcodeproj` est généré, jamais commité).
 - `Compagnon/Sources/App/CompagnonStyle.swift` — l'apparence du personnage
   (couleurs, silhouette, antenne), partagée par `BotEngine.swift` (personnage
-  principal), `GreetingCanvasView.swift` (accueil) et `UploadCanvasView.swift`.
+  principal) et `GreetingCanvasView.swift` (accueil).
 - `Compagnon/Sources/App/HookServer.swift` — le pont avec Claude Code : socket
   `~/Library/Application Support/Compagnon/compagnon.sock`, script relais
   `compagnon-hook`, installation des hooks dans `~/.claude/settings.json`.
-- `Compagnon/Sources/App/PillCatalog.swift` — la liste des pastilles (outils,
-  agents, services).
+- `Compagnon/Sources/App/PillCatalog.swift` — les quatre pastilles (Claude Code
+  toujours ; Slack, Harvest, GitHub dès que leurs clés sont enregistrées).
+- `Compagnon/Sources/App/OverviewCards.swift` — la vue d'ensemble et les cartes
+  (Claude Code, Slack, Harvest + sélecteur de projet, GitHub).
+- `SlackService.swift`, `HarvestService.swift`, `GithubPoller.swift`,
+  `UpdateService.swift` (mise à jour automatique depuis les releases GitHub).
 - `Compagnon/Resources/sounds/` — générés par `scripts/gen-sounds.py`.
   `Compagnon/Assets.xcassets/` — icônes générées par `scripts/gen-icons.py`.
   On modifie les scripts, puis on relance, plutôt que d'éditer les fichiers.
-- `docs/SPEC.md`, `docs/INTEGRATIONS.md` — spécifications héritées de Coucou.
-- `windows/` — version Windows/Linux (Tauri) héritée de Coucou, **pas encore
-  migrée** (encore nommée Coucou, non utilisée).
+- `docs/SLACK.md`, `docs/HARVEST.md` — mise en place des intégrations.
 
 ## Build
 Le conteneur cloud ne peut pas compiler d'app macOS : chaque push est compilé
@@ -36,6 +41,9 @@ cd Compagnon && xcodegen && xcodebuild -scheme Compagnon -configuration Debug bu
 - Swift 6, SwiftUI + AppKit, sans dépendance tierce sauf nécessité absolue.
   Le personnage est dessiné en code (`Canvas` + `TimelineView`).
 - Tout texte visible est en français, au tutoiement, court (l'île est petite).
+- Arrondis concentriques : rayon intérieur = rayon extérieur − marge. Utiliser
+  `IslandConst.expandedCorner` / `cardRadius` / `innerRadius` et les marges
+  `contentInset` / `cardInset`, jamais de rayon en dur.
 - Ne jamais réintroduire le nom « Coucou », le personnage Mochi, l'icône, les
   sons ou les médias de Coucou (`LICENSE-ASSETS.md`). Garder la notice MIT de
   Louis Raillé dans `LICENSE`.
