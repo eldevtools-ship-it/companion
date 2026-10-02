@@ -141,7 +141,7 @@ enum IslandConst {
     static let flareExpanded: CGFloat = 12
     static let flareCompact: CGFloat = 8
     /// Width of each "ear" on either side of the notch when compact (bot left, minis right).
-    static let compactEar: CGFloat = 42
+    static let compactEar: CGFloat = IslandRestingLayout.compactEar
     /// Island height while the Harvest project / task list is open.
     static let harvestListHeight: CGFloat = 284
 
