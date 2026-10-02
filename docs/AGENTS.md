@@ -1,4 +1,4 @@
-# Coucou — third-party agent integration
+# Compagnon — third-party agent integration
 
 Any tool that can write to a Unix domain socket (macOS, Linux) or a named pipe (Windows) can send events to Coucou and have its own pill next to Claude Code.
 
@@ -16,7 +16,7 @@ Configure your tool to call the Coucou relay with `--agent <your-name>` after th
 {
   "hooks": {
     "UserPromptSubmit": [
-      { "type": "command", "command": "/path/to/nb-hook --agent my-tool" }
+      { "type": "command", "command": "/path/to/compagnon-hook --agent my-tool" }
     ]
   }
 }
@@ -66,8 +66,7 @@ The relay adds `compagnon_agent` to the JSON it forwards. You can also add it yo
 ```
 
 Send newline-terminated JSON to the socket:
-- **macOS (GitHub build):** `~/Library/Application Support/NotchBuddy/nb.sock`
-- **macOS (App Store build):** `~/Library/Containers/fr.louisraille.Coucou/Data/nb.sock`
+- **macOS (GitHub build):** `~/Library/Application Support/Compagnon/compagnon.sock`
 - **Windows:** `\\.\pipe\coucou-<user-SID>`
 - **Linux:** `$XDG_RUNTIME_DIR/coucou.sock` (usually `/run/user/<uid>/coucou.sock`). Only your own user account can connect.
 
@@ -136,7 +135,7 @@ island's `tool_name` / `session_id`.
 
 ### Any other tool
 
-Follow the generic pattern: call `nb-hook --agent <your-name> <EventName>` (macOS),
+Follow the generic pattern: call `compagnon-hook --agent <your-name> <EventName>` (macOS),
 `coucou-hook.exe --agent <your-name> <EventName>` (Windows)
 or `~/.local/share/coucou/bin/coucou-hook --agent <your-name> <EventName>` (Linux)
 and let the relay forward the event.
@@ -158,7 +157,7 @@ With Coucou running:
 
 ```sh
 echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","compagnon_agent":"demo"}' \
-  | /bin/sh ~/Library/Application\ Support/NotchBuddy/nb-hook --agent demo
+  | /bin/sh ~/Library/Application\ Support/Compagnon/compagnon-hook --agent demo
 ```
 
 A "demo" pill should appear in the island.

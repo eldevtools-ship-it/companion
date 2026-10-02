@@ -196,7 +196,7 @@ final class IslandWindowController: NSWindowController {
         NotificationCenter.default.addObserver(
             forName: .greetComplete, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.fsm.greetComplete()
+            MainActor.assumeIsolated { self?.fsm.greetComplete() }
         }
 
         fsm.isHeldOpen = { AppState.shared.pendingApproval != nil }
@@ -381,33 +381,40 @@ final class IslandWindowController: NSWindowController {
 
         // Hook server expand requests (alerts only)
         NotificationCenter.default.addObserver(forName: .hookExpand, object: nil, queue: .main) { [weak self] note in
-            guard let self, let view = note.object as? IslandView else { return }
-            self.fsm.openedExternally()
-            self.expand(to: view)
+            let view = note.object as? IslandView
+            MainActor.assumeIsolated {
+                guard let self, let view else { return }
+                self.fsm.openedExternally()
+                self.expand(to: view)
+            }
         }
 
         // Hook server compact reveal (non-alert work events: session start, tool use, etc.)
         NotificationCenter.default.addObserver(forName: .hookReveal, object: nil, queue: .main) { [weak self] _ in
-            guard let self else { return }
-            self.fsm.reveal()
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.fsm.reveal()
+            }
         }
 
         // Music started playing: reveal silently (no peek sound)
         NotificationCenter.default.addObserver(forName: .musicReveal, object: nil, queue: .main) { [weak self] _ in
-            guard let self else { return }
-            self.silentNextReveal = true
-            self.fsm.reveal()
-            self.silentNextReveal = false
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.silentNextReveal = true
+                self.fsm.reveal()
+                self.silentNextReveal = false
+            }
         }
 
         // Collapse requests from views (OK button, etc.)
         NotificationCenter.default.addObserver(forName: .islandCollapse, object: nil, queue: .main) { [weak self] _ in
-            self?.collapse()
+            MainActor.assumeIsolated { self?.collapse() }
         }
 
         // .botDizzy — posted by BotEngine.slap() on 3rd hit; show confused view + recover after 3.3s
         NotificationCenter.default.addObserver(forName: .botDizzy, object: nil, queue: .main) { [weak self] _ in
-            self?.handleDizzy()
+            MainActor.assumeIsolated { self?.handleDizzy() }
         }
 
         // Window attach drag.
@@ -504,10 +511,10 @@ final class IslandWindowController: NSWindowController {
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil, queue: .main
         ) { [weak self] note in
-            guard let self else { return }
-            if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-               app.bundleIdentifier != ourBundle {
-                self.state.lastExternalApp = app
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  app.bundleIdentifier != ourBundle else { return }
+            MainActor.assumeIsolated {
+                self?.state.lastExternalApp = app
             }
         }
     }
