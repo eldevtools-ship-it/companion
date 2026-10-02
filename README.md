@@ -10,6 +10,8 @@ nom, notre personnage, nos sons et notre icône.
 
 ## Le personnage
 
+![Le personnage dans quatre états](docs/personnage.png)
+
 Une petite boule menthe en forme de bonbon, aux yeux bleu nuit, avec une
 **antenne** : sa lampe est corail quand tout est calme, prend la couleur de ce
 que fait Claude (bleu il travaille, violet il réfléchit, vert c'est fini…) et
