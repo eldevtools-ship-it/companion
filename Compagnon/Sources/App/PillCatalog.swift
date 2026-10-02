@@ -67,6 +67,8 @@ enum PillCatalog {
         .init(id: "ai_openai",           name: "OpenAI",      color: ChatProvider.openai.accentHex,
               category: .ai,        subtitle: "Chat",         source: .n8n),
         // ── Services ─────────────────────────────────────────────────────────
+        .init(id: "integration_slack",   name: "Slack",       color: "#E01E5A",
+              category: .service,   subtitle: "Messages",     source: .n8n),
         .init(id: "integration_resend",  name: "Resend",      color: "#22C55E",
               category: .service,   subtitle: "Intégration",  source: .n8n),
         .init(id: "integration_n8n",     name: "n8n",         color: "#F29B38",

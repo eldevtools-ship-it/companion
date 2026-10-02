@@ -27,9 +27,13 @@ Chaque modification poussée sur GitHub est compilée automatiquement.
 1. Sur GitHub : onglet **Actions** → dernier build vert → en bas, **Artifacts**
    → **Compagnon** (un zip qui contient `Compagnon.zip`).
 2. Dézippe, glisse **Compagnon.app** dans `/Applications` (remplace l'ancienne).
-3. Première ouverture : clic droit sur l'app → **Ouvrir** → **Ouvrir**
-   (l'app n'est pas signée par Apple, c'est normal pour un usage perso).
-   Si macOS refuse quand même : `xattr -cr /Applications/Compagnon.app`.
+3. Première ouverture : macOS affiche « Élément Compagnon non ouvert » (l'app
+   n'est pas signée par Apple, c'est normal pour un usage perso). Clique
+   **Terminé**, puis au choix :
+   - **Réglages Système → Confidentialité et sécurité**, tout en bas :
+     **Ouvrir quand même**, mot de passe, puis relance l'app ;
+   - ou dans le Terminal : `xattr -dr com.apple.quarantine /Applications/Compagnon.app`
+   À refaire après chaque nouvelle version téléchargée.
 4. Icône Compagnon dans la barre des menus → **Réglages…** → **Installer les
    hooks** pour brancher Claude Code.
 
@@ -79,7 +83,7 @@ python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 - [x] Interface en français
 - [x] Personnage, sons et icône à nous
 - [x] Build automatique sur GitHub (pas besoin d'Xcode)
-- [ ] Slack : messages directs et mentions dans l'île
+- [x] Slack : messages directs et mentions en temps réel, réponse depuis l'île ([docs/SLACK.md](docs/SLACK.md))
 - [ ] Harvest : timer en cours, démarrer / arrêter
 - [ ] Répondre aux questions de Claude depuis Compagnon
 - [ ] Écrire à Claude depuis Compagnon

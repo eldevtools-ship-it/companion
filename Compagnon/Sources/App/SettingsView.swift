@@ -61,6 +61,8 @@ struct SettingsView: View {
     @State private var stripeKey: String    = KeychainStore.shared.get("stripe-api-key")  ?? ""
     @State private var calcomKey: String    = KeychainStore.shared.get("calcom-api-key")  ?? ""
     @State private var notionKey: String    = KeychainStore.shared.get("notion-api-key")  ?? ""
+    @State private var slackUserToken: String = KeychainStore.shared.get(SlackService.userTokenKey) ?? ""
+    @State private var slackAppToken: String  = KeychainStore.shared.get(SlackService.appTokenKey)  ?? ""
 
     // Hotkey
     @State private var hotkeyFlags: UInt    = AppState.shared.hotkeyFlags
@@ -537,6 +539,35 @@ struct SettingsView: View {
         GroupBox {
             VStack(alignment: .leading, spacing: 14) {
 
+                // Slack
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 6) {
+                        Circle().fill(Color(hex: "#E01E5A")).frame(width: 8, height: 8)
+                        Text("Slack").font(.system(size: 12, weight: .semibold))
+                        Text(state.slackStatus.label)
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                    Text("Messages directs et mentions en temps réel, avec réponse depuis l'île. Crée une app Slack à partir du manifeste (api.slack.com/apps → Create New App → From a manifest), fais-la valider si besoin, puis colle les deux jetons. Détails : docs/SLACK.md.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 8) {
+                        Button("Copier le manifeste") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(SlackService.manifest, forType: .string)
+                            statusMessage = "✓ Manifeste Slack copié."
+                        }
+                        Button("Ouvrir api.slack.com") {
+                            if let url = URL(string: "https://api.slack.com/apps") { NSWorkspace.shared.open(url) }
+                        }
+                    }
+                    SecureField("Jeton utilisateur  (xoxp-…)", text: $slackUserToken)
+                        .textFieldStyle(.roundedBorder)
+                    SecureField("Jeton d'app, connexions  (xapp-…)", text: $slackAppToken)
+                        .textFieldStyle(.roundedBorder)
+                }
+
                 // Resend
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 6) {
@@ -774,6 +805,9 @@ struct SettingsView: View {
         saveKey("stripe-api-key",  value: stripeKey)
         saveKey("calcom-api-key",  value: calcomKey)
         saveKey("notion-api-key",  value: notionKey)
+        saveKey(SlackService.userTokenKey, value: slackUserToken.trimmingCharacters(in: .whitespacesAndNewlines))
+        saveKey(SlackService.appTokenKey,  value: slackAppToken.trimmingCharacters(in: .whitespacesAndNewlines))
+        SlackService.shared.restart()
         statusMessage = "✓ Clés d'intégration enregistrées."
     }
 

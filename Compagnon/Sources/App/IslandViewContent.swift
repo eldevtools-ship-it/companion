@@ -145,6 +145,8 @@ struct OverviewView: View {
             NSWorkspace.shared.open(URL(string: "https://notion.so")!)
         case "integration_calcom":
             NSWorkspace.shared.open(URL(string: "https://app.cal.com/bookings")!)
+        case "integration_slack":
+            SlackService.shared.open(AppState.shared.slackMessages.first)
         case "agent_cursor":
             if let url = NSWorkspace.shared.urlForApplication(
                 withBundleIdentifier: "com.todesktop.230313mzl4w4u92") {
@@ -1155,6 +1157,9 @@ struct IntegrationCardView: View {
         case "integration_stripe":  return KeychainStore.shared.get("stripe-api-key") != nil
         case "integration_notion":  return KeychainStore.shared.get("notion-api-key") != nil
         case "integration_calcom":  return KeychainStore.shared.get("calcom-api-key") != nil
+        case "integration_slack":
+            return KeychainStore.shared.get(SlackService.userTokenKey) != nil
+                && KeychainStore.shared.get(SlackService.appTokenKey) != nil
         default: return false
         }
     }
@@ -1171,6 +1176,7 @@ struct IntegrationCardView: View {
         case "integration_stripe":  return URL(string: "https://dashboard.stripe.com/payments")
         case "integration_notion":  return URL(string: "https://notion.so")
         case "integration_calcom":  return URL(string: "https://app.cal.com/bookings")
+        case "integration_slack":   return URL(string: "slack://open")
         default: return nil
         }
     }
@@ -1213,6 +1219,11 @@ struct IntegrationCardView: View {
         task.id == "integration_calcom" && appState.calcomLoaded
     }
 
+    // Slack: show the card once a message arrived or the connection is up
+    private var slackHasData: Bool {
+        task.id == "integration_slack" && (!appState.slackMessages.isEmpty || appState.slackStatus == .connected)
+    }
+
     // Notion: show pages as soon as first poll completes
     private var notionHasData: Bool {
         task.id == "integration_notion" && appState.notionLoaded
@@ -1235,6 +1246,7 @@ struct IntegrationCardView: View {
                    : task.id == "integration_calcom"  ? appState.calcomError
                    : nil
         if svcErr != nil { return Color(hex: "#F4505E") }
+        if task.id == "integration_slack", case .error = appState.slackStatus { return Color(hex: "#F4505E") }
         return isConfigured ? Color(hex: "#22C55E") : Color(hex: "#F4505E")
     }
 
@@ -1249,6 +1261,7 @@ struct IntegrationCardView: View {
                    : task.id == "integration_calcom"  ? appState.calcomError
                    : nil
         if let err = svcErr { return err }
+        if task.id == "integration_slack" && isConfigured { return appState.slackStatus.label }
         let isHooks = task.id == "agent_gemini" || task.id == "agent_antigravity"
         let isAI    = task.id == "ai_anthropic" || task.id == "ai_google" || task.id == "ai_openai"
         if isConfigured {
@@ -1293,6 +1306,9 @@ struct IntegrationCardView: View {
                 .transition(.opacity)
         } else if calcomHasData {
             CalcomCardView()
+                .transition(.opacity)
+        } else if slackHasData {
+            SlackCardView()
                 .transition(.opacity)
         } else if notionHasData {
             NotionCardView()
@@ -1762,6 +1778,152 @@ struct ResendCardView: View {
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .padding(.top, 4)
+    }
+}
+
+// MARK: - Slack Card View
+
+struct SlackCardView: View {
+    @ObservedObject private var appState = AppState.shared
+    @State private var replying = false
+    @State private var draft = ""
+    @State private var sending = false
+    @State private var note: String? = nil
+    @FocusState private var fieldFocused: Bool
+
+    private var latest: SlackMessage? { appState.slackMessages.first }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color(hex: appState.slackStatus == .connected ? "#22C55E" : "#F5A524"))
+                    .frame(width: 7, height: 7)
+                Text("Slack")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color(hex: "#F5F6F8"))
+                Text(latest?.place ?? "Messages")
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(hex: "#8E939C"))
+                    .lineLimit(1)
+                if appState.slackMessages.count > 1 {
+                    Text("+\(appState.slackMessages.count - 1)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(Color(hex: "#6B7079"))
+                        .monospacedDigit()
+                }
+                Spacer(minLength: 4)
+                if let note {
+                    Text(note)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(Color(hex: "#22C55E"))
+                        .transition(.opacity)
+                }
+            }
+            .padding(.top, 6)
+            .padding(.leading, 108)
+            .padding(.trailing, 16)
+
+            if let msg = latest {
+                // Latest message
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 5) {
+                        Circle().fill(Color(hex: "#36C5F0")).frame(width: 5, height: 5)
+                        Text(msg.sender)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Color(hex: "#E5E7EB"))
+                            .lineLimit(1)
+                        Text(msg.timeAgo)
+                            .font(.system(size: 10))
+                            .foregroundColor(Color(hex: "#6B7079"))
+                    }
+                    Text(msg.text)
+                        .font(.system(size: 11))
+                        .foregroundColor(Color(hex: "#C5C8CD"))
+                        .lineLimit(replying ? 1 : 2)
+                        .truncationMode(.tail)
+                }
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(hex: "#36C5F0").opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .padding(.top, 4)
+                .padding(.leading, 108)
+                .padding(.trailing, 12)
+
+                // Reply
+                HStack(spacing: 6) {
+                    if replying {
+                        TextField("Répondre à \(msg.sender)…", text: $draft)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 11))
+                            .foregroundColor(Color(hex: "#F5F6F8"))
+                            .focused($fieldFocused)
+                            .onSubmit { send(to: msg) }
+                            .onExitCommand { replying = false; draft = "" }
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        Button { send(to: msg) } label: {
+                            Image(systemName: sending ? "ellipsis" : "paperplane.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Color(hex: "#36C5F0"))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(sending || draft.trimmingCharacters(in: .whitespaces).isEmpty)
+                    } else {
+                        Button("Répondre") {
+                            replying = true
+                            NotificationCenter.default.post(name: .islandNeedsKeyboard, object: nil)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { fieldFocused = true }
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(Color(hex: "#36C5F0"))
+                        Button("Ouvrir dans Slack") { SlackService.shared.open(msg) }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11))
+                            .foregroundColor(Color(hex: "#8E939C"))
+                    }
+                }
+                .padding(.top, 4)
+                .padding(.leading, 112)
+                .padding(.trailing, 16)
+            } else {
+                Text("Aucun message pour l'instant. Les messages directs et les mentions apparaîtront ici.")
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(hex: "#6B7079"))
+                    .lineLimit(2)
+                    .padding(.top, 6)
+                    .padding(.leading, 108)
+                    .padding(.trailing, 16)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .padding(.top, 4)
+        .onAppear { SlackService.shared.markRead() }
+        .onChange(of: appState.slackUnread) { _, n in if n > 0 { SlackService.shared.markRead() } }
+        .onChange(of: latest?.id) { _, _ in replying = false; draft = "" }
+    }
+
+    private func send(to msg: SlackMessage) {
+        let text = draft
+        guard !sending, !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        sending = true
+        Task { @MainActor in
+            let ok = await SlackService.shared.reply(to: msg, text: text)
+            sending = false
+            if ok {
+                draft = ""
+                replying = false
+                withAnimation { note = "Envoyé ✓" }
+            } else {
+                withAnimation { note = "Échec de l'envoi" }
+            }
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            withAnimation { note = nil }
+        }
     }
 }
 
@@ -2821,6 +2983,7 @@ struct PillBadgeView: View {
         case .approval: return Color(hex: "#F5A524")
         case .finished: return Color(hex: "#22C55E")
         case .error:    return Color(hex: "#F4505E")
+        case .message:  return Color(hex: "#36C5F0")
         }
     }
 
@@ -2829,6 +2992,7 @@ struct PillBadgeView: View {
         case .approval: return "exclamationmark"
         case .finished: return "checkmark"
         case .error:    return "xmark"
+        case .message:  return "bubble.left.fill"
         }
     }
 

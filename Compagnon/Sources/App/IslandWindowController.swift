@@ -151,6 +151,11 @@ final class IslandWindowController: NSWindowController {
                     self.islandPanel.makeKey()
                 }
             }
+
+        // A card with a text field (Slack reply) asks for the keyboard
+        NotificationCenter.default.addObserver(forName: .islandNeedsKeyboard, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.islandPanel.makeKey() }
+        }
     }
 
     // MARK: - FSM wiring
@@ -881,6 +886,7 @@ extension Notification.Name {
     static let botMorphTo       = Notification.Name("compagnon.botMorphTo")
     static let islandAction     = Notification.Name("compagnon.islandAction")
     static let islandCollapse   = Notification.Name("compagnon.islandCollapse")
+    static let islandNeedsKeyboard = Notification.Name("compagnon.islandNeedsKeyboard")
     static let openFullSettings = Notification.Name("compagnon.openFullSettings")
     static let hookReveal       = Notification.Name("compagnon.hookReveal")
     static let musicReveal      = Notification.Name("compagnon.musicReveal")

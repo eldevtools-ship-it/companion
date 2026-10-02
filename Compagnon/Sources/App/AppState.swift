@@ -194,7 +194,7 @@ final class AppState: ObservableObject {
     }
 
     // Active integration pills (main workspace pill excluded). Max 4.
-    @Published var activeIntegrations: Set<String> = ["integration_resend", "integration_n8n", "integration_vercel", "integration_github"] {
+    @Published var activeIntegrations: Set<String> = ["integration_slack", "integration_github", "integration_vercel"] {
         didSet {
             if let data = try? JSONEncoder().encode(Array(activeIntegrations)) {
                 UserDefaults.standard.set(data, forKey: "activeIntegrations")
@@ -232,6 +232,11 @@ final class AppState: ObservableObject {
     @Published var notionPages: [NotionPage] = []
     @Published var notionLoaded: Bool = false
     @Published var notionError: String? = nil
+
+    // Slack (populated by SlackService)
+    @Published var slackMessages: [SlackMessage] = []
+    @Published var slackUnread: Int = 0
+    @Published var slackStatus: SlackStatus = .notConfigured
 
     // Chat conversation history
     @Published var chatHistory: [ChatMessage] = []
