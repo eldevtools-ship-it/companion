@@ -326,13 +326,19 @@ struct IslandHeader: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Left: concentration, then back to the overview from any other card
-            HStack(spacing: 10) {
-                FocusButton(state: state)
-                if state.view != .overview && state.view != .empty {
+            // Left: back to the overview (when inside a card), then concentration.
+            // The moon slides right to make room for the arrow.
+            let showsBack = state.view != .overview && state.view != .empty
+            HStack(spacing: 8) {
+                if showsBack {
                     TabButton(icon: "chevron.left", view: .overview, state: state)
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .offset(x: -10)),
+                            removal: .opacity.combined(with: .offset(x: -10))))
                 }
+                FocusButton(state: state)
             }
+            .animation(.spring(response: 0.38, dampingFraction: 0.82), value: showsBack)
             .padding(.leading, 16)
 
             Spacer()
