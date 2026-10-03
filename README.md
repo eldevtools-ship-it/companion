@@ -21,11 +21,12 @@ nom, notre personnage, nos sons et notre icône.
 
 ![Le personnage dans quatre états](docs/personnage.png)
 
-Une petite boule menthe en forme de bonbon, aux yeux bleu nuit, avec une
-**antenne** : sa lampe est corail quand tout est calme, prend la couleur de ce
-que fait Claude (bleu il travaille, violet il réfléchit, vert c'est fini…) et
-**clignote quand Claude a besoin de toi**. Elle se balance quand il saute ou
-qu'on le secoue. Toutes les animations de Coucou sont conservées.
+Un petit **nuage** blanc aux yeux sobres, qui respire doucement. Il prend la
+couleur de l'app sélectionnée (orange Harvest, rose Slack, argile Claude Code…),
+et celle de ce que fait Claude monte en lui par le bas : bleu quand il travaille,
+ambre quand il attend ta réponse, vert quand c'est fini. Les petites mascottes des
+pastilles gardent leur forme de bonbon. L'icône de l'app et celle de la barre des
+menus reprennent le nuage.
 
 Les couleurs et la forme sont dans `Compagnon/Sources/App/CompagnonStyle.swift`.
 
