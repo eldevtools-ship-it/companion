@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthesise Compagnon's sounds into Compagnon/Resources/sounds/.
+"""Synthesise Kumo's sounds into Kumo/Resources/sounds/.
 
 Every sound is made here from sine and triangle tones, a little noise and short
 envelopes: no recorded samples, nothing borrowed. Same names as the ones the app
@@ -14,7 +14,7 @@ import struct
 import wave
 
 RATE = 48000
-OUT = os.path.join(os.path.dirname(__file__), "..", "Compagnon", "Resources", "sounds")
+OUT = os.path.join(os.path.dirname(__file__), "..", "Kumo", "Resources", "sounds")
 random.seed(42)
 
 

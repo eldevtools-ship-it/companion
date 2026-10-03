@@ -1,6 +1,6 @@
-# Brancher Slack sur Compagnon
+# Brancher Slack sur Kumo
 
-Compagnon affiche en temps réel tes **messages directs** (et messages de groupe)
+Kumo affiche en temps réel tes **messages directs** (et messages de groupe)
 et les messages où l'on te **mentionne**, et te laisse **répondre depuis l'île**.
 La réponse part en ton nom ; pour une mention dans un canal, elle part dans le
 fil du message.
@@ -10,7 +10,7 @@ que par toi et n'a pas de bot.
 
 ## 1. Créer l'app (5 minutes)
 
-1. Compagnon → **Réglages… → Slack → Copier le manifeste**
+1. Kumo → **Réglages… → Slack → Copier le manifeste**
    (le même contenu est dans [`slack-manifest.json`](slack-manifest.json)).
 2. Va sur <https://api.slack.com/apps> → **Create New App** → **From a manifest**,
    choisis l'espace de travail du boulot, colle le manifeste, **Create**.
@@ -33,9 +33,9 @@ C'est utile de le dire à l'admin qui valide.
    and Scopes**, nom au choix (« compagnon »), droit `connections:write`,
    **Generate**. Copie le jeton (commence par `xapp-`).
 
-## 4. Coller les jetons dans Compagnon
+## 4. Coller les jetons dans Kumo
 
-6. Compagnon → **Réglages… → Slack** : colle le `xoxp-…` et le `xapp-…`, puis
+6. Kumo → **Réglages… → Slack** : colle le `xoxp-…` et le `xapp-…`, puis
    **Enregistrer**. Le statut passe à « Connecté · en écoute » et la pastille
    Slack apparaît.
 
@@ -60,4 +60,4 @@ Les jetons restent dans le Trousseau du Mac, jamais sur disque ni dans git.
 | Erreur : droits manquants | l'app a été créée sans le manifeste complet : recolle-le dans **App Manifest**, puis réinstalle |
 | Connecté, mais rien n'arrive | vérifie que **Socket Mode** est activé et que les 4 *user events* sont listés dans **Event Subscriptions** |
 
-Le journal est dans `~/Library/Logs/Compagnon/slack.log`.
+Le journal est dans `~/Library/Logs/Kumo/slack.log`.

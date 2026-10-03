@@ -10,7 +10,8 @@ import SwiftUI
 final class HookServer: @unchecked Sendable {
     static let shared = HookServer()
 
-    // Support directory paths
+    // Support directory paths. They keep the app's first name ("Compagnon"): your notes,
+    // chats and the hooks installed in ~/.claude/settings.json point there. Never shown.
     static var supportDir: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Compagnon")
@@ -21,7 +22,7 @@ final class HookServer: @unchecked Sendable {
     static var hookScriptPath: String { supportDir.appendingPathComponent(hookScriptName).path }
     static let hookScriptName = "compagnon-hook"
 
-    /// True when a hook command runs our relay. Compagnon's hooks (compagnon-hook) are left alone.
+    /// True when a hook command runs our relay (compagnon-hook). Other apps' hooks are left alone.
     static func isOwnHook(_ command: String?) -> Bool {
         command?.contains(hookScriptName) == true
     }
@@ -866,7 +867,9 @@ final class HookServer: @unchecked Sendable {
     private func aliasProjectName(_ name: String) -> String {
         let aliases: [String: String] = [
             "notch-buddy":  "Notch Buddy",
-            "compagnon":    "Compagnon",
+            "compagnon":    "Kumo",
+            "companion":    "Kumo",
+            "kumo":         "Kumo",
             "notch_buddy":  "Notch Buddy",
         ]
         return aliases[name.lowercased()] ?? name
@@ -991,7 +994,7 @@ final class HookServer: @unchecked Sendable {
 
     // MARK: - Outdated hook detection
 
-    /// Returns true if settings.json has a Compagnon PermissionRequest hook with timeout < 120s.
+    /// Returns true if settings.json has a Kumo PermissionRequest hook with timeout < 120s.
     /// True when ~/.claude/settings.json runs our relay on SessionStart.
     static func claudeHooksInstalled() -> Bool {
         let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/settings.json")
@@ -1137,9 +1140,9 @@ extension Notification.Name {
 
 private let hookShellWrapper = """
 #!/bin/sh
-# Compagnon hook relay — always exits 0, never blocks Claude Code
+# Kumo hook relay — always exits 0, never blocks Claude Code
 HOOK_DIR="$(dirname "$0")"
-# Compagnon's own chat runs Claude Code too: stay out of the island for it
+# Kumo's own chat runs Claude Code too: stay out of the island for it
 if [ -n "$COMPAGNON_CHAT" ]; then cat >/dev/null; exit 0; fi
 if xcode-select -p >/dev/null 2>&1; then
     out=$(/usr/bin/python3 "$HOOK_DIR/compagnon-hook.py" "$@" 2>/dev/null)
@@ -1155,8 +1158,8 @@ exit 0
 
 private let hookPython = """
 #!/usr/bin/env python3
-# compagnon-hook.py — Compagnon hook relay for Claude Code and third-party agents
-# Reads JSON from stdin, forwards to Compagnon via Unix socket, translates response.
+# compagnon-hook.py — Kumo hook relay for Claude Code and third-party agents
+# Reads JSON from stdin, forwards to Kumo via Unix socket, translates response.
 import sys, json, os, socket
 
 def normalize_event(name):
@@ -1254,7 +1257,7 @@ def main():
     )
 
     # Claude asks a multiple-choice question (dedicated PreToolUse entry, matcher
-    # AskUserQuestion): wait for the answer picked in Compagnon. No answer, or
+    # AskUserQuestion): wait for the answer picked in Kumo. No answer, or
     # 'Répondre dans Claude' → print nothing and Claude shows its own question.
     if ask_mode:
         if payload.get('tool_name') != 'AskUserQuestion':
@@ -1284,7 +1287,7 @@ def main():
         if resp.get('mode') == 'deny':
             # Compatibility mode: hand the answers to Claude as text
             lines = ['- ' + q + ' → ' + (', '.join(a) if isinstance(a, list) else str(a)) for q, a in answers.items()]
-            reason = "L'utilisateur a répondu depuis Compagnon :\\n" + '\\n'.join(lines) + "\\nContinue avec ces réponses, sans reposer la question."
+            reason = "L'utilisateur a répondu depuis Kumo :\\n" + '\\n'.join(lines) + "\\nContinue avec ces réponses, sans reposer la question."
             out = {'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'deny', 'permissionDecisionReason': reason}}
         else:
             out = {'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'allow',
@@ -1294,7 +1297,7 @@ def main():
         sys.exit(0)
 
     if event == 'PermissionRequest':
-        # Block and wait for Compagnon's decision (Claude Code allows up to 120s)
+        # Block and wait for Kumo's decision (Claude Code allows up to 120s)
         try:
             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             s.settimeout(118)
@@ -1335,7 +1338,7 @@ def main():
                     sys.stdout.flush()
                     sys.exit(0)
                 elif decision == 'deny':
-                    out = {'hookSpecificOutput': {'hookEventName': 'PermissionRequest', 'decision': {'behavior': 'deny', 'message': 'Refusé depuis Compagnon'}}}
+                    out = {'hookSpecificOutput': {'hookEventName': 'PermissionRequest', 'decision': {'behavior': 'deny', 'message': 'Refusé depuis Kumo'}}}
                     sys.stdout.write(json.dumps(out) + '\\n')
                     sys.stdout.flush()
                     sys.exit(0)

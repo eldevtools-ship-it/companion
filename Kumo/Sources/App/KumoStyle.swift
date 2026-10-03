@@ -6,7 +6,7 @@ import CoreGraphics
 // Used by the main bot (BotEngine), the greeting and the upload animation so the
 // three renderers stay identical. All coordinates are body-local, y pointing down.
 
-enum CompagnonStyle {
+enum KumoStyle {
     // Body: a white cloud, lavender in its shadows. The state colour rises from below.
     static let bodyTop    = CGColor(red: 1.000, green: 1.000, blue: 1.000, alpha: 1)  // #FFFFFF
     static let bodyBottom = CGColor(red: 0.851, green: 0.851, blue: 0.957, alpha: 1)  // #D9D9F4

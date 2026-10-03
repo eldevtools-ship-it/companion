@@ -171,6 +171,7 @@ enum IslandConst {
 
     // Project colors — keyed by lowercase display name or slug
     static let projectColors: [String: String] = [
+        "kumo":              "#EC4899",
         "compagnon":         "#EC4899",
         "raneo-cep":         "#38BDF8",
     ]

@@ -1,6 +1,6 @@
-# Compagnon — guide pour les agents
+# Kumo — guide pour les agents
 
-Compagnon est une app macOS native (`Compagnon/`) : un petit personnage qui vit
+Kumo (雲, « nuage » en japonais ; anciennement Compagnon) est une app macOS native (`Kumo/`) : un petit personnage qui vit
 dans l'encoche du Mac et fait trois choses, pour un seul utilisateur :
 - suivre les sessions Claude Code via leurs hooks et autoriser / refuser depuis l'encoche ;
 - afficher les messages directs et mentions Slack, et y répondre ;
@@ -10,9 +10,9 @@ Plus l'Agenda, Vercel, GitHub, un pense-bête et un petit chat avec Claude. C'es
 pas de nouvelle fonction sans usage réel.
 
 ## Où est quoi
-- `Compagnon/Sources/App/` — tout le code Swift. `Compagnon/project.yml` — projet
+- `Kumo/Sources/App/` — tout le code Swift. `Kumo/project.yml` — projet
   XcodeGen (le `.xcodeproj` est généré, jamais commité).
-- `Compagnon/Sources/App/CompagnonStyle.swift` — l'apparence du personnage :
+- `Kumo/Sources/App/KumoStyle.swift` — l'apparence du personnage :
   un nuage blanc à cinq bouffées (`cloudPoint`), yeux en pilules sobres (sans
   reflet), la couleur de l'état qui monte par le bas. Éclairage (`BotEngine.lighting`) :
   la couleur de la pastille au calme, celle de l'état quand il s'active ; ombres teintées
@@ -23,13 +23,13 @@ pas de nouvelle fonction sans usage réel.
   à ressort (souris proche, clic, caresse), vapeur / gouttes / ciel d'orage selon
   l'état, sieste après 10 min, regard vers le champ quand on tape, « parole » pendant
   la réponse du chat, bâillement le matin, paupières lourdes tard le soir.
-- `Compagnon/Sources/App/HookServer.swift` — le pont avec Claude Code : socket
+- `Kumo/Sources/App/HookServer.swift` — le pont avec Claude Code : socket
   `~/Library/Application Support/Compagnon/compagnon.sock`, script relais
   `compagnon-hook`, installation des hooks dans `~/.claude/settings.json`.
-- `Compagnon/Sources/App/PillCatalog.swift` — les pastilles (Claude Code toujours ;
+- `Kumo/Sources/App/PillCatalog.swift` — les pastilles (Claude Code toujours ;
   Slack, Harvest, Agenda, Vercel, GitHub dès qu'elles sont configurées) et leurs
   couleurs (`PillColor`, une teinte distincte par pastille).
-- `Compagnon/Sources/App/OverviewCards.swift` — la vue d'ensemble et les cartes
+- `Kumo/Sources/App/OverviewCards.swift` — la vue d'ensemble et les cartes
   (Claude Code, Slack, Harvest + sélecteur de projet, Agenda, Vercel, GitHub).
 - Cartes d'autorisation et de question (`IslandViewContent.swift`) : elles grandissent avec
   leur contenu (`PromptLayout`) ; l'autorisation dit ce qui est en jeu (commande et sa
@@ -39,9 +39,9 @@ pas de nouvelle fonction sans usage réel.
 - Carte « Terminé » : « Répondre » donne une suite à la session (`ChatService.reply`,
   `claude -p --resume … --fork-session` dans le dossier du projet ; ses hooks la montrent
   dans l'île ; un outil qui demande une permission y est refusé).
-- `Compagnon/Sources/App/IslandTypes.swift` — `CardLayout` : la grille commune à
+- `Kumo/Sources/App/IslandTypes.swift` — `CardLayout` : la grille commune à
   toutes les vues (personnage centré à gauche, même marge bord → personnage → contenu).
-- `Compagnon/Sources/App/IslandCursor.swift` — curseur main / texte au survol de l'île.
+- `Kumo/Sources/App/IslandCursor.swift` — curseur main / texte au survol de l'île.
 - `NotesStore.swift` / `NotesView.swift` — le pense-bête (bouton notes à côté de la
   lune) : notes et dossiers dans `~/Library/Application Support/Compagnon/notes.json`.
   ⌥⌘N l'ouvre depuis n'importe quelle app (`HotKey.swift`, raccourci Carbon).
@@ -60,17 +60,17 @@ pas de nouvelle fonction sans usage réel.
   concentration automatique en réunion (caméra allumée ou réunion de l'agenda).
 - `SlackService.swift`, `HarvestService.swift`, `GithubPoller.swift`,
   `UpdateService.swift` (mise à jour automatique depuis les releases GitHub).
-- `Compagnon/Resources/sounds/` — générés par `scripts/gen-sounds.py`.
-  `Compagnon/Assets.xcassets/` — icônes générées par `scripts/gen-icons.py`.
+- `Kumo/Resources/sounds/` — générés par `scripts/gen-sounds.py`.
+  `Kumo/Assets.xcassets/` — icônes générées par `scripts/gen-icons.py`.
   On modifie les scripts, puis on relance, plutôt que d'éditer les fichiers.
 - `docs/SLACK.md`, `docs/HARVEST.md` — mise en place des intégrations.
 
 ## Build
 Le conteneur cloud ne peut pas compiler d'app macOS : chaque push est compilé
-par GitHub Actions (`.github/workflows/build.yml`), qui publie `Compagnon.zip`.
+par GitHub Actions (`.github/workflows/build.yml`), qui publie `Kumo.zip`.
 En local sur un Mac :
 ```
-cd Compagnon && xcodegen && xcodebuild -scheme Compagnon -configuration Debug build
+cd Kumo && xcodegen && xcodebuild -scheme Kumo -configuration Debug build
 ```
 
 ## Règles
@@ -87,7 +87,7 @@ cd Compagnon && xcodegen && xcodebuild -scheme Compagnon -configuration Debug bu
 - Ne jamais réintroduire le nom « Coucou », le personnage Mochi, l'icône, les
   sons ou les médias de Coucou (`LICENSE-ASSETS.md`). Garder la notice MIT de
   Louis Raillé dans `LICENSE`.
-- Les hooks de Compagnon sont reconnus par `HookServer.isOwnHook` (nom du script
+- Les hooks de Kumo sont reconnus par `HookServer.isOwnHook` (nom du script
   `compagnon-hook`) : ne jamais toucher aux hooks d'une autre app (Coucou…).
 - Secrets dans le Trousseau, jamais sur disque ni dans git. Pas de télémétrie.
 - Ne jamais bloquer Claude Code : si l'app ne répond pas, le hook sort aussitôt.
@@ -99,5 +99,11 @@ cd Compagnon && xcodegen && xcodebuild -scheme Compagnon -configuration Debug bu
   affichée et celle qui disparaît sont construites ; les mini-animations sont plafonnées
   à 30 i/s ; aucun appel réseau pendant que les écrans dorment (`AppState.macAsleep`) ;
   les journaux s'écrivent en arrière-plan.
+- Identifiants internes gardés de l'ancien nom, à ne pas renommer sans migration : l'identifiant
+  d'app `com.eldevtools.Compagnon` (réglages et autorisations macOS), le service Trousseau,
+  le dossier `~/Library/Application Support/Compagnon/` (notes, chats, socket), le relais
+  `compagnon-hook` (reconnu dans `~/.claude/settings.json`), `COMPAGNON_CHAT`, le champ
+  `compagnon_agent`. Les releases publient `Kumo.zip` et, pour les anciennes installations,
+  `Compagnon.zip` ; la mise à jour installe toujours `Kumo.app`.
 - Les identifiants de pastilles sont des valeurs stables (Trousseau, réglages,
   routage des hooks) : ne pas les renommer.

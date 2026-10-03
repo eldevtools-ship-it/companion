@@ -1,7 +1,7 @@
 # Build artefacts
-Compagnon/build/
-# Généré par xcodegen à partir de Compagnon/project.yml
-Compagnon/Compagnon.xcodeproj/
+Kumo/build/
+# Généré par xcodegen à partir de Kumo/project.yml
+Kumo/Kumo.xcodeproj/
 *.xcuserstate
 
 # Xcode DerivedData (outside repo — listed for clarity)

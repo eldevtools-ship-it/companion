@@ -1,4 +1,7 @@
-# Compagnon
+# Kumo
+
+*Kumo* (雲) veut dire « nuage » en japonais : un petit nuage qui flotte dans
+l'encoche, léger, toujours là, jamais encombrant.
 
 Un petit assistant qui vit dans l'encoche du Mac et fait trois choses :
 
@@ -13,7 +16,7 @@ Plus **Agenda** (rappel avant tes réunions, bouton Rejoindre, lu dans l'app
 Calendrier du Mac), **Vercel** (déploiements) et **GitHub**. Les pastilles
 apparaissent toutes seules dès que le service est configuré.
 
-Compagnon est notre version de [Coucou](https://github.com/Louis-CFM/coucou)
+Kumo est notre version de [Coucou](https://github.com/Louis-CFM/coucou)
 (Louis Raillé, licence MIT) : même base, mais en français, avec notre propre
 nom, notre personnage, nos sons et notre icône.
 
@@ -28,38 +31,38 @@ ambre quand il attend ta réponse, vert quand c'est fini. Les petites mascottes 
 pastilles gardent leur forme de bonbon. L'icône de l'app et celle de la barre des
 menus reprennent le nuage.
 
-Les couleurs et la forme sont dans `Compagnon/Sources/App/CompagnonStyle.swift`.
+Les couleurs et la forme sont dans `Kumo/Sources/App/KumoStyle.swift`.
 
 ## Installer (une seule fois)
 
 1. Sur GitHub : onglet **Actions** → dernier build vert → en bas, **Artifacts**
-   → **Compagnon** (ou onglet **Releases** → dernière version → `Compagnon.zip`).
-2. Dézippe, glisse **Compagnon.app** dans `/Applications`.
-3. Première ouverture : macOS affiche « Élément Compagnon non ouvert » (l'app
+   → **Kumo** (ou onglet **Releases** → dernière version → `Kumo.zip`).
+2. Dézippe, glisse **Kumo.app** dans `/Applications`.
+3. Première ouverture : macOS affiche « Élément Kumo non ouvert » (l'app
    n'est pas signée par Apple, c'est normal pour un usage perso). Clique
    **Terminé**, puis au choix :
    - **Réglages Système → Confidentialité et sécurité**, tout en bas :
      **Ouvrir quand même**, mot de passe, puis relance l'app ;
-   - ou dans le Terminal : `xattr -dr com.apple.quarantine /Applications/Compagnon.app`
-4. Icône Compagnon dans la barre des menus → **Réglages… → Claude Code →
+   - ou dans le Terminal : `xattr -dr com.apple.quarantine /Applications/Kumo.app`
+4. Icône Kumo dans la barre des menus → **Réglages… → Claude Code →
    Installer les hooks** pour brancher Claude Code.
 
 ## Mises à jour automatiques
 
 Chaque modification poussée sur GitHub est compilée puis publiée comme une
-**release** numérotée. Compagnon vérifie toutes les 30 minutes, télécharge la
+**release** numérotée. Kumo vérifie toutes les 30 minutes, télécharge la
 nouvelle version, attend un moment calme (aucune autorisation en attente,
 aucun agent au travail, île fermée), se remplace et se relance tout seul. Pas
 d'alerte macOS cette fois : c'est l'app qui télécharge, pas le navigateur.
 
-Une seule chose à faire, puisque le dépôt est privé : donner à Compagnon un
+Une seule chose à faire, puisque le dépôt est privé : donner à Kumo un
 **jeton GitHub en lecture seule** sur ce dépôt.
 
 1. <https://github.com/settings/personal-access-tokens/new> (jeton
-   *fine-grained*) : nom « Compagnon mises à jour », **Repository access →
+   *fine-grained*) : nom « Kumo mises à jour », **Repository access →
    Only select repositories → companion**, **Permissions → Contents :
    Read-only**, expiration au choix, **Generate token**.
-2. Compagnon → **Réglages… → Mises à jour** : colle le jeton,
+2. Kumo → **Réglages… → Mises à jour** : colle le jeton,
    **Enregistrer**. Le statut affiche « À jour » ou la version disponible.
 
 Tu peux aussi forcer une vérification depuis le menu de la barre des menus
@@ -67,10 +70,10 @@ Tu peux aussi forcer une vérification depuis le menu de la barre des menus
 réglages. Après une mise à jour, macOS peut redemander une fois l'accès au
 Trousseau (clés enregistrées) : clique **Toujours autoriser**.
 
-Compagnon et Coucou peuvent tourner en même temps : chacun a ses propres
+Kumo et Coucou peuvent tourner en même temps : chacun a ses propres
 hooks, son dossier et ses réglages.
 
-## Ce que Compagnon voit
+## Ce que Kumo voit
 
 Les sessions Claude Code qui tournent **sur ton Mac** : terminal, VS Code,
 Cursor, ou l'app Claude (onglet Code) en mode local. Les sessions cloud
@@ -83,7 +86,7 @@ Prérequis : macOS 15+, Xcode 16+, [XcodeGen](https://github.com/yonaskolb/Xcode
 
 ```bash
 brew install xcodegen
-cd Compagnon && xcodegen && open Compagnon.xcodeproj   # puis ⌘R
+cd Kumo && xcodegen && open Kumo.xcodeproj   # puis ⌘R
 ```
 
 ## Sons et icônes
@@ -91,7 +94,7 @@ cd Compagnon && xcodegen && open Compagnon.xcodeproj   # puis ⌘R
 Générés par script, rien n'est repris de Coucou :
 
 ```bash
-python3 scripts/gen-sounds.py   # 28 sons dans Compagnon/Resources/sounds/
+python3 scripts/gen-sounds.py   # 28 sons dans Kumo/Resources/sounds/
 python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 ```
 
@@ -106,21 +109,21 @@ python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 
 ## Feuille de route
 
-- [x] Renommer en Compagnon (identifiant, dossiers, hooks séparés)
+- [x] Renommer en Compagnon (identifiant, dossiers, hooks séparés), puis en Kumo
 - [x] Interface en français
 - [x] Personnage, sons et icône à nous
 - [x] Build automatique sur GitHub (pas besoin d'Xcode)
 - [x] Mises à jour automatiques de l'app sur le Mac
 - [x] Slack : messages directs et mentions en temps réel, réponse depuis l'île ([docs/SLACK.md](docs/SLACK.md))
 - [x] Harvest : timer en cours, démarrer / arrêter, rappel ([docs/HARVEST.md](docs/HARVEST.md))
-- [x] Répondre aux questions de Claude depuis Compagnon (à confirmer à l'usage)
+- [x] Répondre aux questions de Claude depuis Kumo (à confirmer à l'usage)
 - [x] Rappel de réunion (Calendrier du Mac) et Vercel
-- [ ] Écrire à Claude depuis Compagnon
+- [ ] Écrire à Claude depuis Kumo
 - [x] Recentrer l'app sur Claude Code, Slack, Harvest et GitHub
 
 ## Où est quoi
 
-- `Compagnon/` — l'app macOS (Swift 6, SwiftUI, AppKit, sans dépendance).
+- `Kumo/` — l'app macOS (Swift 6, SwiftUI, AppKit, sans dépendance).
 - `scripts/` — génération des sons et icônes, petits tests.
 - `docs/SLACK.md`, `docs/HARVEST.md` — mise en place des intégrations.
 - `docs/COUCOU-README.md` — le README d'origine de Coucou.

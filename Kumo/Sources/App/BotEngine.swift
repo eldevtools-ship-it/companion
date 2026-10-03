@@ -71,16 +71,16 @@ enum BadgeType {
     case dot(CGColor)
 }
 
-// MARK: - Character constants (palette and silhouette live in CompagnonStyle)
+// MARK: - Character constants (palette and silhouette live in KumoStyle)
 
 enum BotConst {
     static let eyeW: CGFloat  = 0.22
     static let eyeH: CGFloat  = 0.30
     static let eyeSp: CGFloat = 0.35
     static let eyeP: CGFloat  = -0.10
-    static let baseTop    = CompagnonStyle.bodyTop
-    static let baseBottom = CompagnonStyle.bodyBottom
-    static let ink        = CompagnonStyle.ink
+    static let baseTop    = KumoStyle.bodyTop
+    static let baseBottom = KumoStyle.bodyBottom
+    static let ink        = KumoStyle.ink
     static let miniInk    = CGColor(red: 0.063, green: 0.075, blue: 0.102, alpha: 1)  // #10131A
 }
 
@@ -939,7 +939,7 @@ final class BotEngine: ObservableObject {
     private func updatePuffs(now: Double, dt: Double) {
         let d = CGFloat(min(dt, 1.0 / 30))
         let sinceRipple = now - rippleAt
-        for (i, p) in CompagnonStyle.cloudPuffs.enumerated() {
+        for (i, p) in KumoStyle.cloudPuffs.enumerated() {
             let a = atan2(p.y, p.x)
             let facing = max(0, cos(a - pointerAngle))
             var target = facing * facing * pointerNear * 0.075
@@ -1264,8 +1264,8 @@ final class BotEngine: ObservableObject {
             let a = CGFloat(i) / CGFloat(n) * .pi * 2
             let ca = cos(a), sa = sin(a)
             let p0 = isCloud
-                ? CompagnonStyle.cloudPoint(angle: a, rx: rx, ry: ry, puff: puff, phase: now, boosts: puffBoost)
-                : CompagnonStyle.bodyPoint(angle: a, rx: rx, ry: ry)
+                ? KumoStyle.cloudPoint(angle: a, rx: rx, ry: ry, puff: puff, phase: now, boosts: puffBoost)
+                : KumoStyle.bodyPoint(angle: a, rx: rx, ry: ry)
             let px0 = p0.x, py0 = p0.y
             let px: CGFloat
             let py: CGFloat
@@ -1349,7 +1349,7 @@ final class BotEngine: ObservableObject {
                 puffs.clip(to: path)
                 let breathe = 1 + 0.02 * sin(CGFloat(CACurrentMediaTime()) * 1.5)
                 for i in [2, 3, 0, 1] {
-                    let p = CompagnonStyle.cloudPuffs[i]
+                    let p = KumoStyle.cloudPuffs[i]
                     let k = breathe + (i < puffBoost.count ? puffBoost[i] : 0)
                     let pcx = p.x * rx / 1.06, pcy = (p.y - 0.03) * ry / 0.81
                     let prx = p.r * k * rx / 1.06, pry = p.r * k * ry / 0.81

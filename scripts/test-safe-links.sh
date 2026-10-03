@@ -3,6 +3,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/coucou-safe-links.XXXXXX")"
 trap 'rm -rf "$TEST_DIR"' EXIT
-swiftc Compagnon/Sources/App/SafeWebURL.swift \
+swiftc Kumo/Sources/App/SafeWebURL.swift \
     tests/SafeWebURLTests.swift -o "$TEST_DIR/safe-links-tests"
 "$TEST_DIR/safe-links-tests"

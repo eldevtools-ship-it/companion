@@ -241,15 +241,15 @@ private func gRR(_ ctx: CGContext, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h
 }
 
 private func characterPath(hw: CGFloat, hh: CGFloat) -> CGPath {
-    CompagnonStyle.bodyCGPath(rx: hw, ry: hh)
+    KumoStyle.bodyCGPath(rx: hw, ry: hh)
 }
 
 // Linear gradient fill clipped to path (body-local coords, centered at origin)
 private func whiteFill(_ ctx: CGContext, _ path: CGPath,
                         x0: CGFloat, y0: CGFloat, x1: CGFloat, y1: CGFloat) {
     let cs   = CGColorSpaceCreateDeviceRGB()
-    let c0   = CompagnonStyle.bodyTop
-    let c1   = CompagnonStyle.bodyBottom
+    let c0   = KumoStyle.bodyTop
+    let c1   = KumoStyle.bodyBottom
     guard let g = CGGradient(colorsSpace: cs, colors: [c0,c1] as CFArray, locations: [0,1]) else { return }
     ctx.saveGState()
     ctx.addPath(path); ctx.clip()
@@ -343,7 +343,7 @@ private func drawCharacter(_ ctx: CGContext, p: GreetPose) {
     drawHandR(ctx, hw: hw, hh: hh, p: p)
 
     // Body: the cloud
-    let mpath = CompagnonStyle.cloudCGPath(rx: hw, ry: hh)
+    let mpath = KumoStyle.cloudCGPath(rx: hw, ry: hh)
     whiteFill(ctx, mpath, x0: hw*0.6, y0: -hh, x1: -hw*0.6, y1: hh)
 
     // Blue tint overlay
@@ -362,8 +362,8 @@ private func drawCharacter(_ ctx: CGContext, p: GreetPose) {
     // Eyes (clipped to body)
     ctx.saveGState()
     ctx.addPath(mpath); ctx.clip()
-    ctx.setFillColor(CompagnonStyle.ink)
-    ctx.setStrokeColor(CompagnonStyle.ink)
+    ctx.setFillColor(KumoStyle.ink)
+    ctx.setStrokeColor(KumoStyle.ink)
     let er = CGFloat(p.hb*0.06)
     let sp = CGFloat(p.hb*0.19)
     let lx = CGFloat(p.lookX)*hw*0.42

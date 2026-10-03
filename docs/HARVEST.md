@@ -1,16 +1,16 @@
-# Brancher Harvest sur Compagnon
+# Brancher Harvest sur Kumo
 
-Compagnon affiche ton **timer Harvest en cours** (projet, tâche, temps qui
+Kumo affiche ton **timer Harvest en cours** (projet, tâche, temps qui
 défile), te laisse l'**arrêter** ou en **relancer** un, et te **rappelle** de
 lancer un timer quand tu travailles sans.
 
 ## Installation (2 minutes, pas besoin d'admin)
 
 1. Va sur <https://id.getharvest.com/developers> → **Create new personal access
-   token**, donne-lui un nom (« Compagnon »).
+   token**, donne-lui un nom (« Kumo »).
 2. Copie le **jeton** et l'**Account ID** affichés (si tu as plusieurs comptes
    Harvest, prends l'ID du compte du boulot).
-3. Compagnon → **Réglages… → Harvest** : colle les deux, puis **Enregistrer**.
+3. Kumo → **Réglages… → Harvest** : colle les deux, puis **Enregistrer**.
    La pastille Harvest apparaît aussitôt.
 
 Le jeton reste dans le Trousseau du Mac.
@@ -28,7 +28,7 @@ Le jeton reste dans le Trousseau du Mac.
 ## Le rappel
 
 Les jours ouvrés entre 9 h et 19 h, si tu es devant ton Mac depuis 10 minutes
-sans timer lancé, Compagnon sort de l'encoche avec un petit son et un badge sur
+sans timer lancé, Kumo sort de l'encoche avec un petit son et un badge sur
 la pastille Harvest. Au maximum une fois toutes les 30 minutes, et jamais quand
 tu es absent (plus de 5 minutes sans toucher clavier ni souris).
 Désactivable dans les réglages.

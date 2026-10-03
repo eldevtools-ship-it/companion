@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draw Compagnon's icons from the cloud character (CompagnonStyle.swift).
+"""Draw Kumo's icons from the cloud character (KumoStyle.swift).
 
 - App icon: a white cloud with sober eyes on a black rounded square.
 - Menu bar icon: the cloud as a template silhouette (eyes cut out), 24 × 18 pt.
@@ -16,15 +16,15 @@ import struct
 import zlib
 
 HERE = os.path.dirname(__file__)
-ROOT = os.path.join(HERE, "..", "Compagnon", "Assets.xcassets")
+ROOT = os.path.join(HERE, "..", "Kumo", "Assets.xcassets")
 DOCS = os.path.join(HERE, "..", "docs")
 
-# Palette (keep in sync with CompagnonStyle.swift)
+# Palette (keep in sync with KumoStyle.swift)
 BODY_TOP = (1.000, 1.000, 1.000)
 BODY_BOTTOM = (0.851, 0.851, 0.957)
 INK = (0.149, 0.165, 0.267)
 
-# Cloud puffs in unit space (x −1.06…1.06, y −0.78…0.84), same as CompagnonStyle.cloudPuffs
+# Cloud puffs in unit space (x −1.06…1.06, y −0.78…0.84), same as KumoStyle.cloudPuffs
 PUFFS = [(-0.60, 0.18, 0.46), (0.60, 0.18, 0.46), (-0.24, -0.20, 0.58), (0.30, -0.12, 0.52), (0.00, 0.24, 0.60)]
 
 

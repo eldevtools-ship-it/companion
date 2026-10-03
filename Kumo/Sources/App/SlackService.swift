@@ -391,7 +391,7 @@ final class SlackService {
     static let manifest = """
     {
       "display_information": {
-        "name": "Compagnon",
+        "name": "Kumo",
         "description": "Messages directs et mentions dans l'encoche du Mac",
         "background_color": "#14213d"
       },

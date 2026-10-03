@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 @main
-struct CompagnonApp: App {
+struct KumoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     var body: some Scene {

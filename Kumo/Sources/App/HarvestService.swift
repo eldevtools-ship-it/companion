@@ -93,7 +93,7 @@ final class HarvestService {
         req.httpMethod = method
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue(account, forHTTPHeaderField: "Harvest-Account-Id")
-        req.setValue("Compagnon (macOS)", forHTTPHeaderField: "User-Agent")
+        req.setValue("Kumo (macOS)", forHTTPHeaderField: "User-Agent")
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try JSONSerialization.data(withJSONObject: body)

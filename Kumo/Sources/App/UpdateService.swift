@@ -3,7 +3,7 @@ import AppKit
 
 // MARK: - Self-update
 // Each green build on GitHub is published as a release tagged "build-<n>" with
-// Compagnon.zip attached (.github/workflows/build.yml). The app compares <n> with
+// Kumo.zip attached (.github/workflows/build.yml). The app compares <n> with
 // its own CFBundleVersion, downloads the zip, swaps its bundle and relaunches.
 // The repo is private, so this needs a GitHub token with read access to it.
 // A file downloaded by the app itself carries no quarantine flag, so macOS does
@@ -108,7 +108,9 @@ final class UpdateService {
                   let tag = json["tag_name"] as? String,
                   let build = Int(tag.replacingOccurrences(of: "build-", with: "")),
                   let assets = json["assets"] as? [[String: Any]],
-                  let zip = assets.first(where: { ($0["name"] as? String) == "Compagnon.zip" }),
+                  // Kumo.zip (Compagnon.zip on releases made before the new name)
+                  let zip = assets.first(where: { ($0["name"] as? String) == "Kumo.zip" })
+                         ?? assets.first(where: { ($0["name"] as? String) == "Compagnon.zip" }),
                   let api = zip["url"] as? String, let assetURL = URL(string: api) else {
                 state.updateStatus = .failed("release illisible")
                 return
@@ -156,15 +158,17 @@ final class UpdateService {
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw UpdateError("téléchargement refusé") }
 
             let work = FileManager.default.temporaryDirectory
-                .appendingPathComponent("compagnon-update-\(availableBuild)", isDirectory: true)
+                .appendingPathComponent("kumo-update-\(availableBuild)", isDirectory: true)
             try? FileManager.default.removeItem(at: work)
             try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
-            let zip = work.appendingPathComponent("Compagnon.zip")
+            let zip = work.appendingPathComponent("Kumo.zip")
             try FileManager.default.moveItem(at: file, to: zip)
             try run("/usr/bin/ditto", ["-x", "-k", zip.path, work.path])
 
-            let newApp = work.appendingPathComponent("Compagnon.app")
-            guard let info = NSDictionary(contentsOf: newApp.appendingPathComponent("Contents/Info.plist")),
+            // Whatever the bundle inside is called (Kumo.app, Compagnon.app before the new name)
+            guard let newApp = (try? FileManager.default.contentsOfDirectory(at: work, includingPropertiesForKeys: nil))?
+                    .first(where: { $0.pathExtension == "app" }),
+                  let info = NSDictionary(contentsOf: newApp.appendingPathComponent("Contents/Info.plist")),
                   let v = info["CFBundleVersion"] as? String, force || (Int(v) ?? 0) > Self.currentBuild else {
                 throw UpdateError("archive inattendue")
             }
@@ -177,19 +181,23 @@ final class UpdateService {
     }
 
     /// Hands over to a tiny script that waits for us to quit, swaps the bundles
-    /// (rolling back if anything fails) and opens the new version.
+    /// (rolling back if anything fails) and opens the new version. The new one is always
+    /// installed as Kumo.app next to the old one, so Compagnon.app gets its new name.
     private func relaunch(replacingWith newApp: URL) throws {
-        let target = Bundle.main.bundleURL.path
+        let current = Bundle.main.bundleURL
+        let target = current.deletingLastPathComponent().appendingPathComponent("Kumo.app").path
         let script = """
         #!/bin/sh
-        mkdir -p "$HOME/Library/Logs/Compagnon"
-        exec >> "$HOME/Library/Logs/Compagnon/update.log" 2>&1
+        mkdir -p "$HOME/Library/Logs/Kumo"
+        exec >> "$HOME/Library/Logs/Kumo/update.log" 2>&1
         while kill -0 \(ProcessInfo.processInfo.processIdentifier) 2>/dev/null; do sleep 0.2; done
+        O=\(Self.shellQuote(current.path))
         T=\(Self.shellQuote(target))
         N=\(Self.shellQuote(newApp.path))
-        rm -rf "$T.old"
-        if mv "$T" "$T.old"; then
-          if ditto "$N" "$T"; then rm -rf "$T.old"; else rm -rf "$T"; mv "$T.old" "$T"; fi
+        rm -rf "$O.old"
+        [ "$T" != "$O" ] && rm -rf "$T"
+        if mv "$O" "$O.old"; then
+          if ditto "$N" "$T"; then rm -rf "$O.old"; else rm -rf "$T"; mv "$O.old" "$O"; T="$O"; fi
         fi
         open "$T"
         """

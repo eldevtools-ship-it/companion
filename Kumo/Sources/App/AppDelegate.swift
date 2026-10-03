@@ -28,9 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func setupMenuBarItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let button = statusItem?.button else { return }
-        button.image = NSImage(named: "MenuBarIcon") ?? NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Compagnon")
+        button.image = NSImage(named: "MenuBarIcon") ?? NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Kumo")
         button.image?.size = NSSize(width: 24, height: 18)
-        button.image?.accessibilityDescription = "Compagnon"
+        button.image?.accessibilityDescription = "Kumo"
         button.image?.isTemplate = true
 
         // Same menu on left and right click
@@ -39,7 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         versionItem.isEnabled = false
         menu.addItem(versionItem)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Ouvrir Compagnon", action: #selector(openIsland), keyEquivalent: "")
+        menu.addItem(withTitle: "Ouvrir Kumo", action: #selector(openIsland), keyEquivalent: "")
         menu.addItem(withTitle: "Réglages…", action: #selector(openSettings), keyEquivalent: ",")
         focusItem.target = self
         focusItem.action = #selector(toggleFocus)
@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) { refreshMenu() }
 
     private func refreshMenu() {
-        versionItem.title = "Compagnon · version \(UpdateService.currentBuild)"
+        versionItem.title = "Kumo · version \(UpdateService.currentBuild)"
         focusItem.state = AppState.shared.focusMode ? .on : .off
         switch AppState.shared.updateStatus {
         case .available(let build): updateItem.title = "Installer la version \(build)"
@@ -141,7 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let status = AppState.shared.updateStatus
         let alert = NSAlert()
         if status == .upToDate {
-            alert.messageText = "Compagnon est à jour"
+            alert.messageText = "Kumo est à jour"
             alert.informativeText = "Tu as la dernière version (\(UpdateService.currentBuild))."
         } else {
             alert.messageText = "Mise à jour impossible"
@@ -197,7 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 560),
                            styleMask: [.titled, .closable, .miniaturizable, .resizable],
                            backing: .buffered, defer: false)
-        win.title = "Réglages — Compagnon"
+        win.title = "Réglages — Kumo"
         let host = NSHostingView(rootView: SettingsView())
         host.sizingOptions = [.minSize]
         win.contentView = host

@@ -13,7 +13,7 @@ func escapedForLog(_ s: String) -> String {
 /// Log writes happen off the main thread, one at a time, in call order.
 private let logQueue = DispatchQueue(label: "compagnon.log", qos: .utility)
 
-/// Appends one timestamped line to `~/Library/Logs/Compagnon/<fileName>`, in the background.
+/// Appends one timestamped line to `~/Library/Logs/Kumo/<fileName>`, in the background.
 /// - Log directory is created at mode 0700.
 /// - Log file is set to mode 0600 on first creation and after each rotation.
 /// - File is rotated (truncated) when it reaches 1 MB.
@@ -26,7 +26,7 @@ func appendAppLog(_ fileName: String, _ message: String,
 private func writeLogLine(_ fileName: String, _ message: String, _ date: Date, _ timestampFormat: String) {
     let fm = FileManager.default
     let logsDir = fm.urls(for: .libraryDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("Logs/Compagnon")
+        .appendingPathComponent("Logs/Kumo")
     let logFile = logsDir.appendingPathComponent(fileName)
     let f = DateFormatter(); f.dateFormat = timestampFormat
     let line = "\(f.string(from: date)) \(escapedForLog(message))\n"

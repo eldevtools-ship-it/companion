@@ -55,7 +55,7 @@ struct SettingsView: View {
                             .resizable()
                             .frame(width: 32, height: 32)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Compagnon")
+                            Text("Kumo")
                                 .font(.system(size: 13, weight: .semibold))
                             Text(appVersion)
                                 .font(.system(size: 11))
@@ -235,7 +235,7 @@ struct SettingsView: View {
                     Text(hooksInstalled ? (hookNeedsUpdate ? "Hooks à mettre à jour" : "Hooks installés") : "Hooks non installés")
                         .font(.system(size: 12, weight: .medium))
                 }
-                Text("Les hooks envoient à Compagnon ce que fait Claude Code sur ce Mac (terminal, VS Code, app Claude en local) et lui permettent de te demander les autorisations. Une sauvegarde de ~/.claude/settings.json est faite avant toute écriture.")
+                Text("Les hooks envoient à Kumo ce que fait Claude Code sur ce Mac (terminal, VS Code, app Claude en local) et lui permettent de te demander les autorisations. Une sauvegarde de ~/.claude/settings.json est faite avant toute écriture.")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -382,7 +382,7 @@ struct SettingsView: View {
                     Text(calendarAccess ? "Accès au calendrier autorisé" : "Accès au calendrier non autorisé")
                         .font(.system(size: 12, weight: .medium))
                 }
-                Text("Compagnon lit l'app Calendrier du Mac (tous ses comptes, Google compris) et te prévient avant tes réunions, avec un bouton pour rejoindre Meet, Zoom ou Teams.")
+                Text("Kumo lit l'app Calendrier du Mac (tous ses comptes, Google compris) et te prévient avant tes réunions, avec un bouton pour rejoindre Meet, Zoom ou Teams.")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -392,7 +392,7 @@ struct SettingsView: View {
                             let ok = await CalendarService.shared.requestAccess()
                             calendarAccess = ok
                             statusMessage = ok ? "✓ Accès au calendrier autorisé." :
-                                "❌ Accès refusé : Réglages Système → Confidentialité et sécurité → Calendriers → Compagnon."
+                                "❌ Accès refusé : Réglages Système → Confidentialité et sécurité → Calendriers → Kumo."
                         }
                     }
                     .buttonStyle(.borderedProminent)
@@ -419,7 +419,7 @@ struct SettingsView: View {
                          ?? (VercelService.shared.isConfigured ? "Connecté" : "Non configuré"))
                         .font(.system(size: 12, weight: .medium))
                 }
-                Text("Tes derniers déploiements dans l'île, et une alerte quand l'un d'eux est en ligne ou échoue. Crée un jeton sur vercel.com/account/tokens avec la portée « Full Account » : Compagnon suit alors ton compte et toutes tes équipes (perso et boulot). Un deuxième compte Vercel, connecté avec un autre e-mail, a besoin de son propre jeton.")
+                Text("Tes derniers déploiements dans l'île, et une alerte quand l'un d'eux est en ligne ou échoue. Crée un jeton sur vercel.com/account/tokens avec la portée « Full Account » : Kumo suit alors ton compte et toutes tes équipes (perso et boulot). Un deuxième compte Vercel, connecté avec un autre e-mail, a besoin de son propre jeton.")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -486,7 +486,7 @@ struct SettingsView: View {
         }
         GroupBox("Accès au dépôt") {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Le dépôt étant privé, Compagnon a besoin d'un jeton GitHub en lecture sur le dépôt companion (sinon il utilise le jeton de la section GitHub).")
+                Text("Le dépôt étant privé, Kumo a besoin d'un jeton GitHub en lecture sur le dépôt companion (sinon il utilise le jeton de la section GitHub).")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

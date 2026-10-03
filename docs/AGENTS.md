@@ -1,4 +1,4 @@
-# Compagnon — third-party agent integration
+# Kumo — third-party agent integration
 
 Any tool that can write to a Unix domain socket (macOS, Linux) or a named pipe (Windows) can send events to Coucou and have its own pill next to Claude Code.
 
