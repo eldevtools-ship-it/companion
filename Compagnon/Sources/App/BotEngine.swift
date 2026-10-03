@@ -1126,12 +1126,18 @@ final class BotEngine: ObservableObject {
                 startPoint: CGPoint(x: rx*0.7, y: -ry*0.85),
                 endPoint: CGPoint(x: -rx*0.8, y: ry*0.9)
             ))
-            // The focused pill's colour, faint, while nothing is going on
-            if let accent, tint < 0.3 {
+            // The focused pill's colour fills the cloud from below, so you can tell at a
+            // glance which app you're on. A busy state colour layers on top of it.
+            if let accent {
                 let ac = Color(cgColor: accent)
-                let k = Double(0.32 * (1 - tint / 0.3))
+                let k = Double(1 - 0.45 * min(1, tint))
                 ctx.fill(path, with: .linearGradient(
-                    Gradient(stops: [.init(color: ac.opacity(k), location: 0), .init(color: ac.opacity(0), location: 0.7)]),
+                    Gradient(stops: [
+                        .init(color: ac.opacity(0.92 * k), location: 0),
+                        .init(color: ac.opacity(0.6 * k), location: 0.45),
+                        .init(color: ac.opacity(0.18 * k), location: 0.85),
+                        .init(color: ac.opacity(0.1 * k), location: 1)
+                    ]),
                     startPoint: CGPoint(x: 0, y: ry), endPoint: CGPoint(x: 0, y: -ry)
                 ))
             }
@@ -1171,13 +1177,14 @@ final class BotEngine: ObservableObject {
             // Inner rim: bright along the top, state colour along the bottom
             var rim = ctx
             rim.clip(to: path)
-            let tc = colorFromTuple(col)
+            // Bottom rim: the state colour when busy, the pill's colour otherwise
+            let tc = (tint < 0.3 ? accent.map { Color(cgColor: $0) } : nil) ?? colorFromTuple(col)
             rim.stroke(path, with: .linearGradient(
                 Gradient(stops: [
                     .init(color: Color.white.opacity(0.9), location: 0),
                     .init(color: Color.white.opacity(0), location: 0.4),
                     .init(color: tc.opacity(0), location: 0.7),
-                    .init(color: tc.opacity(Double(0.25 + 0.5 * tint)), location: 1)
+                    .init(color: tc.opacity(Double(0.55 + 0.35 * tint)), location: 1)
                 ]),
                 startPoint: CGPoint(x: 0, y: -ry), endPoint: CGPoint(x: 0, y: ry)
             ), lineWidth: max(1, R * 0.09))
