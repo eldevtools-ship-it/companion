@@ -32,13 +32,11 @@ enum NotesHotKey {
     }
 
     /// The Settings shortcut that shows the island (re-registered whenever it changes).
-    @MainActor
-    static func updateIslandHotKey() {
+    static func updateIslandHotKey(enabled: Bool, flags rawFlags: UInt, code: UInt16) {
         if let islandRef { UnregisterEventHotKey(islandRef) }
         islandRef = nil
-        let state = AppState.shared
-        guard state.hotkeyEnabled else { return }
-        let flags = NSEvent.ModifierFlags(rawValue: state.hotkeyFlags)
+        guard enabled else { return }
+        let flags = NSEvent.ModifierFlags(rawValue: rawFlags)
         var mods: UInt32 = 0
         if flags.contains(.command) { mods |= UInt32(cmdKey) }
         if flags.contains(.option)  { mods |= UInt32(optionKey) }
@@ -46,7 +44,7 @@ enum NotesHotKey {
         if flags.contains(.shift)   { mods |= UInt32(shiftKey) }
         guard mods != 0 else { return }
         var ref: EventHotKeyRef?
-        RegisterEventHotKey(UInt32(state.hotkeyCode), mods, EventHotKeyID(signature: signature, id: 3),
+        RegisterEventHotKey(UInt32(code), mods, EventHotKeyID(signature: signature, id: 3),
                             GetApplicationEventTarget(), 0, &ref)
         islandRef = ref
     }

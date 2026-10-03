@@ -246,7 +246,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         UpdateService.shared.start()
         DayService.shared.start()
         NotesHotKey.register()
-        NotesHotKey.updateIslandHotKey()
+        let s = AppState.shared
+        NotesHotKey.updateIslandHotKey(enabled: s.hotkeyEnabled, flags: s.hotkeyFlags, code: s.hotkeyCode)
         NotificationCenter.default.addObserver(self, selector: #selector(openSettingsFromNotification(_:)),
                                                name: .openFullSettings, object: nil)
         watchSleep()

@@ -87,13 +87,13 @@ final class AppState: ObservableObject {
 
     // Hotkey to show island (e.g. ⌘⇧N)
     @Published var hotkeyEnabled: Bool = false {
-        didSet { UserDefaults.standard.set(hotkeyEnabled, forKey: "hotkeyEnabled"); NotesHotKey.updateIslandHotKey() }
+        didSet { UserDefaults.standard.set(hotkeyEnabled, forKey: "hotkeyEnabled"); hotkeyChanged() }
     }
     var hotkeyFlags: UInt = NSEvent.ModifierFlags([.command, .shift]).rawValue {
-        didSet { UserDefaults.standard.set(Int(hotkeyFlags), forKey: "hotkeyFlags"); NotesHotKey.updateIslandHotKey() }
+        didSet { UserDefaults.standard.set(Int(hotkeyFlags), forKey: "hotkeyFlags"); hotkeyChanged() }
     }
     var hotkeyCode: UInt16 = 45 {  // 'n'
-        didSet { UserDefaults.standard.set(Int(hotkeyCode), forKey: "hotkeyCode"); NotesHotKey.updateIslandHotKey() }
+        didSet { UserDefaults.standard.set(Int(hotkeyCode), forKey: "hotkeyCode"); hotkeyChanged() }
     }
 
     @Published var autoUpdate: Bool = true {
@@ -192,6 +192,18 @@ final class AppState: ObservableObject {
 
         SoundEngine.shared.volume = Float(soundVolume)
         refreshPills()
+        loaded = true
+    }
+
+    /// True once init has read the saved settings. An @Published property's didSet runs even
+    /// when init assigns it, and must not reach AppState.shared then (it's still being built:
+    /// that re-entry crashed the app at launch).
+    private var loaded = false
+
+    /// The Settings shortcut changed: register it again (AppDelegate does it at launch).
+    private func hotkeyChanged() {
+        guard loaded else { return }
+        NotesHotKey.updateIslandHotKey(enabled: hotkeyEnabled, flags: hotkeyFlags, code: hotkeyCode)
     }
 
     // MARK: - Computed
