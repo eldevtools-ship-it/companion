@@ -33,7 +33,7 @@ struct IslandScreenGeometry {
 /// Shared by the compact view and the greeting's collapse destination.
 struct IslandRestingLayout {
     /// Width of each "ear" either side of the notch when compact (bot left, minis right).
-    static let compactEar: CGFloat = 42
+    static let compactEar: CGFloat = 46
     /// The compact bar hangs this much below the notch, so the bots get some air.
     static let compactExtraHeight: CGFloat = 2
 

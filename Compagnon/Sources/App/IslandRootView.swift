@@ -88,7 +88,8 @@ struct IslandContainer: View {
                     if state.harvestRunning != nil { StatusLight(color: PillColor.harvest, pulse: true) }
                     if state.focusMode { StatusLight(color: "#A78BFA", pulse: false) }
                 }
-                .position(x: IslandConst.compactEar - 7, y: islandHeight / 2 + 2)
+                // Centred on the cloud's middle, a little clear of its right edge
+                .position(x: IslandConst.compactEar / 2 + 18, y: islandHeight / 2)
                 .transition(.opacity)
                 .animation(.easeInOut(duration: 0.25), value: state.focusMode)
                 .animation(.easeInOut(duration: 0.25), value: state.harvestRunning != nil)
@@ -337,7 +338,7 @@ struct IslandHeader: View {
             // Left: back to the overview (when inside a card), then concentration.
             // The moon slides right to make room for the arrow.
             let showsBack = state.view != .overview && state.view != .empty
-            HStack(spacing: 8) {
+            HStack(spacing: 2) {
                 if showsBack {
                     TabButton(icon: "chevron.left", view: .overview, state: state)
                         .transition(.asymmetric(
@@ -353,7 +354,7 @@ struct IslandHeader: View {
             Spacer()
 
             // Right: action icons
-            HStack(spacing: 14) {
+            HStack(spacing: 10) {
                 Button(action: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         state.view = .settings
@@ -366,10 +367,16 @@ struct IslandHeader: View {
                 .buttonStyle(.plain)
                 .pointingHand()
 
-                Button(action: { state.soundEnabled.toggle() }) {
+                Button(action: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { state.soundEnabled.toggle() }
+                }) {
+                    // One symbol morphing into the other (the slash draws itself), in a fixed
+                    // box so the gear next to it never jumps
                     Image(systemName: state.soundEnabled ? "speaker.wave.2" : "speaker.slash")
                         .font(.system(size: 14))
                         .foregroundColor(Color(hex: "#8E939C"))
+                        .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer)))
+                        .frame(width: 20, alignment: .leading)
                 }
                 .buttonStyle(.plain)
                 .pointingHand()
