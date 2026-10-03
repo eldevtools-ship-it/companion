@@ -34,7 +34,11 @@ pas de nouvelle fonction sans usage réel.
 - Cartes d'autorisation et de question (`IslandViewContent.swift`) : elles grandissent avec
   leur contenu (`PromptLayout`) ; l'autorisation dit ce qui est en jeu (commande et sa
   description, fichier, URL, aperçu de modification — `HookServer.describeTool`), les
-  options d'une question s'affichent avec leur explication.
+  options d'une question s'affichent avec leur explication. Plusieurs demandes à la fois
+  font une file (« +N en attente », ⏎ ⏎ pour enchaîner) au lieu de se remplacer.
+- Carte « Terminé » : « Répondre » donne une suite à la session (`ChatService.reply`,
+  `claude -p --resume … --fork-session` dans le dossier du projet ; ses hooks la montrent
+  dans l'île ; un outil qui demande une permission y est refusé).
 - `Compagnon/Sources/App/IslandTypes.swift` — `CardLayout` : la grille commune à
   toutes les vues (personnage centré à gauche, même marge bord → personnage → contenu).
 - `Compagnon/Sources/App/IslandCursor.swift` — curseur main / texte au survol de l'île.

@@ -117,7 +117,17 @@ struct ApprovalView: View {
                         PromptChip(text: label, color: "#F5A524")
                     }
                     Spacer(minLength: 0)
+                    // More requests behind this one: ⏎ ⏎ goes through them
+                    if state.approvalsWaiting > 0 {
+                        Text("+\(state.approvalsWaiting) en attente")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .monospacedDigit()
+                            .foregroundColor(Color(hex: "#8E939C"))
+                            .contentTransition(.numericText())
+                            .transition(.opacity)
+                    }
                 }
+                .animation(.easeOut(duration: 0.2), value: state.approvalsWaiting)
                 // Claude's own words for what the command does
                 if let detail = approval?.detail, !detail.isEmpty {
                     Text(detail)
@@ -156,6 +166,10 @@ struct ApprovalView: View {
             .padding(.trailing, IslandConst.cardInset + 8)
             .padding(.vertical, PromptLayout.padding)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            // The next request slides in when this one is settled
+            .id((approval?.sessionId ?? "") + (approval?.inputKey ?? ""))
+            .transition(.asymmetric(insertion: .opacity.combined(with: .offset(x: 14)),
+                                    removal: .opacity.combined(with: .offset(x: -14))))
         }
     }
 }
@@ -479,8 +493,13 @@ struct ErrorView: View {
 
 struct FinishedView: View {
     @ObservedObject var state: AppState
+    @State private var replying = false
+    @State private var draft = ""
+    @FocusState private var fieldFocused: Bool
 
     private var task: AgentTask? { state.focusTask }
+    /// Replying needs the session and its folder (a Claude Code session that just finished).
+    private var canReply: Bool { task?.sessionId != nil && !(task?.sessionCwd ?? "").isEmpty }
 
     var body: some View {
         ZStack {
@@ -500,14 +519,24 @@ struct FinishedView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                HStack(spacing: 8) {
-                    PrimaryButton("Revenir", kbd: "⏎") {
-                        returnToSession(task)
-                        NotificationCenter.default.post(name: .islandCollapse, object: nil)
+                if replying {
+                    replyField
+                        .transition(.opacity.combined(with: .offset(y: 4)))
+                } else {
+                    HStack(spacing: 8) {
+                        PrimaryButton("Revenir", kbd: "⏎") {
+                            returnToSession(task)
+                            NotificationCenter.default.post(name: .islandCollapse, object: nil)
+                        }
+                        if canReply {
+                            SecondaryButton("Répondre") { startReply() }
+                                .help("Donner une suite à Claude sans quitter ce que tu fais")
+                        }
+                        SecondaryButton("OK") {
+                            NotificationCenter.default.post(name: .islandCollapse, object: nil)
+                        }
                     }
-                    SecondaryButton("OK") {
-                        NotificationCenter.default.post(name: .islandCollapse, object: nil)
-                    }
+                    .transition(.opacity)
                 }
             }
             .padding(.leading, CardLayout.contentLeading)
@@ -515,6 +544,58 @@ struct FinishedView: View {
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .onDisappear { if replying { state.isEditingText = false } }
+    }
+
+    private var replyField: some View {
+        HStack(spacing: 8) {
+            TextField("Et maintenant ? Dis à Claude quoi faire…", text: $draft)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundColor(Color(hex: "#F5F6F8"))
+                .focused($fieldFocused)
+                .onSubmit { send() }
+                .onExitCommand { endReply() }
+                .padding(.horizontal, 10)
+                .frame(height: 30)
+                .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
+                    .fill(Color.white.opacity(0.07)))
+                .textCursor()
+            Button { send() } label: {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color(hex: "#0B0C0E"))
+                    .frame(width: 26, height: 26)
+                    .background(Circle().fill(Color(hex: "#34D399")))
+            }
+            .buttonStyle(.plain)
+            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .opacity(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
+            .pointingHand()
+            .help("Envoyer à Claude (⏎) · esc pour annuler")
+        }
+    }
+
+    private func startReply() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) { replying = true }
+        state.isEditingText = true
+        NotificationCenter.default.post(name: .islandNeedsKeyboard, object: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { fieldFocused = true }
+    }
+
+    private func endReply() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) { replying = false }
+        draft = ""
+        state.isEditingText = false
+    }
+
+    private func send() {
+        guard let sid = task?.sessionId, let cwd = task?.sessionCwd else { return }
+        let text = draft
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        ChatService.shared.reply(toSession: sid, cwd: cwd, text: text)
+        endReply()
+        NotificationCenter.default.post(name: .islandCollapse, object: nil)
     }
 
     /// "42 s", "4 min", "1 h 05"

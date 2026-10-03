@@ -39,6 +39,17 @@ final class HookServer: @unchecked Sendable {
     private var approvalFDSource: (any DispatchSourceRead)? = nil  // monitors pendingApprovalFD
     private var activeSessionId: String? = nil        // current Claude Code session
     private var focusBeforeApproval: String? = nil    // saved focus to restore after approval
+    /// Requests that arrived while another was on screen: shown one after the other.
+    private struct QueuedApproval {
+        let fd: Int32
+        let source: any DispatchSourceRead
+        let info: ApprovalInfo
+        let token: Int
+    }
+    private var queuedApprovals: [QueuedApproval] = []
+    /// Each request gets its own number (a closed fd's number gets reused).
+    private var approvalSerial = 0
+    private var currentApprovalToken = -1
     private var pendingQuestionFD: Int32 = -1         // held open while you pick an answer
     private var questionFDSource: (any DispatchSourceRead)? = nil
 
@@ -60,6 +71,7 @@ final class HookServer: @unchecked Sendable {
         // Never close the fd here directly — Apple requires it to happen in the cancel handler.
         cancelApprovalFDSource()
         pendingApprovalFD = -1
+        if promoteNextApproval() { return }
         let state = AppState.shared
         let pillId = state.pendingApproval?.pillId ?? "integration_claude"
         state.pendingApproval = nil
@@ -251,6 +263,7 @@ final class HookServer: @unchecked Sendable {
 
         // While a permission request is pending, dismiss when the resolving event arrives,
         // then continue normal processing. Only skip normal processing when unresolved.
+        if !isExternalAgent { dropSettledQueuedApprovals(event: name, sessionId: sessionId, payload: payload) }
         if let pending = state.pendingApproval, agentId == pending.pillId {
             let handledNote: String
             handledNote = "Réglé dans Claude."
@@ -328,6 +341,9 @@ final class HookServer: @unchecked Sendable {
 
         case "Stop":
             state.updateTask(id: agentId, state: .finished)
+            if !isExternalAgent, let i = state.tasks.firstIndex(where: { $0.id == agentId }) {
+                state.tasks[i].sessionId = sessionId
+            }
             DayService.shared.countClaudeSession()
             if let i = state.tasks.firstIndex(where: { $0.id == agentId }), let start = state.tasks[i].startedAt {
                 state.tasks[i].lastDuration = Date().timeIntervalSince(start)
@@ -477,62 +493,105 @@ final class HookServer: @unchecked Sendable {
         let inputKey = Self.approvalInputKey(toolInput)
         nbLog("PermissionRequest \(tool) [\(pillId)]")
 
-        if pendingApprovalFD >= 0 {
-            // Displace the previous request: write "ask" then cancel its source.
-            // The cancel handler closes the old fd — never close it directly.
-            let old = pendingApprovalFD
-            let oldSource = approvalFDSource
-            approvalFDSource = nil
-            Task.detached { [weak self] in
-                // "ask" → compagnon-hook outputs nothing → Claude Code re-asks
-                self?.sendLine(fd: old, text: #"{"permissionDecision":"ask"}"#)
-                DispatchQueue.main.async { oldSource?.cancel() }
-            }
+        let info = ApprovalInfo(sessionId: sessionId, tool: tool,
+                                command: command, inputKey: inputKey, pillId: pillId,
+                                detail: summary.detail, toolLabel: summary.label,
+                                removed: Self.firstLine(toolInput["old_string"]),
+                                added: Self.firstLine(toolInput["new_string"] ?? toolInput["content"]),
+                                projectName: projectName, cwd: cwd)
+        approvalSerial += 1
+        let token = approvalSerial
+        let source = watchApproval(fd: fd, token: token)
+
+        // 115s safety timeout — cancel without sending a decision. compagnon-hook reads EOF
+        // from the cancel handler's close and exits; Claude Code re-asks in its own window.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 115) { [weak self] in
+            self?.approvalClosed(token: token, note: "Toujours en attente dans Claude.")
         }
-        pendingApprovalFD = fd
-        activeSessionId = sessionId
 
-        upsertWorkspaceTask(id: pillId, projectName: projectName, cwd: cwd)
-        state.updateTask(id: pillId, state: .approval)
-        state.pendingApproval = ApprovalInfo(sessionId: sessionId, tool: tool,
-                                              command: command, inputKey: inputKey, pillId: pillId,
-                                              detail: summary.detail, toolLabel: summary.label,
-                                              removed: Self.firstLine(toolInput["old_string"]),
-                                              added: Self.firstLine(toolInput["new_string"] ?? toolInput["content"]))
-        state.isPinned = true
+        if pendingApprovalFD >= 0 {
+            // Another request is on screen: this one waits its turn
+            queuedApprovals.append(QueuedApproval(fd: fd, source: source, info: info, token: token))
+            state.approvalsWaiting = queuedApprovals.count
+            return
+        }
         SoundEngine.shared.play("approval")
-
-        // Approval always forces the island open — user must be able to respond.
-        // Save current focus so we can restore it when the card is dismissed.
+        // Save current focus so we can restore it when the last card is dismissed.
         if focusBeforeApproval == nil { focusBeforeApproval = state.focusId }
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.72)) { state.focusId = pillId }
-        expandIfNeeded(to: .approval)
+        presentApproval(info, fd: fd, source: source, token: token)
+    }
 
-        // Monitor fd: if the editor closes the connection (handled externally), dismiss the card.
-        // The cancel handler closes the fd — never close it anywhere else.
-        let capturedPillId = pillId
+    /// Puts a request on screen. Approval always forces the island open.
+    @MainActor
+    private func presentApproval(_ info: ApprovalInfo, fd: Int32, source: any DispatchSourceRead, token: Int) {
+        let state = AppState.shared
+        currentApprovalToken = token
+        pendingApprovalFD = fd
+        approvalFDSource = source
+        activeSessionId = info.sessionId
+        upsertWorkspaceTask(id: info.pillId, projectName: info.projectName, cwd: info.cwd)
+        state.updateTask(id: info.pillId, state: .approval)
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) { state.pendingApproval = info }
+        state.approvalsWaiting = queuedApprovals.count
+        state.isPinned = true
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.72)) { state.focusId = info.pillId }
+        expandIfNeeded(to: .approval)
+    }
+
+    /// The card on screen is settled: show the next waiting request, if any.
+    @MainActor
+    private func promoteNextApproval() -> Bool {
+        guard !queuedApprovals.isEmpty else {
+            AppState.shared.approvalsWaiting = 0
+            return false
+        }
+        let next = queuedApprovals.removeFirst()
+        presentApproval(next.info, fd: next.fd, source: next.source, token: next.token)
+        AppState.shared.view = .approval
+        return true
+    }
+
+    /// Watches a waiting relay: if Claude settles the request itself, its connection closes.
+    /// The cancel handler closes the fd — never close it anywhere else.
+    @MainActor
+    private func watchApproval(fd: Int32, token: Int) -> any DispatchSourceRead {
         let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .main)
         source.setEventHandler { [weak self] in
-            guard let self, self.pendingApprovalFD == fd else { return }
-            let note: String
-            _ = capturedPillId
-            note = "Réglé dans Claude."
-            self.dismissApprovalCard(note: note)
+            MainActor.assumeIsolated { self?.approvalClosed(token: token, note: "Réglé dans Claude.") }
         }
         source.setCancelHandler { close(fd) }
         source.resume()
-        approvalFDSource = source
+        return source
+    }
 
-        // 115s safety timeout — show a note and cancel without sending a decision.
-        // compagnon-hook reads EOF from the cancel handler's close and exits; Claude Code / Codex re-asks.
-        let captured = fd
-        DispatchQueue.main.asyncAfter(deadline: .now() + 115) { [weak self] in
-            guard let self, self.pendingApprovalFD == captured else { return }
-            let note: String
-            _ = capturedPillId
-            note = "Toujours en attente dans Claude."
-            self.dismissApprovalCard(note: note)
+    @MainActor
+    private func approvalClosed(token: Int, note: String) {
+        if pendingApprovalFD >= 0 && currentApprovalToken == token {
+            dismissApprovalCard(note: note)
+        } else if let i = queuedApprovals.firstIndex(where: { $0.token == token }) {
+            queuedApprovals.remove(at: i).source.cancel()
+            AppState.shared.approvalsWaiting = queuedApprovals.count
         }
+    }
+
+    /// Waiting requests settled in Claude itself (tool ran, turn ended) leave the queue.
+    @MainActor
+    private func dropSettledQueuedApprovals(event name: String, sessionId: String, payload: [String: Any]) {
+        guard !queuedApprovals.isEmpty else { return }
+        let tool = payload["tool_name"] as? String ?? ""
+        let key = Self.approvalInputKey(payload["tool_input"] as? [String: Any] ?? [:])
+        queuedApprovals.removeAll { q in
+            guard q.info.sessionId == sessionId else { return false }
+            let settled: Bool
+            switch name {
+            case "PostToolUse", "PostToolUseFailure": settled = q.info.tool == tool && q.info.inputKey == key
+            case "Stop", "StopFailure", "UserPromptSubmit", "SessionEnd", "Interrupt": settled = true
+            default: settled = false
+            }
+            if settled { q.source.cancel() }
+            return settled
+        }
+        AppState.shared.approvalsWaiting = queuedApprovals.count
     }
 
     // MARK: - Questions (AskUserQuestion, blocking — the relay waits for the answer)
@@ -681,6 +740,7 @@ final class HookServer: @unchecked Sendable {
             source?.cancel()
         }
 
+        if promoteNextApproval() { return }
         let state = AppState.shared
         let pillId = state.pendingApproval?.pillId ?? "integration_claude"
         state.pendingApproval = nil

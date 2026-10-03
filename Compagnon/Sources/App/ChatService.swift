@@ -297,6 +297,59 @@ final class ChatService: ObservableObject {
         return (true, "\(name) prêt\(email.map { " · \($0)" } ?? "")")
     }
 
+    // MARK: Replying to a finished Claude Code session (« Répondre » on the Finished card)
+
+    private var replies: [Process] = []
+
+    /// Gives a session that just finished one more instruction, in its own folder. It runs in
+    /// the background on a copy of the session (`--fork-session`, so a window that still has it
+    /// open is left untouched); its hooks keep the island up to date like any session. In this
+    /// mode a tool that needs your permission is refused: Claude says so in its answer.
+    func reply(toSession sessionId: String, cwd: String, text: String) {
+        let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else { return }
+        Task { @MainActor in
+            guard let claude = await Self.findClaude() else {
+                Self.note("Claude Code est introuvable sur ce Mac.")
+                return
+            }
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: claude)
+            p.arguments = ["-p", prompt, "--resume", sessionId, "--fork-session"]
+            p.currentDirectoryURL = URL(fileURLWithPath: cwd)
+            // No COMPAGNON_CHAT here: this is real work, it shows in the island
+            p.environment = ProcessInfo.processInfo.environment
+            p.standardInput = FileHandle.nullDevice
+            p.standardOutput = FileHandle.nullDevice
+            let err = Pipe()
+            p.standardError = err
+            let errHandle = err.fileHandleForReading
+            p.terminationHandler = { proc in
+                let errText = String(data: errHandle.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                let status = proc.terminationStatus
+                Task { @MainActor in
+                    ChatService.shared.replies.removeAll { $0 === proc }
+                    if status != 0 {
+                        let detail = errText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        Self.note(detail.isEmpty ? "Claude n'a pas pu reprendre la session." : String(detail.suffix(120)))
+                    }
+                }
+            }
+            do {
+                try p.run()
+                replies.append(p)
+            } catch {
+                Self.note("Impossible de lancer Claude Code.")
+            }
+        }
+    }
+
+    /// A short message in the island, which opens for it.
+    private static func note(_ text: String) {
+        AppState.shared.noteMessage = text
+        NotificationCenter.default.post(name: .hookExpand, object: IslandView.note)
+    }
+
     // MARK: Finding the CLI
 
     /// Asks a login shell (so your PATH from .zshrc applies), then common install spots.

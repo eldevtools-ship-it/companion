@@ -48,6 +48,9 @@ struct ApprovalInfo: Sendable {
     /// For an edit: first line taken out and first line put in ("" when none).
     var removed: String = ""
     var added: String = ""
+    /// Where it comes from (several sessions can ask at once: each card names its own).
+    var projectName: String = ""
+    var cwd: String = ""
 }
 
 // MARK: - Pill badge (shown on pill edge when non-focused task has an alert)
@@ -87,6 +90,7 @@ struct AgentTask: Identifiable, Equatable {
     var sessionCwd: String?  = nil  // last known working directory (Claude Code sessions)
     var startedAt: Date?     = nil  // when the current Claude turn started (your prompt)
     var lastDuration: TimeInterval? = nil  // how long the last finished turn took
+    var sessionId: String?   = nil  // the Claude Code session that last finished (to reply to it)
 }
 
 enum AgentSource: Equatable {
