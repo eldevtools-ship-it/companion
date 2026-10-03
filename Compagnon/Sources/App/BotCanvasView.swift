@@ -18,11 +18,10 @@ struct BotCanvasView: View {
                 engine.lookX = lookX(state: state, size: size)
                 engine.lookY = lookY(state: state, size: size)
                 engine.particleOverhang = particleOverhang
-                // Integration pills have a fixed brand color → use it as bodyColor.
-                // Claude Code tasks use state-based gradient (working=blue, thinking=purple, etc.).
-                engine.bodyColor = (state.focusTask?.isIntegration == true)
-                    ? cgColorFromHex(state.focusTask!.color)
-                    : nil
+                // The main character is always the cloud. The focused pill only lends it
+                // a hint of its colour from below; the state colour takes over when busy.
+                engine.bodyColor = nil
+                engine.accent = state.focusTask.map { cgColorFromHex($0.color) }
 
                 engine.update(dt: dt)
                 var ctx = context

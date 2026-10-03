@@ -339,7 +339,7 @@ struct IslandHeader: View {
                 FocusButton(state: state)
             }
             .animation(.spring(response: 0.38, dampingFraction: 0.82), value: showsBack)
-            .padding(.leading, 16)
+            .padding(.leading, 10)
 
             Spacer()
 
@@ -372,37 +372,47 @@ struct IslandHeader: View {
 }
 
 /// Concentration toggle: Slack, Vercel and the Harvest reminder go quiet.
+/// The moon colours in and the word unrolls out of it (a growing mask), inside its pill.
 struct FocusButton: View {
     @ObservedObject var state: AppState
     @State private var hovered = false
+    @State private var labelWidth: CGFloat = 0
+
+    private var on: Bool { state.focusMode }
 
     var body: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { state.focusMode.toggle() }
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) { state.focusMode.toggle() }
             SoundEngine.shared.play("blip")
         } label: {
-            HStack(spacing: 5) {
-                Image(systemName: state.focusMode ? "moon.fill" : "moon")
+            HStack(spacing: 0) {
+                Image(systemName: on ? "moon.fill" : "moon")
                     .font(.system(size: 13, weight: .medium))
-                    .contentTransition(.symbolEffect(.replace))
-                if state.focusMode {
-                    Text("Concentration")
-                        .font(.system(size: 11, weight: .semibold))
-                        .transition(.opacity.combined(with: .move(edge: .leading)))
-                }
+                    .frame(width: 16, height: 16)
+                Text("Concentration")
+                    .font(.system(size: 11, weight: .semibold))
+                    .fixedSize()
+                    .background(GeometryReader { g in
+                        Color.clear.onAppear { labelWidth = g.size.width }
+                    })
+                    .padding(.leading, 5)
+                    // Reveal from the icon: the visible width grows, the text never moves
+                    .frame(width: on ? labelWidth + 5 : 0, alignment: .leading)
+                    .clipped()
+                    .opacity(on ? 1 : 0)
             }
-            .foregroundColor(state.focusMode ? Color(hex: "#C4B5FD")
+            .foregroundColor(on ? Color(hex: "#C4B5FD")
                              : (hovered ? Color(hex: "#B0B5BE") : Color(hex: "#8E939C")))
-            .padding(.horizontal, state.focusMode ? 9 : 0)
+            .padding(.horizontal, 6)
             .frame(height: 22)
-            .background(Capsule().fill(Color(hex: "#8B5CF6").opacity(state.focusMode ? 0.18 : 0)))
+            .background(Capsule().fill(Color(hex: "#8B5CF6").opacity(on ? 0.18 : (hovered ? 0.06 : 0))))
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .pointingHand()
         .onHover { hovered = $0 }
-        .help(state.focusMode ? "Concentration activée : seul Claude te dérange. Clique pour l'arrêter."
-                              : "Concentration : couper Slack, Vercel et le rappel Harvest")
+        .help(on ? "Concentration activée : seul Claude te dérange. Clique pour l'arrêter."
+                 : "Concentration : couper Slack, Vercel et le rappel Harvest")
     }
 }
 

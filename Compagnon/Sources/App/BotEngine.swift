@@ -171,6 +171,7 @@ let BotStates: [BotState: BotStateCfg] = [
 final class BotEngine: ObservableObject {
     var isMini: Bool = false
     var bodyColor: CGColor? = nil    // override for mini bots
+    var accent: CGColor? = nil       // main cloud: the focused pill's colour, a hint from below
 
     // Animation state (mirrors prototype 's' object)
     var yaw:    CGFloat = 0
@@ -1125,6 +1126,15 @@ final class BotEngine: ObservableObject {
                 startPoint: CGPoint(x: rx*0.7, y: -ry*0.85),
                 endPoint: CGPoint(x: -rx*0.8, y: ry*0.9)
             ))
+            // The focused pill's colour, faint, while nothing is going on
+            if let accent, tint < 0.3 {
+                let ac = Color(cgColor: accent)
+                let k = Double(0.32 * (1 - tint / 0.3))
+                ctx.fill(path, with: .linearGradient(
+                    Gradient(stops: [.init(color: ac.opacity(k), location: 0), .init(color: ac.opacity(0), location: 0.7)]),
+                    startPoint: CGPoint(x: 0, y: ry), endPoint: CGPoint(x: 0, y: -ry)
+                ))
+            }
             // State colour rising through the cloud from below
             let effectiveTint = tint * (1 - morph)
             if effectiveTint > 0.01 {

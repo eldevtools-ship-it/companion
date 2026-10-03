@@ -112,9 +112,9 @@ enum CardLayout {
     static let contentLeading: CGFloat = (botMargin * 2 + botBodyWidth).rounded()
     /// Character centre, measured from the island's left edge.
     static let botCenterX: CGFloat = IslandConst.contentInset + botMargin + botBodyWidth / 2
-    /// The body + antenna block is centred when the canvas centre sits this far below
-    /// the card centre (antenna tip at −0.71 D, body bottom at +0.44 D, body offset +0.03 D).
-    static let botCenterYOffset: CGFloat = botDiameter * 0.104
+    /// The cloud spans ±0.44 D around its body centre, which sits 0.03 D below the
+    /// canvas centre: lift the canvas by that much to centre the cloud in the card.
+    static let botCenterYOffset: CGFloat = -botDiameter * 0.03
     static let leftCardWidth: CGFloat = 322
     static let headerTop: CGFloat = IslandConst.cardInset + 2
     /// Top of the line under a card's title — the same gap in every card.
@@ -127,6 +127,7 @@ enum IslandConst {
     static let notchWidth: CGFloat  = IslandScreenGeometry.fallbackNotchWidth
     static let notchHeight: CGFloat = 32
     static let expandedWidth: CGFloat = 640
+    static let expandedHeight: CGFloat = 146
     static let earRadius: CGFloat   = 14
     static let roundedCorner: CGFloat = 14    // hidden/peek/compact
 
@@ -152,7 +153,7 @@ enum IslandConst {
     static let viewLayouts: [IslandView: ViewLayout] = {
         var d: [IslandView: ViewLayout] = [:]
         for v in IslandView.allCases where v != .greeting {
-            d[v] = ViewLayout(height: 160, botX: CardLayout.botCenterX, botY: nil,
+            d[v] = ViewLayout(height: IslandConst.expandedHeight, botX: CardLayout.botCenterX, botY: nil,
                               botDiameter: CardLayout.botDiameter, agentMode: .none)
         }
         // Greeting: bot drawn by GreetingCanvasView; no BotPlacement needed

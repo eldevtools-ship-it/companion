@@ -587,8 +587,8 @@ struct AgentPill: View {
             ZStack(alignment: .topTrailing) {
                 HStack(spacing: 8) {
                     MiniBotCanvasView(task: task)
-                        .frame(width: 22 / 0.6, height: 22 / 0.6)
-                        .frame(width: 22, height: 22, alignment: .center)
+                        .frame(width: 18 / 0.6, height: 18 / 0.6)
+                        .frame(width: 18, height: 18, alignment: .center)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(task.name)
                             .font(.system(size: 11, weight: .semibold))
@@ -607,7 +607,7 @@ struct AgentPill: View {
                     Spacer(minLength: 0)
                 }
                 // Same gap left of the mini-bot as above and below it (capped for tall tiles)
-                .padding(.horizontal, min(12, max(9, (height - 22) / 2)))
+                .padding(.horizontal, min(12, max(9, (height - 18) / 2)))
                 .frame(maxWidth: .infinity)
                 .frame(height: height)
                 .background(tile.fill(isHovered ? Color(hex: task.color).opacity(0.16) : Color(hex: "#0E0F11")))
@@ -938,7 +938,7 @@ struct SettingsIslandView: View {
     var body: some View {
         ZStack(alignment: .leading) {
             CardBackground(wash: nil)
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 // Sound row
                 HStack(spacing: 10) {
                     Toggle("", isOn: $state.soundEnabled)
@@ -997,7 +997,7 @@ struct SettingsIslandView: View {
             }
             .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, 16)
-            .padding(.vertical, 14)
+            .padding(.vertical, 8)
         }
     }
 }

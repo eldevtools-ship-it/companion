@@ -93,7 +93,7 @@ struct InsetBox<Content: View>: View {
     var body: some View {
         content()
             .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: IslandConst.innerRadius)
@@ -402,7 +402,7 @@ private struct HarvestCard: View {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(Color(hex: "#C5C8CD"))
-                            .frame(width: 26, height: 26)
+                            .frame(width: 24, height: 24)
                             .background(Circle().fill(Color.white.opacity(0.08)))
                     }
                     .buttonStyle(.plain)
@@ -415,7 +415,7 @@ private struct HarvestCard: View {
                         Image(systemName: "stop.fill")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.black)
-                            .frame(width: 26, height: 26)
+                            .frame(width: 24, height: 24)
                             .background(Circle().fill(Color(hex: "#FA5D00")))
                     }
                     .buttonStyle(.plain)

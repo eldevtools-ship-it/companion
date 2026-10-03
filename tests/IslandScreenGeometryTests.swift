@@ -41,8 +41,8 @@ enum IslandScreenGeometryTests {
         // Compact/greeting destinations share the measured resting height.
         for height: CGFloat in [22, 24, 32, 38] {
             let compact = IslandRestingLayout(width: 240, height: height)
-            precondition(compact.botCenterY == height / 2 + compact.botDiameter * 0.104)
-            precondition(compact.botDiameter == min(18, height - 13))
+            precondition(compact.botCenterY == height / 2 - compact.botDiameter * 0.03)
+            precondition(compact.botDiameter == min(20, height - 12))
             precondition(compact.botCenterY - compact.botDiameter / 2 >= 3)
             precondition(compact.botCenterY + compact.botDiameter / 2 <= height - 3)
             precondition(compact.miniGridCenterX == 240 - IslandRestingLayout.compactEar / 2)

@@ -45,11 +45,10 @@ struct IslandRestingLayout {
     static let miniGap: CGFloat = 3
     static var miniGridSide: CGFloat { miniSize * 2 + miniGap }
 
-    /// Small enough to leave the same breathing room above the antenna and below the body.
-    var botDiameter: CGFloat { min(18, max(0, height - 13)) }
-    /// The body + antenna block (−0.71 D … +0.47 D around the canvas centre) is centred
-    /// when the canvas centre sits 0.104 D below the middle.
-    var botCenterY: CGFloat { height / 2 + botDiameter * 0.104 }
+    /// The cloud is 0.88 D tall: this leaves about 6 pt above and below it.
+    var botDiameter: CGFloat { min(20, max(0, height - 12)) }
+    /// The cloud's centre sits 0.03 D below the canvas centre: lift it back to the middle.
+    var botCenterY: CGFloat { height / 2 - botDiameter * 0.03 }
     var miniGridScale: CGFloat { min(1, max(0, height - 11) / Self.miniGridSide) }
     var miniGridCenterX: CGFloat { width - Self.compactEar / 2 }
 }
