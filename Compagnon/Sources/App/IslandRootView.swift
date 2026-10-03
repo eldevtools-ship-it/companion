@@ -46,24 +46,27 @@ struct IslandContainer: View {
                         cornerRadius: cornerRadius, flare: flare)
                 .fill(Color.black)
 
-            // Content
-            if state.mode == .expanded {
-                if greetingActive {
-                    // Greeting canvas: fixed 640-wide, centered by offset so x=320 aligns with island center
-                    GreetingCanvasView(state: state)
-                        .frame(width: IslandConst.expandedWidth, height: 150)
-                        .offset(x: (islandWidth - IslandConst.expandedWidth) / 2)
-                        .clipShape(IslandShape(width: islandWidth, height: islandHeight,
-                                              cornerRadius: cornerRadius, flare: 0))
-                        .transition(.opacity)
-                } else {
-                    IslandContentView(state: state)
-                        .frame(width: islandWidth, height: islandHeight)
-                        .clipShape(IslandShape(width: islandWidth, height: islandHeight,
-                                              cornerRadius: cornerRadius, flare: 0))
-                        .transition(.opacity)
+            // Content, masked by the live island outline. The mask belongs to a parent that
+            // never leaves, so when the island folds, whatever is still fading out (header
+            // icons, cards) is cut by the shrinking shape instead of floating outside it.
+            ZStack(alignment: .top) {
+                if state.mode == .expanded {
+                    if greetingActive {
+                        GreetingCanvasView(state: state)
+                            .frame(width: IslandConst.expandedWidth, height: 150)
+                            .transition(.opacity)
+                    } else {
+                        // Laid out at full width and centred: opening and closing reveal or
+                        // hide it from the middle, nothing gets squeezed
+                        IslandContentView(state: state)
+                            .frame(width: IslandConst.expandedWidth, height: islandHeight)
+                            .transition(.opacity)
+                    }
                 }
             }
+            .frame(width: islandWidth, height: islandHeight, alignment: .top)
+            .clipShape(IslandShape(width: islandWidth, height: islandHeight,
+                                   cornerRadius: cornerRadius, flare: 0))
 
             // Single BotPlacement — always alive in the view tree so spring animations
             // fire from the current position (e.g. choose at 60,101) when canvas deactivates.
