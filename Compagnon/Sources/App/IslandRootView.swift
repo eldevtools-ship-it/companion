@@ -81,14 +81,17 @@ struct IslandContainer: View {
                 .opacity(greetingActive ? 0 : 1)
                 .animation(.easeInOut(duration: 0.25), value: greetingActive)
 
-            // Concentration on: a small violet light next to the character
-            if state.mode == .compact && state.focusMode {
-                Circle()
-                    .fill(Color(hex: "#A78BFA"))
-                    .frame(width: 5, height: 5)
-                    .shadow(color: Color(hex: "#A78BFA").opacity(0.8), radius: 3)
-                    .position(x: IslandConst.compactEar - 7, y: islandHeight / 2 + 5)
-                    .transition(.opacity)
+            // Status lights next to the character: orange while a Harvest timer runs,
+            // violet while concentrating
+            if state.mode == .compact && (state.focusMode || state.harvestRunning != nil) {
+                VStack(spacing: 3) {
+                    if state.harvestRunning != nil { StatusLight(color: PillColor.harvest, pulse: true) }
+                    if state.focusMode { StatusLight(color: "#A78BFA", pulse: false) }
+                }
+                .position(x: IslandConst.compactEar - 7, y: islandHeight / 2 + 2)
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.25), value: state.focusMode)
+                .animation(.easeInOut(duration: 0.25), value: state.harvestRunning != nil)
             }
 
             Group {
@@ -479,6 +482,27 @@ struct TabButton: View {
         .buttonStyle(.plain)
         .pointingHand()
         .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - Status light (compact bar)
+
+/// A 5 pt glowing dot; `pulse` breathes slowly to show something is running.
+struct StatusLight: View {
+    let color: String
+    let pulse: Bool
+    @State private var dim = false
+
+    var body: some View {
+        Circle()
+            .fill(Color(hex: color))
+            .frame(width: 5, height: 5)
+            .shadow(color: Color(hex: color).opacity(0.8), radius: 3)
+            .opacity(pulse && dim ? 0.45 : 1)
+            .onAppear {
+                guard pulse else { return }
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) { dim = true }
+            }
     }
 }
 
