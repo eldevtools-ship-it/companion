@@ -35,7 +35,8 @@ pas de nouvelle fonction sans usage réel.
 - `NotesStore.swift` / `NotesView.swift` — le pense-bête (bouton notes à côté de la
   lune) : notes et dossiers dans `~/Library/Application Support/Compagnon/notes.json`.
   ⌥⌘N l'ouvre depuis n'importe quelle app (`HotKey.swift`, raccourci Carbon).
-- `ChatService.swift` / `ChatView.swift` — petit chat avec Claude (bouton bulle,
+- `ChatService.swift` / `ChatView.swift` — petit chat avec Claude (bouton bulle, ‹ › pour les 10 dernières
+  conversations, poubelle à double clic pour en supprimer une,
   ⌥⌘J) via la CLI Claude Code installée (`claude -p`, abonnement de l'utilisateur,
   Claude Sonnet, sans choix de modèle). Lancé avec `COMPAGNON_CHAT=1` : le relais `compagnon-hook`
   l'ignore, pour que le chat n'apparaisse jamais comme une session dans l'île.

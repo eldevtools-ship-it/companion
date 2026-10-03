@@ -9,6 +9,9 @@ struct ChatView: View {
     @ObservedObject var state: AppState
     @ObservedObject private var chat = ChatService.shared
     @FocusState private var focused: Bool
+    /// First click on the bin arms it (turns red), the second deletes
+    @State private var confirmDelete = false
+    @State private var armToken = 0
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -50,6 +53,7 @@ struct ChatView: View {
             arrow("chevron.right", enabled: chat.canGoNewer, help: "Conversation suivante") { chat.newer() }
             Spacer(minLength: 0)
             if !chat.messages.isEmpty {
+                deleteButton
                 Button { chat.newConversation(); focused = true } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "square.and.pencil").font(.system(size: 10, weight: .semibold))
@@ -64,6 +68,45 @@ struct ChatView: View {
             }
         }
         .frame(height: ChatLayout.topBar)
+        .onChange(of: chat.index) { _, _ in confirmDelete = false }
+    }
+
+    /// Bin: one click arms it ("Supprimer ?" in red), a second click deletes.
+    /// Disarms by itself after 3 s, or when you move to another conversation.
+    private var deleteButton: some View {
+        Button {
+            if confirmDelete {
+                withAnimation(.easeOut(duration: 0.2)) { chat.deleteCurrent() }
+                confirmDelete = false
+                focused = true
+            } else {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { confirmDelete = true }
+                armToken += 1
+                let token = armToken
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    guard token == armToken else { return }
+                    withAnimation(.easeOut(duration: 0.2)) { confirmDelete = false }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "trash").font(.system(size: 9.5, weight: .semibold))
+                if confirmDelete {
+                    Text("Supprimer ?").font(.system(size: 10.5, weight: .medium))
+                        .fixedSize()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
+            }
+            .foregroundColor(confirmDelete ? Color(red: 1, green: 0.42, blue: 0.4) : Color.white.opacity(0.45))
+            .padding(.horizontal, 6)
+            .frame(height: 18)
+            .background(Capsule().fill(Color(red: 1, green: 0.3, blue: 0.3).opacity(confirmDelete ? 0.14 : 0)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .pointingHand()
+        .help(confirmDelete ? "Clique encore pour supprimer" : "Supprimer cette conversation")
+        .padding(.trailing, 6)
     }
 
     private func arrow(_ icon: String, enabled: Bool, help: String, action: @escaping () -> Void) -> some View {

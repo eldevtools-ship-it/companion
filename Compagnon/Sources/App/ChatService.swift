@@ -112,6 +112,21 @@ final class ChatService: ObservableObject {
         index = 0
     }
 
+    /// Deletes the conversation on screen (stops its answer if one is streaming), then
+    /// shows the next older one, or the newer one when it was the oldest.
+    func deleteCurrent() {
+        let id = conversations[index].id
+        if id == activeID {
+            activeID = nil
+            process?.terminate()
+        }
+        conversations.remove(at: index)
+        if conversations.isEmpty { conversations = [ChatConversation()] }
+        index = min(index, conversations.count - 1)
+        draft = ""
+        save()
+    }
+
     func older() { if canGoOlder { index += 1 } }
     func newer() { if canGoNewer { index -= 1 } }
 
@@ -236,6 +251,8 @@ final class ChatService: ObservableObject {
         }
         busy = false
         save()
+        // Its conversation was deleted meanwhile: nothing to announce
+        guard activeID != nil else { return }
         // Answer ready while the island is folded: peek out
         let state = AppState.shared
         if !(state.mode == .expanded && state.view == .chat) {
