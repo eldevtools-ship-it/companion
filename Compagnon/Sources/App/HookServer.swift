@@ -697,10 +697,6 @@ final class HookServer: @unchecked Sendable {
         state.view = state.tasks.isEmpty ? .empty : .overview
     }
 
-    /// Updates or transiently creates a workspace pill (VS Code or Cursor) task.
-    /// If the task already exists (persistent), just updates name/cwd.
-    /// If missing (transient), creates it and inserts after the main pill.
-    @MainActor
     /// First non-blank line of a text argument, trimmed ("" if none).
     static func firstLine(_ value: Any?) -> String {
         guard let text = value as? String else { return "" }
@@ -754,6 +750,10 @@ final class HookServer: @unchecked Sendable {
         }
     }
 
+    /// Updates or transiently creates a workspace pill (VS Code or Cursor) task.
+    /// If the task already exists (persistent), just updates name/cwd.
+    /// If missing (transient), creates it and inserts after the main pill.
+    @MainActor
     private func upsertWorkspaceTask(id: String, projectName: String, cwd: String = "") {
         let state = AppState.shared
         if let idx = state.tasks.firstIndex(where: { $0.id == id }) {
