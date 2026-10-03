@@ -28,7 +28,13 @@ struct BotCanvasView: View {
                 // The main character is always the cloud. The focused pill only lends it
                 // a hint of its colour from below; the state colour takes over when busy.
                 engine.bodyColor = nil
-                engine.accent = state.focusTask.flatMap { cgColorFromHex($0.color) }
+                let spotify = SpotifyService.shared
+                if state.view == .music && state.mode == .expanded, let cover = spotify.artworkColor {
+                    engine.accent = cover
+                } else {
+                    engine.accent = state.focusTask.flatMap { cgColorFromHex($0.color) }
+                }
+                engine.grooving = spotify.isPlaying
 
                 engine.update(dt: dt)
                 var ctx = context

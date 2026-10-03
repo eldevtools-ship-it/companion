@@ -276,7 +276,8 @@ final class IslandWindowController: NSWindowController {
 
     private var answerPending: Bool {
         state.mode == .expanded
-            && (state.pendingApproval != nil || state.pendingQuestion != nil || state.view == .finished)
+            && (state.pendingApproval != nil || state.pendingQuestion != nil
+                || state.view == .finished || state.view == .music)
     }
 
     private func updateKeyboard(pointerInside: Bool) {
@@ -296,6 +297,15 @@ final class IslandWindowController: NSWindowController {
         if islandPanel.firstResponder is NSText { return false }   // typing in a field
         let isReturn = event.keyCode == 36 || event.keyCode == 76
         let cmd = event.modifierFlags.contains(.command)
+        // Music: space plays / pauses, ← → change track
+        if state.view == .music && state.pendingApproval == nil && state.pendingQuestion == nil {
+            switch event.keyCode {
+            case 49:  SpotifyService.shared.playPause(); return true
+            case 123: SpotifyService.shared.previous(); return true
+            case 124: SpotifyService.shared.next(); return true
+            default:  return false
+            }
+        }
         if state.view == .finished {
             guard isReturn else { return false }
             returnToSession(state.focusTask)

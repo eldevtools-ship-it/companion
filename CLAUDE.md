@@ -50,6 +50,11 @@ pas de nouvelle fonction sans usage réel.
   ⌥⌘J) via la CLI Claude Code installée (`claude -p`, abonnement de l'utilisateur,
   Claude Sonnet, sans choix de modèle). Lancé avec `COMPAGNON_CHAT=1` : le relais `compagnon-hook`
   l'ignore, pour que le chat n'apparaisse jamais comme une session dans l'île.
+- `SpotifyService.swift` / `MusicView.swift` — la musique (bouton note à côté du chat, visible si
+  Spotify est installé) : pilote l'app Spotify du Mac par AppleScript (pas de compte ni de clé),
+  suit ses changements par sa notification distribuée (rien ne tourne en boucle), playlists
+  épinglées par lien (UserDefaults). Espace / ← → dans la vue ; égaliseur dans la barre compacte ;
+  le nuage se balance pendant la lecture et prend la couleur de la pochette dans la vue.
 - `DayService.swift` / `DayCardView.swift` — bonjour le matin, résumé du soir,
   concentration automatique en réunion (caméra allumée ou réunion de l'agenda).
 - `SlackService.swift`, `HarvestService.swift`, `GithubPoller.swift`,

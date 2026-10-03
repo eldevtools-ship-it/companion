@@ -266,6 +266,9 @@ final class BotEngine: ObservableObject {
     var pointerAngle: CGFloat = 0       // where the pointer is, seen from the cloud (0 = right, π/2 = below)
     var watchingField = false           // you're typing in the chat / notes: look at the field
     var talking: CGFloat = 0            // Claude is answering in the chat (decays by itself)
+    var grooving = false                // music is playing: a slow, gentle sway
+    private var groove: CGFloat = 0     // eased 0…1
+    private(set) var sway: CGFloat = 0  // extra lean, radians
     var drowsy: CGFloat = 0             // late evening: heavier eyelids (0…1)
     var napping = false                 // dozing after 10 min without the pointer moving
     var lastHourCheck: Double = 0
@@ -782,6 +785,16 @@ final class BotEngine: ObservableObject {
                 tgSx -= beat * 0.012 * talking
                 talking = max(0, talking - CGFloat(dt) * 1.6)
             }
+            // Music: lean side to side and bob on a slow beat, settling in and out
+            groove += ((grooving && state == .idle ? 1 : 0) - groove) * (1 - pow(0.08, CGFloat(dt)))
+            if groove > 0.005 {
+                let beat = t * 2 * .pi * 0.92
+                sway = groove * 0.055 * sin(beat / 2)
+                tgSy += groove * 0.018 * max(0, sin(beat))
+                tgSx -= groove * 0.009 * max(0, sin(beat))
+            } else {
+                sway = 0
+            }
             updatePuffs(now: now, dt: dt)
             updateWeather(now: now)
         }
@@ -1020,7 +1033,7 @@ final class BotEngine: ObservableObject {
 
         var ctx = context
         ctx.translateBy(x: cx, y: cy)
-        if tilt != 0 { ctx.rotate(by: .radians(tilt)) }
+        if tilt + sway != 0 { ctx.rotate(by: .radians(tilt + sway)) }
         ctx.scaleBy(x: sx, y: sy)
 
         // Body path (gumdrop silhouette, morph to rect for upload)

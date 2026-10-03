@@ -15,6 +15,7 @@ enum IslandView: String, CaseIterable {
     case notes      // Pense-bête: your notes and folders
     case day        // Good morning / evening summary
     case chat       // Quick chat with Claude
+    case music      // Spotify: what's playing, controls, pinned playlists
 }
 
 // MARK: - Bot State
@@ -151,7 +152,7 @@ enum IslandConst {
     static let cardTop: CGFloat = headerTop + headerHeight          // 42
     /// Concave flare joining the island to the top of the screen.
     static let flareExpanded: CGFloat = 17
-    static let flareCompact: CGFloat = 8
+    static let flareCompact: CGFloat = 12
     /// Width of each "ear" on either side of the notch when compact (bot left, minis right).
     static let compactEar: CGFloat = IslandRestingLayout.compactEar
     /// Island height while the Harvest project / task list is open.

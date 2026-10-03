@@ -25,7 +25,7 @@
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Pour te prévenir quelques minutes avant tes réunions et te proposer de les rejoindre.</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Pour ramener au premier plan l'app où tourne Claude.</string>
+	<string>Pour ramener au premier plan l’app où tourne Claude et piloter Spotify depuis l’encoche.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSSupportsAutomaticGraphicsSwitching</key>

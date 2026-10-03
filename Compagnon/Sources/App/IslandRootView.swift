@@ -25,13 +25,16 @@ struct IslandContainer: View {
     @State private var cornerRadius: CGFloat = IslandConst.roundedCorner
     @State private var flare: CGFloat = 0
     @State private var greetNotif: Bool = false
+    @ObservedObject private var spotify = SpotifyService.shared
 
     private let openSpring = Animation.spring(response: 0.5, dampingFraction: 0.72)
     private let closeEase  = Animation.timingCurve(0.45, 0, 0.2, 1, duration: 0.34)
 
     private func flare(for mode: IslandMode) -> CGFloat {
         switch mode {
-        case .hidden:   return 0
+        // With a notch, the hidden island sits behind it; without one it shows as a small
+        // pill, which also grows out of the screen edge
+        case .hidden:   return state.hasNotch ? 0 : IslandConst.flareCompact
         case .compact:  return IslandConst.flareCompact
         case .expanded: return IslandConst.flareExpanded
         }
@@ -83,11 +86,13 @@ struct IslandContainer: View {
 
             // Status lights next to the character: orange while a Harvest timer runs,
             // violet while concentrating
-            if state.mode == .compact && (state.focusMode || state.harvestRunning != nil) {
+            if state.mode == .compact && (state.focusMode || state.harvestRunning != nil || spotify.isPlaying) {
                 VStack(spacing: 3) {
+                    if spotify.isPlaying { EqualizerBars().transition(.opacity) }
                     if state.harvestRunning != nil { StatusLight(color: PillColor.harvest, pulse: true) }
                     if state.focusMode { StatusLight(color: "#A78BFA", pulse: false) }
                 }
+                .animation(.easeInOut(duration: 0.25), value: spotify.isPlaying)
                 // Centred on the cloud's middle, a little clear of its right edge
                 .position(x: IslandConst.compactEar / 2 + 18, y: islandHeight / 2)
                 .transition(.opacity)
@@ -369,6 +374,7 @@ struct IslandHeader: View {
                 FocusButton(state: state)
                 NotesButton(state: state)
                 HeaderToggle(state: state, target: .chat, icon: "bubble.left", help: "Demander à Claude (⌥⌘J)")
+                if SpotifyService.shared.isInstalled { MusicButton(state: state) }
             }
             .animation(.spring(response: 0.38, dampingFraction: 0.82), value: showsBack)
             .padding(.leading, 10)
@@ -481,6 +487,37 @@ struct HeaderToggle: View {
         .pointingHand()
         .onHover { hovered = $0 }
         .help(on ? "Revenir" : help)
+    }
+}
+
+/// Opens the music (Spotify); again to go back. Tinted green while something plays.
+struct MusicButton: View {
+    @ObservedObject var state: AppState
+    @ObservedObject private var spotify = SpotifyService.shared
+    @State private var hovered = false
+
+    private var on: Bool { state.view == .music }
+
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                state.view = on ? .overview : .music
+            }
+        } label: {
+            Image(systemName: "music.note")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(on ? Color(hex: "#F5F6F8")
+                                 : spotify.isPlaying ? Color(hex: "#1DB954")
+                                 : (hovered ? Color(hex: "#B0B5BE") : Color(hex: "#8E939C")))
+                .frame(width: 28, height: 22)
+                .background(Capsule().fill(Color.white.opacity(on ? 0.12 : (hovered ? 0.06 : 0))))
+                .contentShape(Capsule())
+                .animation(.easeOut(duration: 0.2), value: spotify.isPlaying)
+        }
+        .buttonStyle(.plain)
+        .pointingHand()
+        .onHover { hovered = $0 }
+        .help(on ? "Revenir" : (spotify.isPlaying ? "Musique : \(spotify.title)" : "Musique"))
     }
 }
 
