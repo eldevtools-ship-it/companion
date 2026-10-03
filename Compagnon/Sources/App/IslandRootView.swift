@@ -340,6 +340,7 @@ struct IslandHeader: View {
                             removal: .opacity.combined(with: .offset(x: -10))))
                 }
                 FocusButton(state: state)
+                NotesButton(state: state)
             }
             .animation(.spring(response: 0.38, dampingFraction: 0.82), value: showsBack)
             .padding(.leading, 10)
@@ -416,6 +417,33 @@ struct FocusButton: View {
         .onHover { hovered = $0 }
         .help(on ? "Concentration activée : seul Claude te dérange. Clique pour l'arrêter."
                  : "Concentration : couper Slack, Vercel et le rappel Harvest")
+    }
+}
+
+/// Opens the notes (pense-bête); again to go back.
+struct NotesButton: View {
+    @ObservedObject var state: AppState
+    @State private var hovered = false
+
+    private var on: Bool { state.view == .notes }
+
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                state.view = on ? .overview : .notes
+            }
+        } label: {
+            Image(systemName: "note.text")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(on ? Color(hex: "#F5F6F8") : (hovered ? Color(hex: "#B0B5BE") : Color(hex: "#8E939C")))
+                .frame(width: 28, height: 22)
+                .background(Capsule().fill(Color.white.opacity(on ? 0.12 : (hovered ? 0.06 : 0))))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .pointingHand()
+        .onHover { hovered = $0 }
+        .help(on ? "Fermer les notes" : "Notes")
     }
 }
 

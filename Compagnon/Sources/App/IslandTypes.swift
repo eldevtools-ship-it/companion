@@ -12,6 +12,7 @@ enum IslandView: String, CaseIterable {
     case overview, empty, approval, question, error, finished
     case confused, note, settings, greeting
     case harvest    // Harvest: choose project, task and note
+    case notes      // Pense-bête: your notes and folders
 }
 
 // MARK: - Bot State
@@ -149,6 +150,8 @@ enum IslandConst {
     static let compactEar: CGFloat = IslandRestingLayout.compactEar
     /// Island height while the Harvest project / task list is open.
     static let harvestListHeight: CGFloat = 284
+    /// Island height on the notes.
+    static let notesHeight: CGFloat = 300
 
     static let viewLayouts: [IslandView: ViewLayout] = {
         var d: [IslandView: ViewLayout] = [:]

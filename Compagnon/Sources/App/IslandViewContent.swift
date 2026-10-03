@@ -17,6 +17,7 @@ struct IslandViewContent: View {
         case .confused:  ConfusedView()
         case .note:      NoteView(state: state)
         case .harvest:   HarvestPickerView(state: state)
+        case .notes:     NotesView(state: state)
         case .settings:  SettingsIslandView(state: state)
         case .greeting:  EmptyView()  // GreetingCanvasView overlaid in IslandRootView
         }

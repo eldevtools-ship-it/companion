@@ -5,7 +5,7 @@ dans l'encoche du Mac et fait trois choses, pour un seul utilisateur :
 - suivre les sessions Claude Code via leurs hooks et autoriser / refuser depuis l'encoche ;
 - afficher les messages directs et mentions Slack, et y répondre ;
 - piloter le timer Harvest (projet, tâche, note, start / stop, rappel).
-Plus l'Agenda, Vercel et GitHub. C'est un fork de [Coucou](https://github.com/Louis-CFM/coucou)
+Plus l'Agenda, Vercel, GitHub et un pense-bête. C'est un fork de [Coucou](https://github.com/Louis-CFM/coucou)
 (MIT), entièrement en français et avec sa propre identité. Garder l'app minimale :
 pas de nouvelle fonction sans usage réel.
 
@@ -28,6 +28,8 @@ pas de nouvelle fonction sans usage réel.
 - `Compagnon/Sources/App/IslandTypes.swift` — `CardLayout` : la grille commune à
   toutes les vues (personnage centré à gauche, même marge bord → personnage → contenu).
 - `Compagnon/Sources/App/IslandCursor.swift` — curseur main / texte au survol de l'île.
+- `NotesStore.swift` / `NotesView.swift` — le pense-bête (bouton notes à côté de la
+  lune) : notes et dossiers dans `~/Library/Application Support/Compagnon/notes.json`.
 - `SlackService.swift`, `HarvestService.swift`, `GithubPoller.swift`,
   `UpdateService.swift` (mise à jour automatique depuis les releases GitHub).
 - `Compagnon/Resources/sounds/` — générés par `scripts/gen-sounds.py`.

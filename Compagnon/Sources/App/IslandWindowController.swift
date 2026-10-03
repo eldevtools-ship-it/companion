@@ -103,7 +103,7 @@ final class IslandWindowController: NSWindowController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newView in
                 guard let self else { return }
-                if newView == .harvest || newView == .question {
+                if newView == .harvest || newView == .question || newView == .notes {
                     self.islandPanel.makeKey()
                 }
             }
@@ -646,6 +646,9 @@ func islandSize(mode: IslandMode, view: IslandView,
     case .compact:  return (nw + IslandConst.compactEar * 2, nh + IslandRestingLayout.compactExtraHeight)
     case .expanded:
         let layout = IslandConst.viewLayouts[view]!
+        if view == .notes {
+            return (IslandConst.expandedWidth, IslandConst.notesHeight)
+        }
         if view == .harvest && AppState.shared.harvestListOpen {
             return (IslandConst.expandedWidth, IslandConst.harvestListHeight)
         }
