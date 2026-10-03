@@ -50,6 +50,56 @@ struct EmptyStateView: View {
     }
 }
 
+// MARK: - Prompt cards (approval, question)
+// They grow with what they have to say: a long command, a question with explained
+// options. Nothing is left in a tooltip.
+
+enum PromptLayout {
+    static let padding: CGFloat = 12
+    static let maxHeight: CGFloat = 320
+
+    static func islandHeight(content: CGFloat) -> CGFloat {
+        guard content > 0 else { return IslandConst.expandedHeight }
+        let h = IslandConst.cardTop + IslandConst.contentInset + padding * 2 + content
+        return min(maxHeight, max(IslandConst.expandedHeight, h.rounded(.up)))
+    }
+}
+
+private struct PromptHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+private extension View {
+    /// Reports the card content's height so the island fits it.
+    func measuredPrompt(_ state: AppState) -> some View {
+        background(GeometryReader { g in
+            Color.clear.preference(key: PromptHeightKey.self, value: g.size.height)
+        })
+        .onPreferenceChange(PromptHeightKey.self) { h in
+            MainActor.assumeIsolated {
+                if abs(state.promptContentHeight - h) > 1 { state.promptContentHeight = h }
+            }
+        }
+    }
+}
+
+/// Small coloured label: the tool, the question's topic.
+struct PromptChip: View {
+    let text: String
+    let color: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .lineLimit(1)
+            .foregroundColor(Color(hex: color))
+            .padding(.horizontal, 6).padding(.vertical, 1.5)
+            .background(Capsule().fill(Color(hex: color).opacity(0.13)))
+            .fixedSize()
+    }
+}
+
 // MARK: - Approval
 
 struct ApprovalView: View {
@@ -60,9 +110,30 @@ struct ApprovalView: View {
     var body: some View {
         ZStack {
             CardBackground(wash: .amber)
-            VStack(alignment: .leading, spacing: 5) {
-                AgentWho(task: state.focusTask, label: "demande une autorisation")
-                CodeBlock(text: approval?.command ?? approval?.tool ?? "…")
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    AgentWho(task: state.focusTask, label: "demande une autorisation")
+                    if let label = approval?.toolLabel, !label.isEmpty {
+                        PromptChip(text: label, color: "#F5A524")
+                    }
+                    Spacer(minLength: 0)
+                }
+                // Claude's own words for what the command does
+                if let detail = approval?.detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(Color(hex: "#F5F6F8"))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                CodeBlock(text: approval?.command ?? "…", lines: 4)
+                    .help(approval?.command ?? "")
+                if let a = approval, !a.removed.isEmpty || !a.added.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        if !a.removed.isEmpty { DiffLine(sign: "−", text: a.removed, color: "#F4505E") }
+                        if !a.added.isEmpty { DiffLine(sign: "+", text: a.added, color: "#34D399") }
+                    }
+                }
                 HStack(spacing: 8) {
                     SecondaryButton("Refuser", kbd: "esc") {
                         HookServer.shared.sendApprovalDecision("deny")
@@ -75,14 +146,36 @@ struct ApprovalView: View {
                         SecondaryButton("Toujours", kbd: "⌘⏎") {
                             HookServer.shared.sendApprovalDecision("always")
                         }
+                        .help("Autoriser et ne plus demander pour ce type d'action dans ce projet")
                     }
                 }
+                .padding(.top, 2)
             }
+            .measuredPrompt(state)
             .padding(.leading, CardLayout.contentLeading)
-            .padding(.trailing, 16)
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.trailing, IslandConst.cardInset + 8)
+            .padding(.vertical, PromptLayout.padding)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
+    }
+}
+
+/// One line of an edit preview: what goes, what comes.
+private struct DiffLine: View {
+    let sign: String
+    let text: String
+    let color: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(sign).foregroundColor(Color(hex: color)).frame(width: 8)
+            Text(text).foregroundColor(Color(hex: "#C5C8CD")).lineLimit(1).truncationMode(.tail)
+        }
+        .font(.system(size: 11, design: .monospaced))
+        .padding(.horizontal, 8).padding(.vertical, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius - 2)
+            .fill(Color(hex: color).opacity(0.09)))
     }
 }
 
@@ -95,6 +188,7 @@ struct QuestionView: View {
     @State private var picked: Set<String> = []
     @State private var typing = false
     @State private var custom = ""
+    @State private var hovered: String?
     @FocusState private var customFocused: Bool
 
     private var question: ClaudeQuestion? { state.pendingQuestion }
@@ -103,81 +197,42 @@ struct QuestionView: View {
         return q.items[index]
     }
 
+    /// Options with explanations, or too many / too long for one line, are listed one
+    /// per row with their description; short ones stay side by side.
+    private func asRows(_ item: ClaudeQuestion.Item) -> Bool {
+        item.options.contains { !$0.description.isEmpty }
+            || item.options.count > 4
+            || item.options.reduce(0) { $0 + $1.label.count } > 48
+    }
+
     var body: some View {
         ZStack {
             CardBackground(wash: .cyan)
             if let q = question, let item {
                 VStack(alignment: .leading, spacing: 7) {
-                    HStack(spacing: 8) {
-                        Text(q.items.count > 1 ? "Claude te demande · \(index + 1)/\(q.items.count)" : "Claude te demande")
-                            .font(.system(size: 11))
-                            .foregroundColor(Color(hex: "#8E939C"))
-                        if !item.header.isEmpty {
-                            Text(item.header)
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(Color(hex: "#22D3EE"))
-                                .padding(.horizontal, 6).padding(.vertical, 1)
-                                .background(Capsule().fill(Color(hex: "#22D3EE").opacity(0.12)))
-                        }
-                        Spacer(minLength: 4)
-                        CardLink(title: typing ? "Choix" : "Autre…", color: "#C5C8CD") {
-                            typing.toggle()
-                            if typing {
-                                NotificationCenter.default.post(name: .islandNeedsKeyboard, object: nil)
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { customFocused = true }
-                            }
-                        }
-                        CardLink(title: "Dans Claude", color: "#8E939C") {
-                            HookServer.shared.finishQuestion(answers: nil, note: nil)
-                        }
-                        .help("Laisser Claude poser la question lui-même")
-                    }
+                    header(q, item)
                     Text(item.question)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(Color(hex: "#F5F6F8"))
-                        .lineLimit(2)
+                        .lineLimit(4)
                         .fixedSize(horizontal: false, vertical: true)
+                        .help(item.question)
                     if typing {
-                        HStack(spacing: 8) {
-                            TextField("Ta réponse…", text: $custom)
-                                .textFieldStyle(.plain)
-                                .font(.system(size: 11.5))
-                                .focused($customFocused)
-                                .onSubmit { answer(custom) }
-                                .padding(.horizontal, 10)
-                                .frame(height: 26)
-                                .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
-                                    .fill(Color.white.opacity(0.07)))
-                                .textCursor()
-                            choiceButton("Envoyer", prominent: true,
-                                         disabled: custom.trimmingCharacters(in: .whitespaces).isEmpty) { answer(custom) }
-                        }
+                        customField
+                    } else if asRows(item) {
+                        optionRows(item)
                     } else {
-                        HStack(spacing: 6) {
-                            ForEach(Array(item.options.enumerated()), id: \.element.label) { i, opt in
-                                let on = picked.contains(opt.label)
-                                choiceButton(opt.label, prominent: on, key: i < 9 ? "\(i + 1)" : nil) {
-                                    if item.multiSelect {
-                                        if on { picked.remove(opt.label) } else { picked.insert(opt.label) }
-                                    } else {
-                                        answer(opt.label)
-                                    }
-                                }
-                                .help(opt.description)
-                            }
-                            if item.multiSelect {
-                                Spacer(minLength: 4)
-                                choiceButton("Valider", prominent: true, disabled: picked.isEmpty) {
-                                    let labels = item.options.map(\.label).filter { picked.contains($0) }
-                                    answer(labels)
-                                }
-                            }
-                        }
+                        optionChips(item)
                     }
                 }
+                .measuredPrompt(state)
                 .padding(.leading, CardLayout.contentLeading)
-                .padding(.trailing, IslandConst.cardInset + 4)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.trailing, IslandConst.cardInset + 8)
+                .padding(.vertical, PromptLayout.padding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .id(index)
+                .transition(.asymmetric(insertion: .opacity.combined(with: .offset(x: 14)),
+                                        removal: .opacity.combined(with: .offset(x: -14))))
             }
         }
         .onChange(of: state.pendingQuestion) { _, _ in reset() }
@@ -191,17 +246,124 @@ struct QuestionView: View {
                 return
             }
             guard n - 1 < item.options.count else { return }
-            let label = item.options[n - 1].label
+            pick(item.options[n - 1].label, in: item)
+        }
+    }
+
+    // MARK: Parts
+
+    private func header(_ q: ClaudeQuestion, _ item: ClaudeQuestion.Item) -> some View {
+        HStack(spacing: 8) {
+            AgentWho(task: state.focusTask, label: "te demande")
+            if !item.header.isEmpty { PromptChip(text: item.header, color: "#22D3EE") }
+            if q.items.count > 1 { StepDots(count: q.items.count, current: index) }
+            Spacer(minLength: 4)
+            CardLink(title: typing ? "Choix" : "Autre…", color: "#C5C8CD") {
+                typing.toggle()
+                if typing {
+                    NotificationCenter.default.post(name: .islandNeedsKeyboard, object: nil)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { customFocused = true }
+                }
+            }
+            CardLink(title: "Dans Claude", color: "#8E939C") {
+                HookServer.shared.finishQuestion(answers: nil, note: nil)
+            }
+            .help("Laisser Claude poser la question lui-même")
+        }
+    }
+
+    private var customField: some View {
+        HStack(spacing: 8) {
+            TextField("Ta réponse…", text: $custom)
+                .textFieldStyle(.plain)
+                .font(.system(size: 11.5))
+                .focused($customFocused)
+                .onSubmit { answer(custom) }
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
+                    .fill(Color.white.opacity(0.07)))
+                .textCursor()
+            chip("Envoyer", prominent: true,
+                 disabled: custom.trimmingCharacters(in: .whitespaces).isEmpty) { answer(custom) }
+        }
+    }
+
+    private func optionChips(_ item: ClaudeQuestion.Item) -> some View {
+        HStack(spacing: 6) {
+            ForEach(Array(item.options.enumerated()), id: \.element.label) { i, opt in
+                chip(opt.label, prominent: picked.contains(opt.label), key: i < 9 ? "\(i + 1)" : nil) {
+                    pick(opt.label, in: item)
+                }
+            }
             if item.multiSelect {
-                if picked.contains(label) { picked.remove(label) } else { picked.insert(label) }
-            } else {
-                answer(label)
+                Spacer(minLength: 4)
+                validate(item)
             }
         }
     }
 
-    private func choiceButton(_ title: String, prominent: Bool, disabled: Bool = false, key: String? = nil,
-                              action: @escaping () -> Void) -> some View {
+    private func optionRows(_ item: ClaudeQuestion.Item) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            ForEach(Array(item.options.enumerated()), id: \.element.label) { i, opt in
+                let on = picked.contains(opt.label)
+                let hot = hovered == opt.label
+                Button { pick(opt.label, in: item) } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Group {
+                            if item.multiSelect {
+                                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(on ? Color(hex: "#22D3EE") : Color.white.opacity(0.35))
+                            } else {
+                                Text(i < 9 ? "\(i + 1)" : "·")
+                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                    .foregroundColor(hot ? Color(hex: "#22D3EE") : Color.white.opacity(0.4))
+                            }
+                        }
+                        .frame(width: 12)
+                        Text(opt.label)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Color(hex: "#F1F2F4"))
+                            .lineLimit(1)
+                            .layoutPriority(1)
+                        if !opt.description.isEmpty {
+                            Text(opt.description)
+                                .font(.system(size: 11))
+                                .foregroundColor(Color(hex: "#8E939C"))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .help(opt.description)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 8)
+                    .frame(height: 24)
+                    .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
+                        .fill(on ? Color(hex: "#22D3EE").opacity(0.16)
+                                 : Color.white.opacity(hot ? 0.09 : 0.045)))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .pointingHand()
+                .onHover { h in
+                    withAnimation(.easeOut(duration: 0.12)) { hovered = h ? opt.label : (hovered == opt.label ? nil : hovered) }
+                }
+            }
+            if item.multiSelect {
+                HStack { Spacer(minLength: 0); validate(item) }.padding(.top, 2)
+            }
+        }
+    }
+
+    private func validate(_ item: ClaudeQuestion.Item) -> some View {
+        chip("Valider", prominent: true, disabled: picked.isEmpty, key: "⏎") {
+            answer(item.options.map(\.label).filter { picked.contains($0) })
+        }
+    }
+
+    private func chip(_ title: String, prominent: Bool, disabled: Bool = false, key: String? = nil,
+                      action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if let key {
@@ -226,16 +388,29 @@ struct QuestionView: View {
         .opacity(disabled ? 0.45 : 1)
     }
 
+    // MARK: Answering
+
+    private func pick(_ label: String, in item: ClaudeQuestion.Item) {
+        if item.multiSelect {
+            if picked.contains(label) { picked.remove(label) } else { picked.insert(label) }
+        } else {
+            answer(label)
+        }
+    }
+
     /// Records the answer to the current question, then moves on or sends everything.
     private func answer(_ value: Any) {
         guard let q = question, let item else { return }
         if let text = value as? String, text.trimmingCharacters(in: .whitespaces).isEmpty { return }
         answers[item.question] = value
         if index + 1 < q.items.count {
-            index += 1
-            picked = []
-            custom = ""
-            typing = false
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
+                index += 1
+                picked = []
+                custom = ""
+                typing = false
+                hovered = nil
+            }
         } else {
             HookServer.shared.finishQuestion(answers: answers, note: nil)
         }
@@ -247,6 +422,25 @@ struct QuestionView: View {
         picked = []
         custom = ""
         typing = false
+        hovered = nil
+    }
+}
+
+/// Where you are in a series of questions: one dot per question.
+private struct StepDots: View {
+    let count: Int
+    let current: Int
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<count, id: \.self) { i in
+                Capsule()
+                    .fill(i == current ? Color(hex: "#22D3EE") : Color.white.opacity(i < current ? 0.45 : 0.18))
+                    .frame(width: i == current ? 10 : 4, height: 4)
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: current)
+        .help("Question \(current + 1) sur \(count)")
     }
 }
 
@@ -776,10 +970,14 @@ struct AgentWho: View {
 
 struct CodeBlock: View {
     let text: String
+    var lines: Int = 1
 
     var body: some View {
         Text(text)
             .font(.system(size: 12, design: .monospaced))
+            .lineLimit(lines)
+            .truncationMode(.middle)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 10).padding(.vertical, 5)
             .background(Color.white.opacity(0.07))
             .overlay(RoundedRectangle(cornerRadius: IslandConst.innerRadius).stroke(Color.white.opacity(0.06)))

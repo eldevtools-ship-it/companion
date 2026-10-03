@@ -41,6 +41,13 @@ struct ApprovalInfo: Sendable {
     var inputKey: String
     /// Pill that owns this approval: "integration_claude", "agent_cursor", or "agent_codex".
     var pillId: String
+    /// What it is about in plain words: Claude's own description of a command, or "".
+    var detail: String = ""
+    /// Short French name of the tool ("Terminal", "Modifier", "Web"…).
+    var toolLabel: String = ""
+    /// For an edit: first line taken out and first line put in ("" when none).
+    var removed: String = ""
+    var added: String = ""
 }
 
 // MARK: - Pill badge (shown on pill edge when non-focused task has an alert)

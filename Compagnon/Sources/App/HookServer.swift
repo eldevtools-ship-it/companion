@@ -472,7 +472,8 @@ final class HookServer: @unchecked Sendable {
 
         let tool = payload["tool_name"] as? String ?? "Outil"
         let toolInput = payload["tool_input"] as? [String: Any] ?? [:]
-        var command = toolInput["command"] as? String ?? tool
+        let summary = Self.describeTool(tool, input: toolInput, cwd: cwd)
+        let command = summary.text
         let inputKey = Self.approvalInputKey(toolInput)
         nbLog("PermissionRequest \(tool) [\(pillId)]")
 
@@ -494,7 +495,10 @@ final class HookServer: @unchecked Sendable {
         upsertWorkspaceTask(id: pillId, projectName: projectName, cwd: cwd)
         state.updateTask(id: pillId, state: .approval)
         state.pendingApproval = ApprovalInfo(sessionId: sessionId, tool: tool,
-                                              command: command, inputKey: inputKey, pillId: pillId)
+                                              command: command, inputKey: inputKey, pillId: pillId,
+                                              detail: summary.detail, toolLabel: summary.label,
+                                              removed: Self.firstLine(toolInput["old_string"]),
+                                              added: Self.firstLine(toolInput["new_string"] ?? toolInput["content"]))
         state.isPinned = true
         SoundEngine.shared.play("approval")
 
@@ -697,6 +701,59 @@ final class HookServer: @unchecked Sendable {
     /// If the task already exists (persistent), just updates name/cwd.
     /// If missing (transient), creates it and inserts after the main pill.
     @MainActor
+    /// First non-blank line of a text argument, trimmed ("" if none).
+    static func firstLine(_ value: Any?) -> String {
+        guard let text = value as? String else { return "" }
+        let line = text.split(separator: "\n").first { !$0.trimmingCharacters(in: .whitespaces).isEmpty } ?? ""
+        return String(line.trimmingCharacters(in: .whitespaces).prefix(160))
+    }
+
+    /// What an approval card shows for a tool call: the command, the file, the URL…
+    /// rather than just the tool's name ("Edit" alone says nothing).
+    static func describeTool(_ tool: String, input: [String: Any], cwd: String)
+        -> (label: String, text: String, detail: String) {
+        func str(_ k: String) -> String { (input[k] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
+        // Paths inside the project are shown relative to it, the home folder as ~
+        func path(_ p: String) -> String {
+            if !cwd.isEmpty, p.hasPrefix(cwd + "/") { return String(p.dropFirst(cwd.count + 1)) }
+            let home = NSHomeDirectory()
+            if p.hasPrefix(home + "/") { return "~/" + p.dropFirst(home.count + 1) }
+            return p
+        }
+        switch tool {
+        case "Bash":
+            return ("Terminal", str("command").isEmpty ? tool : str("command"), str("description"))
+        case "Edit", "MultiEdit":
+            return ("Modifier", path(str("file_path")), "")
+        case "Write":
+            return ("Créer", path(str("file_path")), "")
+        case "Read":
+            return ("Lire", path(str("file_path")), "")
+        case "NotebookEdit":
+            return ("Modifier", path(str("notebook_path")), "")
+        case "WebFetch":
+            return ("Web", str("url"), str("prompt"))
+        case "WebSearch":
+            return ("Recherche", str("query"), "")
+        case "Glob", "Grep":
+            return ("Chercher", str("pattern") + (str("path").isEmpty ? "" : "  dans " + path(str("path"))), "")
+        case "Task", "Agent":
+            return ("Agent", str("description").isEmpty ? str("prompt") : str("description"), "")
+        default:
+            // MCP tools: mcp__server__tool → "server · tool", plus their first text argument
+            if tool.hasPrefix("mcp__") {
+                let parts = tool.dropFirst(5).components(separatedBy: "__")
+                let name = parts.count > 1 ? parts.dropFirst().joined(separator: " ") : parts.first ?? tool
+                let server = (parts.first ?? "").replacingOccurrences(of: "_", with: " ")
+                let arg = input.keys.sorted().compactMap { input[$0] as? String }.first { !$0.isEmpty } ?? ""
+                return (server, name.replacingOccurrences(of: "_", with: " "),
+                        String(arg.prefix(200)))
+            }
+            let arg = input.keys.sorted().compactMap { input[$0] as? String }.first { !$0.isEmpty } ?? ""
+            return (tool, arg.isEmpty ? tool : arg, "")
+        }
+    }
+
     private func upsertWorkspaceTask(id: String, projectName: String, cwd: String = "") {
         let state = AppState.shared
         if let idx = state.tasks.firstIndex(where: { $0.id == id }) {

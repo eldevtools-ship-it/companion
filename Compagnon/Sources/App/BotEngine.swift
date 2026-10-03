@@ -1004,6 +1004,20 @@ final class BotEngine: ObservableObject {
         // the extended canvas above without clipping (BotPlacement compensates with position offset)
         let cy = H / 2 + particleOverhang / 2 + oy * R + R * 0.06
 
+        let light = lighting
+        // Light pooled on the card under the cloud: fainter as it floats up
+        if isCloud && morph < 0.5 && R > 14 {
+            let lift = max(0, min(1, 1 + oy * 4))
+            let gy = H / 2 + particleOverhang / 2 + R * 0.06 + ry * 1.32
+            var pool = context
+            pool.translateBy(x: cx, y: gy)
+            pool.scaleBy(x: 1, y: 0.28)
+            let pr = rx * 1.05 * (0.85 + 0.15 * lift)
+            pool.fill(Path(ellipseIn: CGRect(x: -pr, y: -pr, width: pr * 2, height: pr * 2)),
+                      with: .radialGradient(Gradient(colors: [light.glow.opacity(Double(light.pool * lift)), light.glow.opacity(0)]),
+                                            center: .zero, startRadius: 0, endRadius: pr))
+        }
+
         var ctx = context
         ctx.translateBy(x: cx, y: cy)
         if tilt != 0 { ctx.rotate(by: .radians(tilt)) }
@@ -1011,6 +1025,16 @@ final class BotEngine: ObservableObject {
 
         // Body path (gumdrop silhouette, morph to rect for upload)
         let bodyPath = characterPath(rx: rx, ry: ry, morph: morph, R: R)
+
+        // Halo shaped like the cloud, in the colour lighting it (follows every puff)
+        if isCloud && morph < 0.5 {
+            var halo = ctx
+            halo.addFilter(.blur(radius: R * 0.26))
+            halo.opacity = Double(light.halo * (1 - morph * 2))
+            halo.translateBy(x: 0, y: R * 0.05)
+            halo.scaleBy(x: 1.04, y: 1.06)
+            halo.fill(bodyPath, with: .color(light.glow))
+        }
 
         // The cloud has no antenna: its state shows in its colour
 
@@ -1270,14 +1294,37 @@ final class BotEngine: ObservableObject {
             // Mini bots: flat solid fill — no gradient, no reflection, no highlight
             ctx.fill(path, with: .color(Color(cgColor: bc)))
         } else {
-            // Main bot: linear gradient body
-            let c0 = cgColorToTuple(BotConst.baseTop)
-            let c1 = cgColorToTuple(BotConst.baseBottom)
+            // Main bot (the cloud). Its shadows take the colour lighting it, never grey or
+            // black, so it stays clean in every pill / state colour.
+            let light = lighting
+            let lav = cgColorToTuple(BotConst.baseBottom)
+            let shade = mixColor(lav, light.rgb, 0.42 * light.strength)
             ctx.fill(path, with: .linearGradient(
-                Gradient(colors: [colorFromTuple(c0), colorFromTuple(c1)]),
-                startPoint: CGPoint(x: rx*0.7, y: -ry*0.85),
-                endPoint: CGPoint(x: -rx*0.8, y: ry*0.9)
+                Gradient(stops: [
+                    .init(color: .white, location: 0),
+                    .init(color: colorFromTuple(mixColor((1, 1, 1), shade, 0.35)), location: 0.45),
+                    .init(color: colorFromTuple(shade), location: 1)
+                ]),
+                startPoint: CGPoint(x: rx*0.5, y: -ry*0.95),
+                endPoint: CGPoint(x: -rx*0.4, y: ry*0.95)
             ))
+            // Volume: the upper puffs each catch the light (bumps, no seams across the face)
+            if morph < 0.5 {
+                var puffs = ctx
+                puffs.clip(to: path)
+                let breathe = 1 + 0.02 * sin(CGFloat(CACurrentMediaTime()) * 1.5)
+                for i in [2, 3, 0, 1] {
+                    let p = CompagnonStyle.cloudPuffs[i]
+                    let k = breathe + (i < puffBoost.count ? puffBoost[i] : 0)
+                    let pcx = p.x * rx / 1.06, pcy = (p.y - 0.03) * ry / 0.81
+                    let prx = p.r * k * rx / 1.06, pry = p.r * k * ry / 0.81
+                    var one = puffs
+                    one.clip(to: Path(ellipseIn: CGRect(x: pcx - prx, y: pcy - pry, width: prx * 2, height: pry * 2)))
+                    one.fill(Path(CGRect(x: pcx - prx, y: pcy - pry, width: prx * 2, height: pry * 2)), with: .radialGradient(
+                        Gradient(colors: [Color.white.opacity(i > 1 ? 0.6 : 0.4), Color.white.opacity(0)]),
+                        center: CGPoint(x: pcx - prx * 0.32, y: pcy - pry * 0.5), startRadius: 0, endRadius: prx * 0.75))
+                }
+            }
             // The focused pill's colour fills the cloud from below, so you can tell at a
             // glance which app you're on. A busy state colour layers on top of it.
             if let accent {
@@ -1285,10 +1332,10 @@ final class BotEngine: ObservableObject {
                 let k = Double(1 - 0.45 * min(1, tint))
                 ctx.fill(path, with: .linearGradient(
                     Gradient(stops: [
-                        .init(color: ac.opacity(0.92 * k), location: 0),
-                        .init(color: ac.opacity(0.6 * k), location: 0.45),
-                        .init(color: ac.opacity(0.18 * k), location: 0.85),
-                        .init(color: ac.opacity(0.1 * k), location: 1)
+                        .init(color: ac.opacity(0.85 * k), location: 0),
+                        .init(color: ac.opacity(0.5 * k), location: 0.45),
+                        .init(color: ac.opacity(0.12 * k), location: 0.85),
+                        .init(color: ac.opacity(0), location: 1)
                     ]),
                     startPoint: CGPoint(x: 0, y: ry), endPoint: CGPoint(x: 0, y: -ry)
                 ))
@@ -1299,56 +1346,71 @@ final class BotEngine: ObservableObject {
                 let tc = colorFromTuple(col)
                 ctx.fill(path, with: .linearGradient(
                     Gradient(stops: [
-                        .init(color: tc.opacity(Double(0.95 * effectiveTint)), location: 0),
-                        .init(color: tc.opacity(Double(0.35 * effectiveTint)), location: 0.55),
+                        .init(color: tc.opacity(Double(0.92 * effectiveTint)), location: 0),
+                        .init(color: tc.opacity(Double(0.32 * effectiveTint)), location: 0.55),
                         .init(color: tc.opacity(0), location: 1)
                     ]),
                     startPoint: CGPoint(x: 0, y: ry),
                     endPoint: CGPoint(x: 0, y: -ry * 1.1)
                 ))
             }
-            // Shadow rim
+            // Edge shading in the light's own dark (ink when there's no colour)
+            let ink = cgColorToTuple(BotConst.ink)
+            let edge = colorFromTuple(mixColor(ink, (light.rgb.0 * 0.5, light.rgb.1 * 0.5, light.rgb.2 * 0.5), light.strength))
             ctx.fill(path, with: .radialGradient(
                 Gradient(stops: [
-                    .init(color: .clear, location: 0),
-                    .init(color: .clear, location: 0.6),
-                    .init(color: Color.black.opacity(0.2), location: 1)
+                    .init(color: edge.opacity(0), location: 0),
+                    .init(color: edge.opacity(0), location: 0.62),
+                    .init(color: edge.opacity(0.18), location: 1)
                 ]),
-                center: .zero, startRadius: R*0.15, endRadius: R*1.25
+                center: CGPoint(x: 0, y: -ry * 0.1), startRadius: R*0.15, endRadius: R*1.25
             ))
             // Waiting for you: the top of the cloud darkens slowly, like before a storm
             if state == .approval || state == .question {
                 let pulse = 0.5 + 0.5 * sin(CACurrentMediaTime() * 2.2)
+                let inkC = Color(cgColor: BotConst.ink)
                 ctx.fill(path, with: .linearGradient(
-                    Gradient(stops: [.init(color: Color.black.opacity(0.10 + 0.08 * pulse), location: 0),
-                                     .init(color: Color.black.opacity(0), location: 0.6)]),
+                    Gradient(stops: [.init(color: inkC.opacity(0.12 + 0.08 * pulse), location: 0),
+                                     .init(color: inkC.opacity(0), location: 0.6)]),
                     startPoint: CGPoint(x: 0, y: -ry), endPoint: CGPoint(x: 0, y: ry)))
             }
-            // Soft key light, top left
+            // Key light, top left: tight enough that the top keeps its shape
             ctx.fill(path, with: .radialGradient(
                 Gradient(stops: [
-                    .init(color: Color.white.opacity(0.7), location: 0),
+                    .init(color: Color.white.opacity(0.6), location: 0),
                     .init(color: .clear, location: 1)
                 ]),
-                center: CGPoint(x: -rx*0.34, y: -ry*0.5),
+                center: CGPoint(x: -rx*0.3, y: -ry*0.55),
                 startRadius: 0,
-                endRadius: R*0.7
+                endRadius: R*0.55
             ))
-            // Inner rim: bright along the top, state colour along the bottom
+            // Rims: crisp white along the top, glowing colour underneath
             var rim = ctx
             rim.clip(to: path)
-            // Bottom rim: the state colour when busy, the pill's colour otherwise
-            let tc = (tint < 0.3 ? accent.map { Color(cgColor: $0) } : nil) ?? colorFromTuple(col)
+            let lit = mixColor(light.strength > 0.05 ? light.rgb : col, (1, 1, 1), 0.25)
+            let tc = colorFromTuple(lit)
             rim.stroke(path, with: .linearGradient(
                 Gradient(stops: [
-                    .init(color: Color.white.opacity(0.9), location: 0),
-                    .init(color: Color.white.opacity(0), location: 0.4),
-                    .init(color: tc.opacity(0), location: 0.7),
-                    .init(color: tc.opacity(Double(0.55 + 0.35 * tint)), location: 1)
+                    .init(color: Color.white.opacity(0.95), location: 0),
+                    .init(color: Color.white.opacity(0), location: 0.35),
+                    .init(color: tc.opacity(0), location: 0.66),
+                    .init(color: tc.opacity(Double(0.5 + 0.45 * light.strength)), location: 1)
                 ]),
                 startPoint: CGPoint(x: 0, y: -ry), endPoint: CGPoint(x: 0, y: ry)
-            ), lineWidth: max(1, R * 0.09))
+            ), lineWidth: max(1, R * 0.1))
         }
+    }
+
+    /// The colour lighting the cloud: the focused pill's when calm, the state's when busy.
+    /// `strength` is 0 for a plain white cloud; `halo` / `pool` are the glow opacities.
+    private var lighting: (rgb: (CGFloat, CGFloat, CGFloat), glow: Color, strength: CGFloat, halo: CGFloat, pool: CGFloat) {
+        let busy = max(0, min(1, tint / 0.6))
+        let base = accent.map(cgColorToTuple) ?? (1, 1, 1)
+        let rgb = mixColor(base, col, busy)
+        let strength = max(accent == nil ? 0 : 1, busy)
+        let halo = lerp(accent == nil ? 0.18 : 0.45, 0.7, busy)
+        let pool = lerp(accent == nil ? 0.08 : 0.3, 0.34, busy)
+        return (rgb, colorFromTuple(rgb), strength, halo, pool)
     }
 
     private func drawBlush(ctx: inout GraphicsContext, path: Path, rx: CGFloat, ry: CGFloat, R: CGFloat, blush: CGFloat) {

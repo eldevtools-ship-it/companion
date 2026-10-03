@@ -131,6 +131,7 @@ struct IslandContainer: View {
         // The Harvest list, the chat and the notes grow the island downwards
         .onChange(of: state.chatContentHeight) { _, _ in resizeForContent() }
         .onChange(of: state.notesContentHeight) { _, _ in resizeForContent() }
+        .onChange(of: state.promptContentHeight) { _, _ in resizeForContent() }
         .onChange(of: state.harvestListOpen) { _, _ in
             guard state.mode == .expanded else { return }
             let (w, h) = islandSize(mode: .expanded, view: state.view,
@@ -230,17 +231,18 @@ struct BotPlacement: View {
                     .fill(RadialGradient(
                         gradient: Gradient(stops: [
                             .init(color: botGlowColor(state.effectiveState), location: 0),
-                            .init(color: .clear, location: 0.62)
+                            .init(color: .clear, location: 0.6)
                         ]),
-                        center: .center,
+                        center: UnitPoint(x: 0.5, y: 0.56),
                         startRadius: 0,
                         endRadius: diameter * 1.1
                     ))
                     .frame(width: diameter * 2.2, height: diameter * 2.2)
-                    .blur(radius: 6)
+                    .blur(radius: 8)
                     .opacity(botGlowOpacity(state.effectiveState))
                     .position(x: cx, y: cy)
                     .animation(.easeInOut(duration: 0.4), value: state.effectiveState)
+                    .animation(.easeInOut(duration: 0.4), value: state.focusTask?.color)
             }
 
             // Extra 40pt canvas at top for heart particles; position offset up by 20pt;
@@ -258,24 +260,17 @@ struct BotPlacement: View {
         .allowsHitTesting(false)
     }
 
+    /// Same colour as the light on the cloud: the state's when busy, the pill's when calm.
     private func botGlowColor(_ s: BotState) -> Color {
-        switch s {
-        case .working:   return Color(hex: "#3B9EFF")
-        case .thinking:  return Color(hex: "#A78BFA")
-        case .searching: return Color(hex: "#6366F1")
-        case .approval:  return Color(hex: "#F5A524")
-        case .error:     return Color(hex: "#F4505E")
-        case .finished:  return Color(hex: "#34D399")
-        case .ratelimit: return Color(hex: "#F59E0B")
-        default:         return Color.white
-        }
+        if let cfg = BotStates[s], cfg.tint > 0.3 { return Color(cgColor: cfg.glow) }
+        return state.focusTask.map { Color(hex: $0.color) } ?? Color.white
     }
 
     private func botGlowOpacity(_ s: BotState) -> Double {
         switch s {
-        case .idle, .sleeping: return 0.15
         case .dizzy:           return 0.0
-        default:               return 0.65
+        case .idle, .sleeping: return state.focusTask == nil ? 0.1 : 0.28
+        default:               return (BotStates[s]?.tint ?? 0) > 0.3 ? 0.5 : 0.28
         }
     }
 }

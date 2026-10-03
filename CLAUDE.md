@@ -14,7 +14,9 @@ pas de nouvelle fonction sans usage réel.
   XcodeGen (le `.xcodeproj` est généré, jamais commité).
 - `Compagnon/Sources/App/CompagnonStyle.swift` — l'apparence du personnage :
   un nuage blanc à cinq bouffées (`cloudPoint`), yeux en pilules sobres (sans
-  reflet), la couleur de l'état qui monte par le bas. Partagé par `BotEngine.swift`
+  reflet), la couleur de l'état qui monte par le bas. Éclairage (`BotEngine.lighting`) :
+  la couleur de la pastille au calme, celle de l'état quand il s'active ; ombres teintées
+  de cette couleur (jamais de noir), halo qui épouse le nuage, lumière posée sous lui. Partagé par `BotEngine.swift`
   (personnage principal) et `GreetingCanvasView.swift` (accueil). Les mini-robots
   des pastilles gardent la silhouette « bonbon » (`bodyPoint`).
   Sa « vie » est dans `BotEngine` (section Cloud life) : regard en saccades, bouffées
@@ -29,6 +31,10 @@ pas de nouvelle fonction sans usage réel.
   couleurs (`PillColor`, une teinte distincte par pastille).
 - `Compagnon/Sources/App/OverviewCards.swift` — la vue d'ensemble et les cartes
   (Claude Code, Slack, Harvest + sélecteur de projet, Agenda, Vercel, GitHub).
+- Cartes d'autorisation et de question (`IslandViewContent.swift`) : elles grandissent avec
+  leur contenu (`PromptLayout`) ; l'autorisation dit ce qui est en jeu (commande et sa
+  description, fichier, URL, aperçu de modification — `HookServer.describeTool`), les
+  options d'une question s'affichent avec leur explication.
 - `Compagnon/Sources/App/IslandTypes.swift` — `CardLayout` : la grille commune à
   toutes les vues (personnage centré à gauche, même marge bord → personnage → contenu).
 - `Compagnon/Sources/App/IslandCursor.swift` — curseur main / texte au survol de l'île.

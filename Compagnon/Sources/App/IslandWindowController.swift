@@ -663,6 +663,9 @@ func islandSize(mode: IslandMode, view: IslandView,
         if view == .notes {
             return (IslandConst.expandedWidth, NotesLayout.islandHeight(list: AppState.shared.notesContentHeight))
         }
+        if view == .approval || view == .question {
+            return (IslandConst.expandedWidth, PromptLayout.islandHeight(content: AppState.shared.promptContentHeight))
+        }
         if view == .harvest && AppState.shared.harvestListOpen {
             return (IslandConst.expandedWidth, IslandConst.harvestListHeight)
         }

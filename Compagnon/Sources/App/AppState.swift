@@ -54,6 +54,9 @@ final class AppState: ObservableObject {
     // Measured content of the chat / notes: the island grows with it (up to a cap)
     @Published var chatContentHeight: CGFloat = 0
     @Published var notesContentHeight: CGFloat = 0
+    /// Measured content of an approval / question card: a long command or a question
+    /// with explained options grows the island so nothing is hidden.
+    @Published var promptContentHeight: CGFloat = 0
 
     // Harvest picker: the project / task list is open (the island grows to show it)
     @Published var harvestListOpen: Bool = false
