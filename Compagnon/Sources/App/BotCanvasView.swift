@@ -35,6 +35,7 @@ struct BotCanvasView: View {
                     engine.accent = state.focusTask.flatMap { cgColorFromHex($0.color) }
                 }
                 engine.grooving = spotify.isPlaying
+                engine.vibing = state.view == .music && state.mode == .expanded
 
                 engine.update(dt: dt)
                 var ctx = context

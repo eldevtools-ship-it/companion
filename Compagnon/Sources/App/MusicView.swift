@@ -1,35 +1,27 @@
 import SwiftUI
 
 // MARK: - Music (Spotify)
-// The cloud on the left as everywhere; the cover, the title and a thin progress bar, the
-// three controls, then your pinned playlists as chips. Space plays / pauses, ← → change track.
+// The cloud on the left as everywhere (it dances while the music plays), the cover, the
+// title and the three controls. Space plays / pauses, ← → change track.
 
 struct MusicView: View {
     @ObservedObject var state: AppState
     @ObservedObject private var spotify = SpotifyService.shared
-    @State private var adding = false
-    @State private var link = ""
-    @State private var linkRefused = false
-    @FocusState private var linkFocused: Bool
-
-    private static let green = "#1DB954"
 
     var body: some View {
         ZStack(alignment: .leading) {
             CardBackground(wash: nil)
-            VStack(alignment: .leading, spacing: 10) {
+            Group {
                 if spotify.isRunning && !spotify.title.isEmpty {
                     nowPlaying
                 } else {
                     idle
                 }
-                playlistRow
             }
             .padding(.leading, CardLayout.contentLeading)
-            .padding(.trailing, IslandConst.cardInset + 6)
+            .padding(.trailing, IslandConst.cardInset + 10)
         }
         .onAppear { spotify.refresh() }
-        .onDisappear { if adding { endAdding() } }
     }
 
     // MARK: Now playing
@@ -39,15 +31,13 @@ struct MusicView: View {
             cover
             VStack(alignment: .leading, spacing: 3) {
                 Text(spotify.title)
-                    .font(.system(size: 13.5, weight: .semibold))
+                    .font(.system(size: 14.5, weight: .semibold))
                     .foregroundColor(Color(hex: "#F5F6F8"))
                     .lineLimit(1)
                 Text(spotify.artist)
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 12))
                     .foregroundColor(Color(hex: "#8E939C"))
                     .lineLimit(1)
-                MusicProgress(spotify: spotify)
-                    .padding(.top, 4)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 2) {
@@ -85,7 +75,7 @@ struct MusicView: View {
                     .foregroundColor(Color.white.opacity(0.3))
             }
         }
-        .frame(width: 50, height: 50)
+        .frame(width: 54, height: 54)
         .clipShape(RoundedRectangle(cornerRadius: IslandConst.innerRadius + 2))
         .overlay(RoundedRectangle(cornerRadius: IslandConst.innerRadius + 2).stroke(Color.white.opacity(0.06)))
         .animation(.easeOut(duration: 0.25), value: spotify.trackID)
@@ -112,8 +102,8 @@ struct MusicView: View {
                 Text(spotify.isRunning ? "Rien en lecture" : "Spotify est fermé")
                     .font(.system(size: 13.5, weight: .semibold))
                     .foregroundColor(Color(hex: "#F5F6F8"))
-                Text(spotify.playlists.isEmpty ? "Épingle une playlist ci-dessous pour la lancer en un clic."
-                                               : "Choisis une playlist ou reprends la lecture.")
+                Text(spotify.isRunning ? "Reprends la lecture, ou lance une musique dans Spotify."
+                                       : "Ouvre-le pour piloter ta musique d'ici.")
                     .font(.system(size: 11.5))
                     .foregroundColor(Color(hex: "#8E939C"))
                     .lineLimit(1)
@@ -126,163 +116,6 @@ struct MusicView: View {
         .frame(height: 50)
     }
 
-    // MARK: Pinned playlists
-
-    private var playlistRow: some View {
-        HStack(spacing: 6) {
-            if adding {
-                TextField("Colle le lien d'une playlist ou d'un album Spotify…", text: $link)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 11.5))
-                    .foregroundColor(Color(hex: "#F5F6F8"))
-                    .focused($linkFocused)
-                    .onSubmit { addLink() }
-                    .onExitCommand { endAdding() }
-                    .onChange(of: link) { _, _ in linkRefused = false }
-                    .padding(.horizontal, 10)
-                    .frame(height: 24)
-                    .background(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
-                        .fill(Color.white.opacity(0.07)))
-                    .overlay(RoundedRectangle(cornerRadius: IslandConst.innerRadius)
-                        .stroke(Color(hex: "#F4505E").opacity(linkRefused ? 0.7 : 0)))
-                    .textCursor()
-                    .transition(.opacity)
-                CardLink(title: "Annuler", color: "#8E939C") { endAdding() }
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(spotify.playlists) { p in
-                            PlaylistChip(playlist: p) { spotify.play(p) } onRemove: { spotify.unpin(p) }
-                        }
-                        addChip
-                    }
-                }
-                .mask(LinearGradient(stops: [.init(color: .black, location: 0.9), .init(color: .clear, location: 1)],
-                                     startPoint: .leading, endPoint: .trailing))
-            }
-        }
-        .frame(height: 24)
-        .animation(.easeOut(duration: 0.18), value: adding)
-    }
-
-    private var addChip: some View {
-        Button { startAdding() } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "plus").font(.system(size: 9.5, weight: .bold))
-                if spotify.playlists.isEmpty {
-                    Text("Épingler une playlist").font(.system(size: 11, weight: .medium))
-                }
-            }
-            .foregroundColor(Color(hex: "#8E939C"))
-            .padding(.horizontal, spotify.playlists.isEmpty ? 10 : 8)
-            .frame(height: 24)
-            .background(Capsule().stroke(Color.white.opacity(0.14), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .pointingHand()
-        .help("Épingler une playlist (colle son lien Spotify)")
-    }
-
-    private func startAdding() {
-        adding = true
-        link = ""
-        state.isEditingText = true
-        NotificationCenter.default.post(name: .islandNeedsKeyboard, object: nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { linkFocused = true }
-    }
-
-    private func endAdding() {
-        adding = false
-        link = ""
-        linkRefused = false
-        state.isEditingText = false
-    }
-
-    private func addLink() {
-        if spotify.pin(link: link) { endAdding() } else { linkRefused = true }
-    }
-}
-
-/// A pinned playlist: click to play it, right-click to remove it.
-private struct PlaylistChip: View {
-    let playlist: PinnedPlaylist
-    let onPlay: () -> Void
-    let onRemove: () -> Void
-    @State private var hovered = false
-
-    var body: some View {
-        Button(action: onPlay) {
-            HStack(spacing: 5) {
-                Image(systemName: playlist.uri.contains(":album:") ? "square.stack" : "music.note.list")
-                    .font(.system(size: 9.5, weight: .semibold))
-                    .foregroundColor(Color(hex: "#1DB954"))
-                Text(playlist.name)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(Color(hex: hovered ? "#F5F6F8" : "#C5C8CD"))
-                    .lineLimit(1)
-                    .frame(maxWidth: 130, alignment: .leading)
-            }
-            .padding(.horizontal, 9)
-            .frame(height: 24)
-            .background(Capsule().fill(Color.white.opacity(hovered ? 0.1 : 0.06)))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(PressScale())
-        .pointingHand()
-        .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovered = h } }
-        .help("Lancer « \(playlist.name) » · clic droit pour la retirer")
-        .contextMenu {
-            Button("Retirer « \(playlist.name) »", role: .destructive, action: onRemove)
-        }
-    }
-}
-
-/// Thin progress bar with the remaining time; drag or click to move in the track.
-private struct MusicProgress: View {
-    @ObservedObject var spotify: SpotifyService
-    @State private var dragging: Double?
-    @State private var hovered = false
-
-    var body: some View {
-        // Ticks only while it plays (and only while this view exists)
-        TimelineView(.periodic(from: .now, by: spotify.isPlaying ? 0.5 : 3600)) { _ in
-            let total = max(1, spotify.duration)
-            let pos = dragging ?? spotify.currentPosition
-            HStack(spacing: 8) {
-                GeometryReader { g in
-                    let w = g.size.width
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.12))
-                        Capsule().fill(Color(hex: "#F5F6F8"))
-                            .frame(width: max(3, w * pos / total))
-                    }
-                    .frame(height: hovered || dragging != nil ? 5 : 3)
-                    .frame(maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                    .gesture(DragGesture(minimumDistance: 0)
-                        .onChanged { v in dragging = max(0, min(1, v.location.x / w)) * total }
-                        .onEnded { v in
-                            spotify.seek(to: max(0, min(1, v.location.x / w)) * total)
-                            dragging = nil
-                        })
-                }
-                .frame(height: 12)
-                .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hovered = h } }
-                .pointingHand()
-                Text("-" + Self.time(total - pos))
-                    .font(.system(size: 10, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundColor(Color(hex: "#6B7079"))
-                    .frame(width: 34, alignment: .trailing)
-            }
-        }
-    }
-
-    static func time(_ t: Double) -> String {
-        let s = max(0, Int(t.rounded()))
-        return String(format: "%d:%02d", s / 60, s % 60)
-    }
 }
 
 /// A button that sinks a little while pressed.

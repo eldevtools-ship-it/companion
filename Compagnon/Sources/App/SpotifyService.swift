@@ -4,13 +4,7 @@ import SwiftUI
 // MARK: - Spotify
 // Drives the Spotify app on this Mac through AppleScript: no account, no key, no network
 // (except the cover image). Spotify announces every change itself (a distributed
-// notification), so nothing polls. Playlists you pin are kept in UserDefaults.
-
-struct PinnedPlaylist: Codable, Equatable, Identifiable {
-    var uri: String       // spotify:playlist:… or spotify:album:…
-    var name: String
-    var id: String { uri }
-}
+// notification), so nothing polls.
 
 @MainActor
 final class SpotifyService: ObservableObject {
@@ -27,21 +21,15 @@ final class SpotifyService: ObservableObject {
     @Published private(set) var artwork: NSImage?
     /// The cover's average colour: the cloud takes it while the music is on screen.
     @Published private(set) var artworkColor: CGColor?
-    @Published private(set) var playlists: [PinnedPlaylist] = []
 
     /// Position at `positionAt`; while playing, the current position is extrapolated from it.
     private var position: Double = 0
     private var positionAt = Date()
     private var artworkFor = ""
     private let queue = DispatchQueue(label: "compagnon.spotify")
-    private static let playlistsKey = "spotifyPlaylists"
 
     private init() {
         isInstalled = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleID) != nil
-        if let data = UserDefaults.standard.data(forKey: Self.playlistsKey),
-           let saved = try? JSONDecoder().decode([PinnedPlaylist].self, from: data) {
-            playlists = saved
-        }
         guard isInstalled else { return }
         isRunning = Self.spotifyRunning
         DistributedNotificationCenter.default().addObserver(
@@ -149,10 +137,6 @@ final class SpotifyService: ObservableObject {
         send(String(format: "set player position to %.2f", locale: Locale(identifier: "en_US_POSIX"), s))
     }
 
-    func play(_ playlist: PinnedPlaylist) {
-        send("play track \"\(playlist.uri)\"")
-    }
-
     /// Opens Spotify (when it's closed).
     func open() {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleID) else { return }
@@ -213,58 +197,5 @@ final class SpotifyService: ObservableObject {
         guard let lifted = NSColor(hue: h, saturation: min(1, s * 1.25), brightness: max(0.62, b), alpha: 1)
             .usingColorSpace(.sRGB) else { return nil }
         return (lifted.redComponent, lifted.greenComponent, lifted.blueComponent)
-    }
-
-    // MARK: Pinned playlists
-
-    /// Accepts an open.spotify.com link or a spotify: URI (playlist or album). Returns false if
-    /// it isn't one. The name comes from Spotify's public page info (no account needed).
-    @discardableResult
-    func pin(link: String) -> Bool {
-        let text = link.trimmingCharacters(in: .whitespacesAndNewlines)
-        var kind = "", id = ""
-        if text.hasPrefix("spotify:") {
-            let parts = text.split(separator: ":")
-            if parts.count >= 3 { kind = String(parts[1]); id = String(parts[2]) }
-        } else if let url = URL(string: text), url.host?.hasSuffix("spotify.com") == true {
-            let comps = url.pathComponents.filter { $0 != "/" && !$0.hasPrefix("intl-") }
-            if comps.count >= 2 { kind = comps[0]; id = comps[1] }
-        }
-        guard ["playlist", "album"].contains(kind),
-              !id.isEmpty, id.allSatisfy({ $0.isLetter || $0.isNumber }) else { return false }
-        let uri = "spotify:\(kind):\(id)"
-        guard !playlists.contains(where: { $0.uri == uri }) else { return true }
-        playlists.append(PinnedPlaylist(uri: uri, name: kind == "album" ? "Album" : "Playlist"))
-        savePlaylists()
-        fetchName(uri: uri, page: "https://open.spotify.com/\(kind)/\(id)")
-        return true
-    }
-
-    func unpin(_ playlist: PinnedPlaylist) {
-        playlists.removeAll { $0.uri == playlist.uri }
-        savePlaylists()
-    }
-
-    private func savePlaylists() {
-        if let data = try? JSONEncoder().encode(playlists) {
-            UserDefaults.standard.set(data, forKey: Self.playlistsKey)
-        }
-    }
-
-    private func fetchName(uri: String, page: String) {
-        var comps = URLComponents(string: "https://open.spotify.com/oembed")
-        comps?.queryItems = [URLQueryItem(name: "url", value: page)]
-        guard let url = comps?.url else { return }
-        Task.detached {
-            guard let (data, _) = try? await URLSession.shared.data(from: url),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let title = json["title"] as? String, !title.isEmpty else { return }
-            await MainActor.run {
-                let s = SpotifyService.shared
-                guard let i = s.playlists.firstIndex(where: { $0.uri == uri }) else { return }
-                s.playlists[i].name = title
-                s.savePlaylists()
-            }
-        }
     }
 }

@@ -52,9 +52,10 @@ pas de nouvelle fonction sans usage réel.
   l'ignore, pour que le chat n'apparaisse jamais comme une session dans l'île.
 - `SpotifyService.swift` / `MusicView.swift` — la musique (bouton note à côté du chat, visible si
   Spotify est installé) : pilote l'app Spotify du Mac par AppleScript (pas de compte ni de clé),
-  suit ses changements par sa notification distribuée (rien ne tourne en boucle), playlists
-  épinglées par lien (UserDefaults). Espace / ← → dans la vue ; égaliseur dans la barre compacte ;
-  le nuage se balance pendant la lecture et prend la couleur de la pochette dans la vue.
+  suit ses changements par sa notification distribuée (rien ne tourne en boucle). Pochette,
+  titre, ⏮ ⏯ ⏭ ; espace / ← → dans la vue ; égaliseur dans la barre compacte. Le nuage se
+  balance pendant la lecture et danse dans la vue (sauts sur le temps, yeux fermés, notes ♪),
+  dans la couleur de la pochette.
 - `DayService.swift` / `DayCardView.swift` — bonjour le matin, résumé du soir,
   concentration automatique en réunion (caméra allumée ou réunion de l'agenda).
 - `SlackService.swift`, `HarvestService.swift`, `GithubPoller.swift`,

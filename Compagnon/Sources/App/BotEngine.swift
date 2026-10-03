@@ -31,7 +31,7 @@ struct Tween {
 // MARK: - Particle
 
 struct Particle {
-    enum ParticleType { case heart, star, spark, sweat, z, vapor, drop }
+    enum ParticleType { case heart, star, spark, sweat, z, vapor, drop, note }
     var type: ParticleType
     var x, y, vx, vy: CGFloat
     var age: Double        // seconds
@@ -267,8 +267,12 @@ final class BotEngine: ObservableObject {
     var watchingField = false           // you're typing in the chat / notes: look at the field
     var talking: CGFloat = 0            // Claude is answering in the chat (decays by itself)
     var grooving = false                // music is playing: a slow, gentle sway
-    private var groove: CGFloat = 0     // eased 0…1
+    var vibing = false                  // …and the music view is open: it really dances
+    private var groove: CGFloat = 0     // eased 0…1 (0.5 = swaying, 1 = dancing)
     private(set) var sway: CGFloat = 0  // extra lean, radians
+    private(set) var hop: CGFloat = 0   // lift on the beat, in R
+    private var nextNote: Double = 0
+    private var noteSide: CGFloat = 1
     var drowsy: CGFloat = 0             // late evening: heavier eyelids (0…1)
     var napping = false                 // dozing after 10 min without the pointer moving
     var lastHourCheck: Double = 0
@@ -785,15 +789,24 @@ final class BotEngine: ObservableObject {
                 tgSx -= beat * 0.012 * talking
                 talking = max(0, talking - CGFloat(dt) * 1.6)
             }
-            // Music: lean side to side and bob on a slow beat, settling in and out
-            groove += ((grooving && state == .idle ? 1 : 0) - groove) * (1 - pow(0.08, CGFloat(dt)))
+            // Music: a gentle sway; on the music view a real little dance (hops on the beat,
+            // squash on landing, eyes closed with pleasure, notes floating up), easing in and out
+            let target: CGFloat = grooving && state == .idle ? (vibing ? 1 : 0.5) : 0
+            groove += (target - groove) * (1 - pow(0.06, CGFloat(dt)))
             if groove > 0.005 {
-                let beat = t * 2 * .pi * 0.92
-                sway = groove * 0.055 * sin(beat / 2)
-                tgSy += groove * 0.018 * max(0, sin(beat))
-                tgSx -= groove * 0.009 * max(0, sin(beat))
+                let phase = t * .pi * 1.84                    // ~110 beats a minute
+                let dance = max(0, (groove - 0.5) * 2)          // 0 swaying … 1 dancing
+                let up = abs(sin(phase)), land = pow(1 - up, 6)
+                sway = groove * 0.11 * sin(phase / 2)
+                hop = dance * 0.075 * pow(up, 1.4)
+                tgSy += groove * 0.018 * up - dance * 0.06 * land
+                tgSx -= groove * 0.009 * up - dance * 0.035 * land
+                if dance > 0.6 && now > nextNote {
+                    emitNote()
+                    nextNote = now + Double.random(in: 0.8...1.4)
+                }
             } else {
-                sway = 0
+                sway = 0; hop = 0
             }
             updatePuffs(now: now, dt: dt)
             updateWeather(now: now)
@@ -954,6 +967,15 @@ final class BotEngine: ObservableObject {
         }
     }
 
+    private func emitNote() {
+        noteSide = -noteSide
+        particles.append(Particle(type: .note,
+                                  x: noteSide * CGFloat.random(in: 0.55...0.8), y: -0.35,
+                                  vx: noteSide * CGFloat.random(in: 0.04...0.1), vy: -0.42,
+                                  age: 0, life: 1.9, rot: CGFloat.random(in: -0.25...0.25),
+                                  size: 0.13 + CGFloat.random(in: 0...0.04)))
+    }
+
     private func emitVapor() {
         particles.append(Particle(type: .vapor,
                                   x: CGFloat.random(in: -0.35...0.35), y: -0.62,
@@ -1015,12 +1037,12 @@ final class BotEngine: ObservableObject {
         let cx = W / 2 + ox * R
         // particleOverhang shifts the bot body down in canvas coords so hearts can fly into
         // the extended canvas above without clipping (BotPlacement compensates with position offset)
-        let cy = H / 2 + particleOverhang / 2 + oy * R + R * 0.06
+        let cy = H / 2 + particleOverhang / 2 + (oy - hop) * R + R * 0.06
 
         let light = lighting
         // Light pooled on the card under the cloud: fainter as it floats up
         if isCloud && morph < 0.5 && R > 14 {
-            let lift = max(0, min(1, 1 + oy * 4))
+            let lift = max(0, min(1, 1 + (oy - hop) * 4))
             let gy = H / 2 + particleOverhang / 2 + R * 0.06 + ry * 1.32
             var pool = context
             pool.translateBy(x: cx, y: gy)
@@ -1440,6 +1462,8 @@ final class BotEngine: ObservableObject {
 
     private func drawEyes(ctx: inout GraphicsContext, path: Path, R: CGFloat, rx: CGFloat, ry: CGFloat) {
         var shape = eyeOverride ?? cfg.eye
+        // Dancing to the music: eyes closed, smiling
+        if isCloud && eyeOverride == nil && groove > 0.8 && state == .idle { shape = .happy }
         // Dance: happy eyes in calm states
         if isDancing && dancingLevel > 0.15 && !isMini && (state == .idle || state == .finished) {
             shape = .happy
@@ -1692,6 +1716,21 @@ final class BotEngine: ObservableObject {
                 c.addEllipse(in: CGRect(x: -r, y: -r, width: r * 2, height: r * 2))
                 pctx.opacity *= 0.55
                 pctx.fill(c, with: .color(.white))
+            case .note:
+                // ♪ rising and rocking gently
+                pctx.rotate(by: .radians(p.rot + sin(CGFloat(p.age) * 4) * 0.22))
+                var head = Path()
+                head.addEllipse(in: CGRect(x: -sz * 0.5, y: sz * 0.3, width: sz * 0.9, height: sz * 0.66))
+                var stem = Path()
+                stem.addRoundedRect(in: CGRect(x: sz * 0.26, y: -sz * 0.95, width: sz * 0.15, height: sz * 1.6),
+                                    cornerSize: CGSize(width: sz * 0.07, height: sz * 0.07))
+                var flag = Path()
+                flag.move(to: CGPoint(x: sz * 0.36, y: -sz * 0.95))
+                flag.addQuadCurve(to: CGPoint(x: sz * 0.78, y: -sz * 0.25), control: CGPoint(x: sz * 0.95, y: -sz * 0.7))
+                flag.addQuadCurve(to: CGPoint(x: sz * 0.38, y: -sz * 0.5), control: CGPoint(x: sz * 0.62, y: -sz * 0.55))
+                flag.closeSubpath()
+                pctx.opacity *= 0.9
+                for part in [head, stem, flag] { pctx.fill(part, with: .color(.white)) }
             case .drop:
                 var drop = Path()
                 drop.move(to: CGPoint(x: 0, y: sz))
