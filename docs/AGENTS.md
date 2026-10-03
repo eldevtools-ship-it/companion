@@ -2,9 +2,9 @@
 
 Any tool that can write to a Unix domain socket (macOS, Linux) or a named pipe (Windows) can send events to Coucou and have its own pill next to Claude Code.
 
-## The `compagnon_agent` field
+## The `kumo_agent` field
 
-Add the optional field `compagnon_agent` to any hook JSON payload. Coucou will create a pill labelled with the agent name and route all events to it.
+Add the optional field `kumo_agent` to any hook JSON payload. Coucou will create a pill labelled with the agent name and route all events to it.
 
 **Validation:** the name must match `^[a-z0-9-]{1,24}$` (lowercase letters, digits and hyphens, 1–24 characters). An absent or invalid name routes the event to the Claude Code pill instead.
 
@@ -16,7 +16,7 @@ Configure your tool to call the Coucou relay with `--agent <your-name>` after th
 {
   "hooks": {
     "UserPromptSubmit": [
-      { "type": "command", "command": "/path/to/compagnon-hook --agent my-tool" }
+      { "type": "command", "command": "/path/to/kumo-hook --agent my-tool" }
     ]
   }
 }
@@ -54,19 +54,19 @@ Same pattern with the Linux relay. Coucou copies the relay to `~/.local/share/co
 
 ## Payload format
 
-The relay adds `compagnon_agent` to the JSON it forwards. You can also add it yourself if you talk to the socket directly:
+The relay adds `kumo_agent` to the JSON it forwards. You can also add it yourself if you talk to the socket directly:
 
 ```json
 {
   "hook_event_name": "UserPromptSubmit",
   "session_id": "my-session-1",
-  "compagnon_agent": "my-tool",
+  "kumo_agent": "my-tool",
   "prompt": "Running task…"
 }
 ```
 
 Send newline-terminated JSON to the socket:
-- **macOS (GitHub build):** `~/Library/Application Support/Compagnon/compagnon.sock`
+- **macOS (GitHub build):** `~/Library/Application Support/Kumo/kumo.sock`
 - **Windows:** `\\.\pipe\coucou-<user-SID>`
 - **Linux:** `$XDG_RUNTIME_DIR/coucou.sock` (usually `/run/user/<uid>/coucou.sock`). Only your own user account can connect.
 
@@ -135,7 +135,7 @@ island's `tool_name` / `session_id`.
 
 ### Any other tool
 
-Follow the generic pattern: call `compagnon-hook --agent <your-name> <EventName>` (macOS),
+Follow the generic pattern: call `kumo-hook --agent <your-name> <EventName>` (macOS),
 `coucou-hook.exe --agent <your-name> <EventName>` (Windows)
 or `~/.local/share/coucou/bin/coucou-hook --agent <your-name> <EventName>` (Linux)
 and let the relay forward the event.
@@ -145,7 +145,7 @@ and let the relay forward the event.
 With Coucou running:
 
 ```sh
-echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","compagnon_agent":"demo"}' \
+echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","kumo_agent":"demo"}' \
   | ~/.local/share/coucou/bin/coucou-hook --agent demo
 ```
 
@@ -156,8 +156,8 @@ A "demo" pill should appear in the island.
 With Coucou running:
 
 ```sh
-echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","compagnon_agent":"demo"}' \
-  | /bin/sh ~/Library/Application\ Support/Compagnon/compagnon-hook --agent demo
+echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","kumo_agent":"demo"}' \
+  | /bin/sh ~/Library/Application\ Support/Kumo/kumo-hook --agent demo
 ```
 
 A "demo" pill should appear in the island.

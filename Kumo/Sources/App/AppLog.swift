@@ -11,7 +11,7 @@ func escapedForLog(_ s: String) -> String {
 }
 
 /// Log writes happen off the main thread, one at a time, in call order.
-private let logQueue = DispatchQueue(label: "compagnon.log", qos: .utility)
+private let logQueue = DispatchQueue(label: "kumo.log", qos: .utility)
 
 /// Appends one timestamped line to `~/Library/Logs/Kumo/<fileName>`, in the background.
 /// - Log directory is created at mode 0700.

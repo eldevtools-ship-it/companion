@@ -4,7 +4,9 @@ import Security
 // MARK: - Keychain helpers
 
 enum Keychain {
-    static let service = "com.eldevtools.Compagnon"
+    static let service = "com.eldevtools.Kumo"
+    /// Where secrets were kept when the app was called Compagnon (moved on first read).
+    static let legacyService = "com.eldevtools.Compagnon"
 
     static func save(key: String, value: String) {
         guard let data = value.data(using: .utf8) else { return }
@@ -29,7 +31,7 @@ enum Keychain {
         SecItemAdd(item as CFDictionary, nil)
     }
 
-    static func load(key: String) -> String? {
+    static func load(key: String, service: String = service) -> String? {
         let query: [String: Any] = [
             kSecClass as String:       kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -43,7 +45,7 @@ enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
-    static func delete(key: String) {
+    static func delete(key: String, service: String = service) {
         let query: [String: Any] = [
             kSecClass as String:       kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -71,7 +73,14 @@ final class KeychainStore: @unchecked Sendable {
     private init() {
         // Called once, on main thread (AppDelegate triggers shared at launch).
         for key in Self.allKeys {
-            if let v = Keychain.load(key: key) { cache[key] = v }
+            if let v = Keychain.load(key: key) {
+                cache[key] = v
+            } else if let v = Keychain.load(key: key, service: Keychain.legacyService) {
+                // Saved by Compagnon: move it under Kumo's name
+                cache[key] = v
+                Keychain.save(key: key, value: v)
+                Keychain.delete(key: key, service: Keychain.legacyService)
+            }
         }
     }
 

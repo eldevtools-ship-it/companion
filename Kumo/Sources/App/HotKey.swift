@@ -28,6 +28,6 @@ enum NotesHotKey {
 }
 
 extension Notification.Name {
-    static let openNotes = Notification.Name("compagnon.openNotes")
-    static let openChat = Notification.Name("compagnon.openChat")
+    static let openNotes = Notification.Name("kumo.openNotes")
+    static let openChat = Notification.Name("kumo.openChat")
 }

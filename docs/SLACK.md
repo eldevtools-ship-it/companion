@@ -30,7 +30,7 @@ C'est utile de le dire à l'admin qui valide.
 ## 3. Le jeton de connexion temps réel
 
 5. Dans l'app : **Basic Information** → **App-Level Tokens** → **Generate Token
-   and Scopes**, nom au choix (« compagnon »), droit `connections:write`,
+   and Scopes**, nom au choix (« kumo »), droit `connections:write`,
    **Generate**. Copie le jeton (commence par `xapp-`).
 
 ## 4. Coller les jetons dans Kumo

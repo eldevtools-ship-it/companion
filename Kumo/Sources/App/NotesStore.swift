@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Notes (pense-bête)
 // Plain notes, optionally in a folder. Kept in a JSON file next to the hook socket
-// (~/Library/Application Support/Compagnon/notes.json): they're yours, not secrets,
+// (~/Library/Application Support/Kumo/notes.json): they're yours, not secrets,
 // and they never leave the Mac.
 
 struct Note: Codable, Identifiable, Equatable {
@@ -37,7 +37,7 @@ final class NotesStore: ObservableObject {
 
     private init() {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Compagnon", isDirectory: true)
+            .appendingPathComponent("Kumo", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("notes.json")
         let decoder = JSONDecoder()

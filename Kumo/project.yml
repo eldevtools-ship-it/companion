@@ -46,9 +46,8 @@ targets:
       properties:
         CFBundleName: Kumo
         CFBundleDisplayName: Kumo
-        # Kept from the app's first name: changing it would reset your settings and
-        # macOS permissions. Never shown.
-        CFBundleIdentifier: com.eldevtools.Compagnon
+        # Was com.eldevtools.Compagnon: KumoMigration copies its settings over
+        CFBundleIdentifier: com.eldevtools.Kumo
         # Set by CI from the build number (UpdateService compares it with the latest release)
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
@@ -61,7 +60,7 @@ targets:
         NSCalendarsFullAccessUsageDescription: "Pour te prévenir quelques minutes avant tes réunions et te proposer de les rejoindre."
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.eldevtools.Compagnon
+        PRODUCT_BUNDLE_IDENTIFIER: com.eldevtools.Kumo
         PRODUCT_NAME: Kumo
         INFOPLIST_FILE: Resources/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 // MARK: - Cursor over the island
-// Compagnon is never the active app, so macOS normally lets the app underneath
+// Kumo is never the active app, so macOS normally lets the app underneath
 // decide the cursor (a text I-beam over an editor, even on our buttons). We ask the
 // window server to accept our cursor while in the background, then set it ourselves:
 // a hand over anything clickable, an I-beam over our text fields, an arrow elsewhere.

@@ -4,27 +4,30 @@ import AppKit
 import SwiftUI
 
 // MARK: - HookServer
-// Listens on a Unix domain socket for events from compagnon-hook (Claude Code hooks).
+// Listens on a Unix domain socket for events from kumo-hook (Claude Code hooks).
 // Thread-safe: socket I/O on background threads, state updates dispatched to main queue.
 
 final class HookServer: @unchecked Sendable {
     static let shared = HookServer()
 
-    // Support directory paths. They keep the app's first name ("Compagnon"): your notes,
-    // chats and the hooks installed in ~/.claude/settings.json point there. Never shown.
+    // Support directory: notes, chats, the socket and the relay Claude Code runs
     static var supportDir: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Compagnon")
+            .appendingPathComponent("Kumo")
     }
     static var socketPath: String {
-        return supportDir.appendingPathComponent("compagnon.sock").path
+        return supportDir.appendingPathComponent("kumo.sock").path
     }
     static var hookScriptPath: String { supportDir.appendingPathComponent(hookScriptName).path }
-    static let hookScriptName = "compagnon-hook"
+    static let hookScriptName = "kumo-hook"
+    /// The relay's name when the app was called Compagnon: still recognised (and kept working
+    /// through a small wrapper) until the hooks are updated from Settings.
+    static let legacyHookScriptName = "compagnon-hook"
 
-    /// True when a hook command runs our relay (compagnon-hook). Other apps' hooks are left alone.
+    /// True when a hook command runs our relay. Other apps' hooks are left alone.
     static func isOwnHook(_ command: String?) -> Bool {
-        command?.contains(hookScriptName) == true
+        guard let command else { return false }
+        return command.contains(hookScriptName) || command.contains(legacyHookScriptName)
     }
 
     // No approval blocking state — notch is notification-only, user answers in VS Code
@@ -215,7 +218,7 @@ final class HookServer: @unchecked Sendable {
 
     // MARK: - Event → AppState
     // Claude Code events route to the permanent "integration_claude" task.
-    // Events tagged with a valid compagnon_agent route to a dynamic "integration_<agent>" task.
+    // Events tagged with a valid kumo_agent route to a dynamic "integration_<agent>" task.
     // View switches only happen if VS Code (or the agent pill) is currently focused.
     // When not focused: state updates animate the mini bot in the pill; badge shown for alerts.
 
@@ -230,15 +233,15 @@ final class HookServer: @unchecked Sendable {
         let projectName = aliasProjectName(rawName.isEmpty ? "Session" : rawName)
 
         // Determine which pill this event belongs to.
-        // compagnon_agent must be lowercase, digits and hyphens, ≤ 24 chars.
-        let rawAgent = payload["compagnon_agent"] as? String ?? ""
+        // kumo_agent must be lowercase, digits and hyphens, ≤ 24 chars.
+        let rawAgent = Self.agentName(payload)
         let validAgent = Self.validateAgent(rawAgent)
 
         let termProgram = payload["term_program"] as? String ?? ""
         let bundleId    = payload["bundle_id"]    as? String ?? ""
 
         // Routing:
-        // • valid compagnon_agent → its own pill (fire-and-forget, no approval card)
+        // • valid kumo_agent → its own pill (fire-and-forget, no approval card)
         // • every Claude Code session (Claude app, terminal, VS Code, Cursor) → integration_claude
         let agentId: String
         let isExternalAgent: Bool
@@ -400,7 +403,12 @@ final class HookServer: @unchecked Sendable {
 
     // MARK: - Agent validation + dynamic pill
 
-    /// Validates a compagnon_agent name: lowercase, digits and hyphens, 1–24 chars.
+    /// The agent a payload is tagged with (kumo_agent; compagnon_agent from older relays).
+    static func agentName(_ payload: [String: Any]) -> String {
+        payload["kumo_agent"] as? String ?? payload["compagnon_agent"] as? String ?? ""
+    }
+
+    /// Validates a kumo_agent name: lowercase, digits and hyphens, 1–24 chars.
     /// "claude" is reserved and rejected so it cannot impersonate the Claude Code pill.
     /// Returns the name unchanged if valid, nil otherwise.
     private static func validateAgent(_ raw: String) -> String? {
@@ -472,9 +480,9 @@ final class HookServer: @unchecked Sendable {
         let rawName   = URL(fileURLWithPath: cwd).lastPathComponent
         let projectName = aliasProjectName(rawName.isEmpty ? "Session" : rawName)
 
-        let rawAgent = payload["compagnon_agent"] as? String ?? ""
+        let rawAgent = Self.agentName(payload)
 
-        // External agents (any compagnon_agent) answer immediately with "ask"
+        // External agents (any kumo_agent) answer immediately with "ask"
         // so the agent re-asks in its own terminal — they do not get a notch card.
         if Self.validateAgent(rawAgent) != nil {
             Task.detached { [weak self] in
@@ -504,7 +512,7 @@ final class HookServer: @unchecked Sendable {
         let token = approvalSerial
         let source = watchApproval(fd: fd, token: token)
 
-        // 115s safety timeout — cancel without sending a decision. compagnon-hook reads EOF
+        // 115s safety timeout — cancel without sending a decision. kumo-hook reads EOF
         // from the cancel handler's close and exits; Claude Code re-asks in its own window.
         DispatchQueue.main.asyncAfter(deadline: .now() + 115) { [weak self] in
             self?.approvalClosed(token: token, note: "Toujours en attente dans Claude.")
@@ -713,7 +721,7 @@ final class HookServer: @unchecked Sendable {
         }
     }
 
-    /// Called by ApprovalView buttons. Writes the decision to the waiting compagnon-hook and cleans up.
+    /// Called by ApprovalView buttons. Writes the decision to the waiting kumo-hook and cleans up.
     @MainActor
     func sendApprovalDecision(_ decision: String) {
         let fd = pendingApprovalFD
@@ -976,20 +984,28 @@ final class HookServer: @unchecked Sendable {
         }
     }
 
-    // MARK: - compagnon-hook script installation
+    // MARK: - kumo-hook script installation
 
     func installHookScript() {
+        let fm = FileManager.default
         let dir = Self.supportDir
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o700 as NSNumber], ofItemAtPath: dir.path)
-        // compagnon-hook: shell wrapper (always exits 0, calls compagnon-hook.py via python3)
-        let wrapperURL = URL(fileURLWithPath: Self.hookScriptPath)
-        try? hookShellWrapper.write(to: wrapperURL, atomically: true, encoding: .utf8)
-        _ = try? FileManager.default.setAttributes([.posixPermissions: 0o755 as NSNumber], ofItemAtPath: wrapperURL.path)
-        // compagnon-hook.py: Python relay
-        let pyURL = wrapperURL.deletingLastPathComponent().appendingPathComponent("compagnon-hook.py")
-        try? hookPython.write(to: pyURL, atomically: true, encoding: .utf8)
-        _ = try? FileManager.default.setAttributes([.posixPermissions: 0o755 as NSNumber], ofItemAtPath: pyURL.path)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? fm.setAttributes([.posixPermissions: 0o700 as NSNumber], ofItemAtPath: dir.path)
+        func write(_ text: String, _ name: String) {
+            let url = dir.appendingPathComponent(name)
+            try? text.write(to: url, atomically: true, encoding: .utf8)
+            _ = try? fm.setAttributes([.posixPermissions: 0o755 as NSNumber], ofItemAtPath: url.path)
+        }
+        // kumo-hook: shell wrapper (always exits 0, calls kumo-hook.py via python3)
+        write(hookShellWrapper, Self.hookScriptName)
+        write(hookPython, "kumo-hook.py")
+        // Hooks installed as Compagnon still call …/Compagnon/compagnon-hook (that folder is now
+        // a link here): forward them until they're updated from Settings
+        write(legacyHookWrapper, Self.legacyHookScriptName)
+        // Leftovers from Compagnon
+        for name in ["compagnon-hook.py", "compagnon.sock"] {
+            try? fm.removeItem(at: dir.appendingPathComponent(name))
+        }
     }
 
     // MARK: - Outdated hook detection
@@ -1023,6 +1039,14 @@ final class HookServer: @unchecked Sendable {
                 } ?? false)
         }
         if claudeHooksInstalled() && !hasAskEntry { return true }
+        // Installed when the app was called Compagnon: point them at kumo-hook
+        if hooks.values.contains(where: { value in
+            (value as? [[String: Any]])?.contains { entry in
+                (entry["hooks"] as? [[String: Any]])?.contains {
+                    ($0["command"] as? String)?.contains(legacyHookScriptName) == true
+                } ?? false
+            } ?? false
+        }) { return true }
         for matcher in permReqHooks {
             if let hookList = matcher["hooks"] as? [[String: Any]] {
                 for hook in hookList {
@@ -1108,6 +1132,11 @@ final class HookServer: @unchecked Sendable {
         guard let data = try? Data(contentsOf: settingsURL),
               var settings = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               var hooks = settings["hooks"] as? [String: Any] else { return }
+        // Dated backup first, as for any write to this file
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmm"
+        try? FileManager.default.copyItem(at: settingsURL, to: settingsURL.deletingLastPathComponent()
+            .appendingPathComponent("settings.json.bak-\(formatter.string(from: Date()))"))
 
         for key in hooks.keys {
             if var matchers = hooks[key] as? [[String: Any]] {
@@ -1129,10 +1158,10 @@ final class HookServer: @unchecked Sendable {
 // MARK: - Notification names for hook server → controller communication
 
 extension Notification.Name {
-    static let hookExpand = Notification.Name("compagnon.hookExpand")
+    static let hookExpand = Notification.Name("kumo.hookExpand")
 }
 
-// MARK: - compagnon-hook shell wrapper 
+// MARK: - kumo-hook shell wrapper
 // Invoked by Claude Code via /bin/sh or directly via shebang.
 // Always exits 0 — never blocks Claude Code.
 // Checks xcode-select before running python3 to avoid triggering the
@@ -1143,9 +1172,9 @@ private let hookShellWrapper = """
 # Kumo hook relay — always exits 0, never blocks Claude Code
 HOOK_DIR="$(dirname "$0")"
 # Kumo's own chat runs Claude Code too: stay out of the island for it
-if [ -n "$COMPAGNON_CHAT" ]; then cat >/dev/null; exit 0; fi
+if [ -n "$KUMO_CHAT" ]; then cat >/dev/null; exit 0; fi
 if xcode-select -p >/dev/null 2>&1; then
-    out=$(/usr/bin/python3 "$HOOK_DIR/compagnon-hook.py" "$@" 2>/dev/null)
+    out=$(/usr/bin/python3 "$HOOK_DIR/kumo-hook.py" "$@" 2>/dev/null)
     rc=$?
     if [ "$rc" -eq 0 ] && [ -n "$out" ]; then
         printf '%s\\n' "$out"
@@ -1154,11 +1183,18 @@ fi
 exit 0
 """
 
-// MARK: - compagnon-hook Python relay
+/// Hooks installed when the app was called Compagnon run compagnon-hook: forward to kumo-hook.
+private let legacyHookWrapper = """
+#!/bin/sh
+# Compagnon's old relay name: Kumo forwards it until the hooks are updated in Settings
+exec /bin/sh "$(dirname "$0")/kumo-hook" "$@"
+"""
+
+// MARK: - kumo-hook Python relay
 
 private let hookPython = """
 #!/usr/bin/env python3
-# compagnon-hook.py — Kumo hook relay for Claude Code and third-party agents
+# kumo-hook.py — Kumo hook relay for Claude Code and third-party agents
 # Reads JSON from stdin, forwards to Kumo via Unix socket, translates response.
 import sys, json, os, socket
 
@@ -1208,7 +1244,7 @@ def main():
         return
 
     # Parse --agent <name> and optional positional event from argv.
-    # --agent tags the payload with compagnon_agent so the app routes to the right pill.
+    # --agent tags the payload with kumo_agent so the app routes to the right pill.
     # The positional arg is a fallback event name for agents that do not set hook_event_name.
     args = sys.argv[1:]
     agent = ''
@@ -1227,7 +1263,7 @@ def main():
                 arg_event = args[i]
             i += 1
     if agent:
-        payload.setdefault('compagnon_agent', agent)
+        payload.setdefault('kumo_agent', agent)
 
     # Enrich with terminal context
     env = os.environ
@@ -1253,7 +1289,7 @@ def main():
 
     event = payload.get('hook_event_name', '')
     socket_path = os.path.expanduser(
-        '~/Library/Application Support/Compagnon/compagnon.sock'
+        '~/Library/Application Support/Kumo/kumo.sock'
     )
 
     # Claude asks a multiple-choice question (dedicated PreToolUse entry, matcher

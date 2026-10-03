@@ -5,7 +5,7 @@ import AppKit
 // A quick chat in the island, through the Claude Code CLI already installed and
 // signed in on this Mac (`claude -p`): it uses your Claude plan, no API key.
 // Claude Sonnet. The last conversations are kept (‹ › to go back to one and carry on).
-// Runs in its own folder with COMPAGNON_CHAT set, so our hooks ignore it.
+// Runs in its own folder with KUMO_CHAT set, so our hooks ignore it.
 
 struct ChatMessage: Identifiable, Equatable, Codable {
     enum Role: String, Codable { case user, assistant }
@@ -146,7 +146,7 @@ final class ChatService: ObservableObject {
         if let sid = conversations.first(where: { $0.id == activeID })?.sessionId { args += ["--resume", sid] }
         p.arguments = args
         var env = ProcessInfo.processInfo.environment
-        env["COMPAGNON_CHAT"] = "1"
+        env["KUMO_CHAT"] = "1"
         p.environment = env
         let dir = HookServer.supportDir.appendingPathComponent("chat", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -317,7 +317,7 @@ final class ChatService: ObservableObject {
             p.executableURL = URL(fileURLWithPath: claude)
             p.arguments = ["-p", prompt, "--resume", sessionId, "--fork-session"]
             p.currentDirectoryURL = URL(fileURLWithPath: cwd)
-            // No COMPAGNON_CHAT here: this is real work, it shows in the island
+            // No KUMO_CHAT here: this is real work, it shows in the island
             p.environment = ProcessInfo.processInfo.environment
             p.standardInput = FileHandle.nullDevice
             p.standardOutput = FileHandle.nullDevice

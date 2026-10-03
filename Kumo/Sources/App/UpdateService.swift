@@ -108,9 +108,7 @@ final class UpdateService {
                   let tag = json["tag_name"] as? String,
                   let build = Int(tag.replacingOccurrences(of: "build-", with: "")),
                   let assets = json["assets"] as? [[String: Any]],
-                  // Kumo.zip (Compagnon.zip on releases made before the new name)
-                  let zip = assets.first(where: { ($0["name"] as? String) == "Kumo.zip" })
-                         ?? assets.first(where: { ($0["name"] as? String) == "Compagnon.zip" }),
+                  let zip = assets.first(where: { ($0["name"] as? String) == "Kumo.zip" }),
                   let api = zip["url"] as? String, let assetURL = URL(string: api) else {
                 state.updateStatus = .failed("release illisible")
                 return
@@ -165,7 +163,7 @@ final class UpdateService {
             try FileManager.default.moveItem(at: file, to: zip)
             try run("/usr/bin/ditto", ["-x", "-k", zip.path, work.path])
 
-            // Whatever the bundle inside is called (Kumo.app, Compagnon.app before the new name)
+            // The bundle inside the archive (Kumo.app)
             guard let newApp = (try? FileManager.default.contentsOfDirectory(at: work, includingPropertiesForKeys: nil))?
                     .first(where: { $0.pathExtension == "app" }),
                   let info = NSDictionary(contentsOf: newApp.appendingPathComponent("Contents/Info.plist")),

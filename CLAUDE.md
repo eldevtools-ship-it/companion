@@ -24,8 +24,8 @@ pas de nouvelle fonction sans usage réel.
   l'état, sieste après 10 min, regard vers le champ quand on tape, « parole » pendant
   la réponse du chat, bâillement le matin, paupières lourdes tard le soir.
 - `Kumo/Sources/App/HookServer.swift` — le pont avec Claude Code : socket
-  `~/Library/Application Support/Compagnon/compagnon.sock`, script relais
-  `compagnon-hook`, installation des hooks dans `~/.claude/settings.json`.
+  `~/Library/Application Support/Kumo/kumo.sock`, script relais
+  `kumo-hook`, installation des hooks dans `~/.claude/settings.json`.
 - `Kumo/Sources/App/PillCatalog.swift` — les pastilles (Claude Code toujours ;
   Slack, Harvest, Agenda, Vercel, GitHub dès qu'elles sont configurées) et leurs
   couleurs (`PillColor`, une teinte distincte par pastille).
@@ -43,12 +43,12 @@ pas de nouvelle fonction sans usage réel.
   toutes les vues (personnage centré à gauche, même marge bord → personnage → contenu).
 - `Kumo/Sources/App/IslandCursor.swift` — curseur main / texte au survol de l'île.
 - `NotesStore.swift` / `NotesView.swift` — le pense-bête (bouton notes à côté de la
-  lune) : notes et dossiers dans `~/Library/Application Support/Compagnon/notes.json`.
+  lune) : notes et dossiers dans `~/Library/Application Support/Kumo/notes.json`.
   ⌥⌘N l'ouvre depuis n'importe quelle app (`HotKey.swift`, raccourci Carbon).
 - `ChatService.swift` / `ChatView.swift` — petit chat avec Claude (bouton bulle, ‹ › pour les 10 dernières
   conversations, poubelle à double clic pour en supprimer une,
   ⌥⌘J) via la CLI Claude Code installée (`claude -p`, abonnement de l'utilisateur,
-  Claude Sonnet, sans choix de modèle). Lancé avec `COMPAGNON_CHAT=1` : le relais `compagnon-hook`
+  Claude Sonnet, sans choix de modèle). Lancé avec `KUMO_CHAT=1` : le relais `kumo-hook`
   l'ignore, pour que le chat n'apparaisse jamais comme une session dans l'île.
 - `SpotifyService.swift` / `MusicView.swift` — la musique (bouton note à côté du chat, visible si
   Spotify est installé) : pilote l'app Spotify du Mac par AppleScript (pas de compte ni de clé),
@@ -88,7 +88,7 @@ cd Kumo && xcodegen && xcodebuild -scheme Kumo -configuration Debug build
   sons ou les médias de Coucou (`LICENSE-ASSETS.md`). Garder la notice MIT de
   Louis Raillé dans `LICENSE`.
 - Les hooks de Kumo sont reconnus par `HookServer.isOwnHook` (nom du script
-  `compagnon-hook`) : ne jamais toucher aux hooks d'une autre app (Coucou…).
+  `kumo-hook`, ou `compagnon-hook` pour ceux installés avant le renommage) : ne jamais toucher aux hooks d'une autre app (Coucou…).
 - Secrets dans le Trousseau, jamais sur disque ni dans git. Pas de télémétrie.
 - Ne jamais bloquer Claude Code : si l'app ne répond pas, le hook sort aussitôt.
 - Ne jamais écraser `~/.claude/settings.json` : sauvegarde datée, fusion, diff
@@ -99,11 +99,11 @@ cd Kumo && xcodegen && xcodebuild -scheme Kumo -configuration Debug build
   affichée et celle qui disparaît sont construites ; les mini-animations sont plafonnées
   à 30 i/s ; aucun appel réseau pendant que les écrans dorment (`AppState.macAsleep`) ;
   les journaux s'écrivent en arrière-plan.
-- Identifiants internes gardés de l'ancien nom, à ne pas renommer sans migration : l'identifiant
-  d'app `com.eldevtools.Compagnon` (réglages et autorisations macOS), le service Trousseau,
-  le dossier `~/Library/Application Support/Compagnon/` (notes, chats, socket), le relais
-  `compagnon-hook` (reconnu dans `~/.claude/settings.json`), `COMPAGNON_CHAT`, le champ
-  `compagnon_agent`. Les releases publient `Kumo.zip` et, pour les anciennes installations,
-  `Compagnon.zip` ; la mise à jour installe toujours `Kumo.app`.
+- Ancien nom (Compagnon) : `KumoMigration` copie au premier lancement les réglages de
+  `com.eldevtools.Compagnon`, déplace `Application Support/Compagnon` vers `…/Kumo` (en laissant
+  un lien) ; `KeychainStore` déplace les secrets de l'ancien service Trousseau. Le relais
+  `compagnon-hook` reste un petit renvoi vers `kumo-hook` tant que les hooks n'ont pas été mis à
+  jour depuis les Réglages (sauvegarde, diff, confirmation). Les releases publient aussi
+  `Compagnon.zip` pour les installations antérieures à la version 45.
 - Les identifiants de pastilles sont des valeurs stables (Trousseau, réglages,
   routage des hooks) : ne pas les renommer.

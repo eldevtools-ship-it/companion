@@ -1,7 +1,7 @@
 import SwiftUI
 import CoreGraphics
 
-// MARK: - Compagnon's look
+// MARK: - Kumo's look
 // Single source of truth for the character's palette, silhouette and antenna.
 // Used by the main bot (BotEngine), the greeting and the upload animation so the
 // three renderers stay identical. All coordinates are body-local, y pointing down.

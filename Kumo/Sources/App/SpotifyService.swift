@@ -26,7 +26,7 @@ final class SpotifyService: ObservableObject {
     private var position: Double = 0
     private var positionAt = Date()
     private var artworkFor = ""
-    private let queue = DispatchQueue(label: "compagnon.spotify")
+    private let queue = DispatchQueue(label: "kumo.spotify")
 
     private init() {
         isInstalled = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleID) != nil

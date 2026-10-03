@@ -97,7 +97,7 @@ struct AgentTask: Identifiable, Equatable {
 enum AgentSource: Equatable {
     case claudeCode
     case service  // Slack, Harvest, GitHub
-    case agent   // third-party agent via compagnon_agent field
+    case agent   // third-party agent via kumo_agent field
 }
 
 // MARK: - View dimensions (from VIEWS in prototype)
