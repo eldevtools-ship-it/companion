@@ -17,9 +17,18 @@ struct NotesView: View {
     @State private var lastDeleted: (note: Note, index: Int)? = nil
     @FocusState private var focus: Field?
 
-    enum Field: Hashable { case compose, edit, folder }
+    enum Field: Hashable { case compose, edit, folder, search }
 
-    private var shown: [Note] { store.notes(in: folder) }
+    @State private var searching = false
+    @State private var query = ""
+
+    private var shown: [Note] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        let notes = store.notes(in: folder)
+        return q.isEmpty ? notes : notes.filter { $0.text.localizedCaseInsensitiveContains(q) }
+    }
+    /// The search only shows up once there's enough to search through.
+    private var offersSearch: Bool { store.notes.count > 10 }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -56,8 +65,37 @@ struct NotesView: View {
             HStack(spacing: 6) {
                 FolderChip(title: "Toutes", count: store.notes.count, selected: folder == nil) { select(nil) }
                 ForEach(store.folders, id: \.self) { f in
-                    FolderChip(title: f, count: store.notes(in: f).count, selected: folder == f,
+                    FolderChip(title: f, count: store.notes(in: f).count, selected: folder == f, color: store.color(for: f),
                                onDelete: folder == f ? { store.deleteFolder(f); select(nil) } : nil) { select(f) }
+                }
+                if offersSearch {
+                    if searching {
+                        TextField("", text: $query, prompt: Text("Chercher").foregroundColor(.white.opacity(0.48)))
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color(hex: "#F5F6F8"))
+                            .focused($focus, equals: .search)
+                            .onExitCommand { searching = false; query = "" }
+                            .frame(width: 100)
+                            .padding(.horizontal, 10)
+                            .frame(height: 24)
+                            .background(Capsule().fill(Color.white.opacity(0.1)))
+                            .textCursor()
+                    } else {
+                        Button {
+                            searching = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { focus = .search }
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(Color.white.opacity(0.6))
+                                .frame(width: 24, height: 24)
+                                .background(Circle().fill(Color.white.opacity(0.07)))
+                        }
+                        .buttonStyle(.plain)
+                        .pointingHand()
+                        .help("Chercher dans les notes")
+                    }
                 }
                 if addingFolder {
                     TextField("", text: $newFolder, prompt: Text("Nom du dossier").foregroundColor(.white.opacity(0.48)))
@@ -162,6 +200,7 @@ struct NotesView: View {
                 ForEach(shown) { note in
                     NoteRow(note: note,
                             showFolder: folder == nil,
+                            folderColor: note.folder.map { store.color(for: $0) },
                             folders: store.folders,
                             isEditing: editing == note.id,
                             isMoving: moving == note.id,
@@ -278,6 +317,7 @@ private struct FolderChip: View {
     let title: String
     let count: Int
     let selected: Bool
+    var color: String? = nil
     var onDelete: (() -> Void)? = nil
     let action: () -> Void
     @State private var hovered = false
@@ -286,6 +326,7 @@ private struct FolderChip: View {
         HStack(spacing: 5) {
             Button(action: action) {
                 HStack(spacing: 5) {
+                    if let color { Circle().fill(Color(hex: color)).frame(width: 6, height: 6) }
                     Text(title).font(.system(size: 11, weight: .semibold)).lineLimit(1)
                     Text("\(count)")
                         .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -318,6 +359,7 @@ private struct FolderChip: View {
 private struct NoteRow: View {
     let note: Note
     let showFolder: Bool
+    let folderColor: String?
     let folders: [String]
     let isEditing: Bool
     let isMoving: Bool
@@ -353,6 +395,9 @@ private struct NoteRow: View {
                     .onTapGesture(count: 2, perform: onEdit)
             }
             HStack(spacing: 10) {
+                if showFolder, let folderColor {
+                    Circle().fill(Color(hex: folderColor)).frame(width: 5, height: 5)
+                }
                 Text([showFolder ? note.folder : nil, note.age].compactMap { $0 }.joined(separator: " · "))
                     .font(.system(size: 10, design: .rounded))
                     .foregroundColor(Color.white.opacity(0.38))

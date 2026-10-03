@@ -48,6 +48,13 @@ final class NotesStore: ObservableObject {
         }
     }
 
+    /// One colour per folder, in the order they were created.
+    static let folderColors = ["#F5A524", "#22C55E", "#3B9EFF", "#E879F9", "#F4505E", "#14B8A6", "#A78BFA"]
+    func color(for folder: String) -> String {
+        let i = folders.firstIndex(of: folder) ?? 0
+        return Self.folderColors[i % Self.folderColors.count]
+    }
+
     func notes(in folder: String?) -> [Note] {
         guard let folder else { return notes }
         return notes.filter { $0.folder == folder }

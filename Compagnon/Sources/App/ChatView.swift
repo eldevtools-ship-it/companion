@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MARK: - Chat view
 // Model chip and "new chat" on top, the conversation, then the field (⏎ sends).
@@ -13,10 +14,8 @@ struct ChatView: View {
         ZStack(alignment: .topLeading) {
             CardBackground(wash: nil)
             VStack(alignment: .leading, spacing: ChatLayout.spacing) {
-                if !chat.messages.isEmpty {
-                    topBar
-                    conversation
-                }
+                if showsTopBar { topBar }
+                if !chat.messages.isEmpty { conversation }
                 inputRow
             }
             .padding(.leading, CardLayout.contentLeading)
@@ -31,30 +30,53 @@ struct ChatView: View {
             else if focused { focused = false }
         }
         .onChange(of: focused) { _, _ in syncHold() }
-        .onChange(of: chat.draft) { _, _ in syncHold() }
+        .onChange(of: chat.draft) { old, new in
+            syncHold()
+            pasteAndSend(old: old, new: new)
+        }
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focused = true } }
         .onDisappear { if state.isEditingText { state.isEditingText = false } }
         .onChange(of: chat.messages.isEmpty) { _, empty in if empty { state.chatContentHeight = 0 } }
     }
 
-    // MARK: Top bar (only once there's a conversation)
+    // MARK: Top bar: ‹ › through the last conversations, new conversation
+
+    private var showsTopBar: Bool { !chat.messages.isEmpty || chat.canGoOlder }
 
     private var topBar: some View {
-        HStack {
+        HStack(spacing: 2) {
+            arrow("chevron.left", enabled: chat.canGoOlder, help: "Conversation précédente") { chat.older() }
+            arrow("chevron.right", enabled: chat.canGoNewer, help: "Conversation suivante") { chat.newer() }
             Spacer(minLength: 0)
-            Button { chat.newConversation(); focused = true } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "square.and.pencil").font(.system(size: 10, weight: .semibold))
-                    Text("Nouvelle").font(.system(size: 10.5, weight: .medium))
+            if !chat.messages.isEmpty {
+                Button { chat.newConversation(); focused = true } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.and.pencil").font(.system(size: 10, weight: .semibold))
+                        Text("Nouvelle").font(.system(size: 10.5, weight: .medium))
+                    }
+                    .foregroundColor(Color.white.opacity(0.6))
+                    .contentShape(Rectangle())
                 }
-                .foregroundColor(Color.white.opacity(0.6))
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .pointingHand()
+                .help("Nouvelle conversation")
             }
-            .buttonStyle(.plain)
-            .pointingHand()
-            .help("Nouvelle conversation")
         }
         .frame(height: ChatLayout.topBar)
+    }
+
+    private func arrow(_ icon: String, enabled: Bool, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(Color.white.opacity(enabled ? 0.75 : 0.2))
+                .frame(width: 18, height: 18)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .pointingHand()
+        .help(help)
     }
 
     // MARK: Conversation — the island grows with it, up to a cap, then it scrolls
@@ -137,6 +159,16 @@ struct ChatView: View {
         chat.send(text)
     }
 
+    /// "corrige :" then ⌘V: the pasted text goes straight to Claude with your instruction.
+    private func pasteAndSend(old: String, new: String) {
+        let instruction = old.trimmingCharacters(in: .whitespaces)
+        guard instruction.hasSuffix(":"), !chat.busy,
+              let clip = NSPasteboard.general.string(forType: .string), !clip.isEmpty,
+              new.count > old.count, new.hasPrefix(old), new.dropFirst(old.count).trimmingCharacters(in: .whitespaces) == clip.trimmingCharacters(in: .whitespaces)
+        else { return }
+        send()
+    }
+
     /// Keep the island open while you're writing.
     private func syncHold() {
         let writing = focused && !chat.draft.isEmpty
@@ -155,7 +187,7 @@ enum ChatLayout {
 
     /// Island height for a conversation whose messages take `content` points.
     static func islandHeight(content: CGFloat, empty: Bool) -> CGFloat {
-        guard !empty else { return IslandConst.expandedHeight }
+        guard !empty else { return IslandConst.expandedHeight }   // field (and ‹) fit the normal card
         let chrome = IslandConst.cardTop + IslandConst.contentInset + top + bottom + topBar + input + spacing * 2
         return min(maxHeight, max(IslandConst.expandedHeight, chrome + content))
     }

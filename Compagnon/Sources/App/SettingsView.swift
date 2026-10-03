@@ -22,6 +22,7 @@ struct SettingsView: View {
     @State private var githubToken: String    = KeychainStore.shared.get("github-token")            ?? ""
     @State private var calendarAccess: Bool = CalendarService.shared.hasAccess
     @State private var vercelToken: String    = KeychainStore.shared.get(VercelService.tokenKey)    ?? ""
+    @State private var chatCheck: (ok: Bool, text: String)? = nil
     @State private var vercelToken2: String   = KeychainStore.shared.get(VercelService.secondTokenKey) ?? ""
     @State private var updateToken: String    = KeychainStore.shared.get(UpdateService.tokenKey)    ?? ""
 
@@ -266,6 +267,23 @@ struct SettingsView: View {
             }
             .padding(6)
         }
+        GroupBox("Chat avec Claude") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    StatusDot(ok: chatCheck?.ok ?? false)
+                    Text(chatCheck?.text ?? "Vérification…")
+                        .font(.system(size: 12, weight: .medium))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text("Le chat de l'île (⌥⌘J) passe par Claude Code et ton abonnement Claude, avec Sonnet.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                Button("Vérifier à nouveau") { Task { chatCheck = await ChatService.diagnose() } }
+            }
+            .padding(6)
+            .task { chatCheck = await ChatService.diagnose() }
+        }
+
         GroupBox("Questions de Claude") {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Quand Claude te pose une question à choix, elle s'affiche dans l'île : clique une réponse, écris la tienne, ou renvoie-la dans Claude. Sans réponse en 10 minutes, Claude la pose lui-même. (Nécessite des hooks à jour.)")

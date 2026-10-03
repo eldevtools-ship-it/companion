@@ -4,29 +4,43 @@ import AppKit
 // MARK: - Chat with Claude
 // A quick chat in the island, through the Claude Code CLI already installed and
 // signed in on this Mac (`claude -p`): it uses your Claude plan, no API key.
-// Claude Sonnet; one conversation that continues until you start
-// a new one. Runs in its own folder with COMPAGNON_CHAT set, so our hooks ignore it.
+// Claude Sonnet. The last conversations are kept (‹ › to go back to one and carry on).
+// Runs in its own folder with COMPAGNON_CHAT set, so our hooks ignore it.
 
-struct ChatMessage: Identifiable, Equatable {
-    enum Role { case user, assistant }
-    let id = UUID()
+struct ChatMessage: Identifiable, Equatable, Codable {
+    enum Role: String, Codable { case user, assistant }
+    var id = UUID()
     let role: Role
     var text: String
     var failed = false
+}
+
+struct ChatConversation: Identifiable, Codable {
+    var id = UUID()
+    var sessionId: String?
+    var messages: [ChatMessage] = []
+    var updated = Date()
 }
 
 @MainActor
 final class ChatService: ObservableObject {
     static let shared = ChatService()
 
-    @Published private(set) var messages: [ChatMessage] = []
+    /// Newest first; `index` is the one on screen. Kept in chats.json (last 10).
+    @Published private(set) var conversations: [ChatConversation] = [ChatConversation()]
+    @Published private(set) var index = 0
     @Published private(set) var busy = false
+
+    var messages: [ChatMessage] { conversations[index].messages }
+    var canGoOlder: Bool { index + 1 < conversations.count }
+    var canGoNewer: Bool { index > 0 }
     /// What you're typing, kept while you visit other views.
     @Published var draft = ""
     /// Sonnet: quick enough for chat, good at rewriting text.
     private let model = "claude-sonnet-5-5"
 
-    private var sessionId: String?
+    /// The conversation an answer is streaming into (you may browse others meanwhile).
+    private var activeID: UUID?
     private var process: Process?
     private var buffer = Data()
     private var gotDeltas = false
@@ -39,15 +53,43 @@ final class ChatService: ObservableObject {
     sans commentaire.
     """
 
-    private init() {}
+    private static var fileURL: URL { HookServer.supportDir.appendingPathComponent("chats.json") }
+
+    private init() {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        if let data = try? Data(contentsOf: Self.fileURL),
+           let saved = try? decoder.decode([ChatConversation].self, from: data), !saved.isEmpty {
+            // Open on a fresh conversation, the saved ones one ‹ away
+            conversations = [ChatConversation()] + saved.filter { !$0.messages.isEmpty }
+        }
+    }
+
+    private func save() {
+        let keep = conversations.filter { !$0.messages.isEmpty }.prefix(10)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(Array(keep)) else { return }
+        try? data.write(to: Self.fileURL, options: .atomic)
+    }
+
+    private func mutate(_ id: UUID?, _ change: (inout ChatConversation) -> Void) {
+        guard let id, let i = conversations.firstIndex(where: { $0.id == id }) else { return }
+        change(&conversations[i])
+    }
 
     // MARK: Sending
 
     func send(_ text: String) {
         let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !busy else { return }
-        messages.append(ChatMessage(role: .user, text: prompt))
-        messages.append(ChatMessage(role: .assistant, text: ""))
+        let id = conversations[index].id
+        activeID = id
+        mutate(id) {
+            $0.messages.append(ChatMessage(role: .user, text: prompt))
+            $0.messages.append(ChatMessage(role: .assistant, text: ""))
+            $0.updated = Date()
+        }
         busy = true
         gotDeltas = false
         Task { @MainActor in
@@ -64,10 +106,14 @@ final class ChatService: ObservableObject {
     }
 
     func newConversation() {
-        stop()
-        sessionId = nil
-        messages = []
+        if conversations[index].messages.isEmpty { return }
+        conversations.removeAll { $0.messages.isEmpty }
+        conversations.insert(ChatConversation(), at: 0)
+        index = 0
     }
+
+    func older() { if canGoOlder { index += 1 } }
+    func newer() { if canGoNewer { index -= 1 } }
 
     func copy(_ message: ChatMessage) {
         NSPasteboard.general.clearContents()
@@ -82,7 +128,7 @@ final class ChatService: ObservableObject {
         var args = ["-p", prompt, "--model", model,
                     "--output-format", "stream-json", "--verbose", "--include-partial-messages",
                     "--append-system-prompt", Self.systemPrompt]
-        if let sessionId { args += ["--resume", sessionId] }
+        if let sid = conversations.first(where: { $0.id == activeID })?.sessionId { args += ["--resume", sid] }
         p.arguments = args
         var env = ProcessInfo.processInfo.environment
         env["COMPAGNON_CHAT"] = "1"
@@ -131,7 +177,7 @@ final class ChatService: ObservableObject {
     private func handle(_ line: Data) {
         guard let json = (try? JSONSerialization.jsonObject(with: line)) as? [String: Any],
               let type = json["type"] as? String else { return }
-        if let sid = json["session_id"] as? String { sessionId = sid }
+        if let sid = json["session_id"] as? String { mutate(activeID) { $0.sessionId = sid } }
         switch type {
         case "stream_event":
             // Text arriving word by word
@@ -151,7 +197,8 @@ final class ChatService: ObservableObject {
             if json["is_error"] as? Bool == true {
                 let msg = (json["result"] as? String) ?? "Claude n'a pas pu répondre."
                 markReplyFailed(msg)
-            } else if let result = json["result"] as? String, messages.last?.text.isEmpty == true {
+            } else if let result = json["result"] as? String,
+                      conversations.first(where: { $0.id == activeID })?.messages.last?.text.isEmpty == true {
                 appendToReply(result)
             }
         default:
@@ -160,19 +207,24 @@ final class ChatService: ObservableObject {
     }
 
     private func appendToReply(_ text: String) {
-        guard let i = messages.indices.last, messages[i].role == .assistant else { return }
-        messages[i].text += text
+        mutate(activeID) { c in
+            guard let i = c.messages.indices.last, c.messages[i].role == .assistant else { return }
+            c.messages[i].text += text
+        }
     }
 
     private func markReplyFailed(_ text: String) {
-        guard let i = messages.indices.last, messages[i].role == .assistant else { return }
-        messages[i].text = text
-        messages[i].failed = true
+        mutate(activeID) { c in
+            guard let i = c.messages.indices.last, c.messages[i].role == .assistant else { return }
+            c.messages[i].text = text
+            c.messages[i].failed = true
+        }
     }
 
     private func processEnded(status: Int32, uncaught: Bool, stderr: String) {
         process = nil
-        if let last = messages.last, last.role == .assistant, last.text.isEmpty {
+        let reply = conversations.first(where: { $0.id == activeID })?.messages.last
+        if let last = reply, last.role == .assistant, last.text.isEmpty {
             if uncaught {
                 markReplyFailed("Arrêté.")
             } else {
@@ -182,6 +234,7 @@ final class ChatService: ObservableObject {
             }
         }
         busy = false
+        save()
         // Answer ready while the island is folded: peek out
         let state = AppState.shared
         if !(state.mode == .expanded && state.view == .chat) {
@@ -193,6 +246,37 @@ final class ChatService: ObservableObject {
     private func finish(error: String) {
         markReplyFailed(error)
         busy = false
+    }
+
+    // MARK: Health check (Settings → Claude Code)
+
+    /// Is the CLI there, which version, and is someone signed in? Costs no tokens.
+    static func diagnose() async -> (ok: Bool, text: String) {
+        guard let path = await findClaude() else {
+            return (false, "Claude Code introuvable. Installe-le : npm install -g @anthropic-ai/claude-code")
+        }
+        let version: String = await Task.detached {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: path)
+            p.arguments = ["--version"]
+            let out = Pipe()
+            p.standardOutput = out
+            p.standardError = FileHandle.nullDevice
+            try? p.run()
+            p.waitUntilExit()
+            return String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }.value
+        // Signed in = ~/.claude.json carries the account
+        let config = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude.json")
+        let json = (try? Data(contentsOf: config)).flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]
+        let account = json?["oauthAccount"] as? [String: Any]
+        let name = version.isEmpty ? "Claude Code" : "Claude Code \(version.split(separator: " ").first ?? "")"
+        guard let account else {
+            return (false, "\(name) trouvé, mais personne n'est connecté : lance « claude » une fois dans le terminal.")
+        }
+        let email = account["emailAddress"] as? String
+        return (true, "\(name) prêt\(email.map { " · \($0)" } ?? "")")
     }
 
     // MARK: Finding the CLI
