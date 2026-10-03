@@ -256,6 +256,7 @@ final class IslandWindowController: NSWindowController {
         if overBot && !botHovering { botHoverIn(mousePos: NSEvent.mouseLocation) }
         if !overBot && botHovering { botHoverOut() }
         botHovering = overBot
+        if botHovering { trackStroke(x: NSEvent.mouseLocation.x) }
         if botHovering {
             let m = NSEvent.mouseLocation
             let dist = hypot(m.x - botHoverStartPos.x, m.y - botHoverStartPos.y)
@@ -324,6 +325,28 @@ final class IslandWindowController: NSWindowController {
     }
 
     private var lastLocal: CGPoint = .zero
+
+    // MARK: - Petting: three changes of direction over the cloud within 1.4 s
+
+    private var strokeLastX: CGFloat = 0
+    private var strokeDir: CGFloat = 0
+    private var strokeTurns: [Double] = []
+
+    private func trackStroke(x: CGFloat) {
+        let dx = x - strokeLastX
+        strokeLastX = x
+        guard abs(dx) > 1.5 else { return }
+        let dir: CGFloat = dx > 0 ? 1 : -1
+        if strokeDir != 0 && dir != strokeDir {
+            let now = CACurrentMediaTime()
+            strokeTurns = strokeTurns.filter { now - $0 < 1.4 } + [now]
+            if strokeTurns.count >= 3 {
+                strokeTurns = []
+                NotificationCenter.default.post(name: .botPet, object: nil)
+            }
+        }
+        strokeDir = dir
+    }
 
     // MARK: - Bot-head hover (love emote — mirrors prototype botHover())
 
@@ -605,6 +628,7 @@ extension Notification.Name {
     static let botDizzy         = Notification.Name("compagnon.botDizzy")
     static let botGreet         = Notification.Name("compagnon.botGreet")
     static let botBlink         = Notification.Name("compagnon.botBlink")
+    static let botPet           = Notification.Name("compagnon.botPet")
     static let botSetTgEs       = Notification.Name("compagnon.botSetTgEs")
     static let botGulp          = Notification.Name("compagnon.botGulp")
     static let botMorphTo       = Notification.Name("compagnon.botMorphTo")

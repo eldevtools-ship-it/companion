@@ -31,7 +31,7 @@ struct Tween {
 // MARK: - Particle
 
 struct Particle {
-    enum ParticleType { case heart, star, spark, sweat, z }
+    enum ParticleType { case heart, star, spark, sweat, z, vapor, drop }
     var type: ParticleType
     var x, y, vx, vy: CGFloat
     var age: Double        // seconds
@@ -260,6 +260,32 @@ final class BotEngine: ObservableObject {
     private var antennaLastOx: CGFloat = 0
     private var antennaLastOy: CGFloat = 0
 
+    // MARK: Cloud life (main character only)
+    // Set every frame by BotCanvasView:
+    var pointerNear: CGFloat = 0        // 0 far … 1 right next to the cloud
+    var pointerAngle: CGFloat = 0       // where the pointer is, seen from the cloud (0 = right, π/2 = below)
+    var watchingField = false           // you're typing in the chat / notes: look at the field
+    var talking: CGFloat = 0            // Claude is answering in the chat (decays by itself)
+    var drowsy: CGFloat = 0             // late evening: heavier eyelids (0…1)
+    var napping = false                 // dozing after 10 min without the pointer moving
+    var lastHourCheck: Double = 0
+    // Eyes jump to their target (saccades); the head follows slowly
+    private var gazeX: CGFloat = 0, gazeY: CGFloat = 0
+    private var gazeTX: CGFloat = 0, gazeTY: CGFloat = 0
+    private var lastLookX: CGFloat = 0, lastLookY: CGFloat = 0
+    private var lookStill: Double = 0
+    private var wander = CGPoint.zero
+    private var nextWander: Double = 0
+    // Puffs: a spring each, pulled towards the pointer, kicked by clicks and petting
+    private(set) var puffBoost: [CGFloat] = [0, 0, 0, 0, 0]
+    private var puffVel: [CGFloat] = [0, 0, 0, 0, 0]
+    private var rippleAt: Double = -10
+    private var nextWeather: Double = 0
+    private var nextYawn: Double = CACurrentMediaTime() + 120
+    private var lastPet: Double = 0
+
+    var isCloud: Bool { bodyColor == nil && !isMini }
+
     // Mini wandering look (random, ignores mouse)
     var miniLookTarget: CGPoint = .zero
     var miniLookNextTime: Double = 0
@@ -283,6 +309,7 @@ final class BotEngine: ObservableObject {
                 self?.emit(.spark, count: 5)
             }
         case .error:
+            if isCloud { emitDrops(3) }
             anim("ox", keys: [
                 TweenKey(target: 0.08,  duration: 50,  ease: Ease.out),
                 TweenKey(target: -0.08, duration: 70,  ease: Ease.inOut),
@@ -377,6 +404,7 @@ final class BotEngine: ObservableObject {
         slapTimes.append(now)
         SoundEngine.shared.play("slap")
         squash()
+        rippleAt = CACurrentMediaTime()
         if slapTimes.count >= 3 {
             slapTimes = []
             NotificationCenter.default.post(name: .botDizzy, object: nil)
@@ -714,6 +742,8 @@ final class BotEngine: ObservableObject {
             tp = miniLookTarget.y * 0.5
         }
 
+        if isCloud { (ty, tp) = cloudLook(ty: ty, tp: tp, now: now, dt: dt, t: t) }
+
         tgYaw   = ty
         tgPitch = tp
         tgTilt  = cfg.tilt
@@ -724,7 +754,8 @@ final class BotEngine: ObservableObject {
             tgTilt = -0.06 + sin(2 * .pi * 1.2 * wt) * 0.07
         }
 
-        let bounce = cfg.bounces ? -abs(sin(t * 5.2)) * 0.07 : CGFloat(0)
+        var bounce = cfg.bounces ? -abs(sin(t * 5.2)) * 0.07 : CGFloat(0)
+        if isCloud && state == .sleeping { bounce = 0.07 }   // naps a little lower
         // oy tween can override if not locked
         if !locks.contains("oy") { oy += (bounce - oy) * CGFloat(1 - pow(0.0008, dt)) }
 
@@ -739,6 +770,21 @@ final class BotEngine: ObservableObject {
         } else {
             tgSy = 1; tgSx = 1
         }
+        if isCloud {
+            if state == .sleeping {
+                tgSy = 1 + sin(t * 1.1) * 0.03
+                tgSx = 1 - sin(t * 1.1) * 0.018
+            }
+            // "Speaking" while Claude's answer streams in: a soft, irregular bob
+            if talking > 0.01 {
+                let beat = sin(t * 13) * 0.6 + sin(t * 7.3) * 0.4
+                tgSy += beat * 0.022 * talking
+                tgSx -= beat * 0.012 * talking
+                talking = max(0, talking - CGFloat(dt) * 1.6)
+            }
+            updatePuffs(now: now, dt: dt)
+            updateWeather(now: now)
+        }
 
         // Mini bots: periodic dramatic behaviors
         if isMini && now > miniNextBehavior {
@@ -746,7 +792,8 @@ final class BotEngine: ObservableObject {
         }
 
         // Smooth look
-        let kLook = CGFloat(1 - pow(0.0025, dt))
+        // The cloud's head lags behind its eyes (they jump first, then it turns)
+        let kLook = CGFloat(1 - pow(isCloud ? 0.04 : 0.0025, dt))
         let kGen  = CGFloat(1 - pow(0.0008, dt))
 
         if !locks.contains("yaw")   { yaw   += (tgYaw   - yaw)   * kLook }
@@ -818,6 +865,112 @@ final class BotEngine: ObservableObject {
         antennaLastOy = oy
 
         lastTime = now
+    }
+
+    // MARK: - Cloud life
+
+    /// Where the cloud looks: the pointer, the field you type in, or around when you
+    /// stay still. Eyes jump (saccades), the head follows through yaw/pitch.
+    private func cloudLook(ty: CGFloat, tp: CGFloat, now: Double, dt: Double, t: CGFloat) -> (CGFloat, CGFloat) {
+        var ty = ty, tp = tp
+        if abs(lookX - lastLookX) > 0.004 || abs(lookY - lastLookY) > 0.004 {
+            lookStill = 0
+            lastLookX = lookX; lastLookY = lookY
+        } else {
+            lookStill += dt
+        }
+        let free = cfg.look == nil && !cfg.scans && state != .sleeping && state != .dizzy
+        if watchingField && free {
+            // The field is to its right, a little lower; small nods as you type
+            ty = 0.55; tp = 0.22 + sin(t * 9) * 0.03
+        } else if free && lookStill > 2.5 {
+            if now > nextWander {
+                let calm = Double.random(in: 0...1) < 0.3
+                wander = calm ? .zero : CGPoint(x: CGFloat.random(in: -0.55...0.55), y: CGFloat.random(in: -0.25...0.3))
+                nextWander = now + Double.random(in: 1.2...3.4)
+            }
+            ty = wander.x; tp = wander.y
+        }
+        // Saccade: the eye target only moves once the gap is worth a glance
+        if hypot(ty - gazeTX, tp - gazeTY) > 0.05 { gazeTX = ty; gazeTY = tp }
+        let k = CGFloat(1 - pow(1e-7, dt))           // ~40 ms to land
+        gazeX += (gazeTX - gazeX) * k
+        gazeY += (gazeTY - gazeY) * k
+        // Morning yawn now and then; drowsy eyes late at night
+        if state == .idle && now > nextYawn {
+            let hour = Calendar.current.component(.hour, from: Date())
+            if (6..<10).contains(hour) { triggerEmote(.yawn, duration: 1.6, silent: true) }
+            nextYawn = now + Double.random(in: 900...1800)
+        }
+        return (ty, tp)
+    }
+
+    /// Eye offset on top of the head turn: the eyes lead, the head catches up.
+    var gazeLead: CGPoint { CGPoint(x: gazeX - yaw, y: gazeY - pitch) }
+
+    /// Each puff is a damped spring: pulled towards the pointer when it's close,
+    /// rippled in turn by a click or a stroke.
+    private func updatePuffs(now: Double, dt: Double) {
+        let d = CGFloat(min(dt, 1.0 / 30))
+        let sinceRipple = now - rippleAt
+        for (i, p) in CompagnonStyle.cloudPuffs.enumerated() {
+            let a = atan2(p.y, p.x)
+            let facing = max(0, cos(a - pointerAngle))
+            var target = facing * facing * pointerNear * 0.075
+            if sinceRipple < 1.6 {
+                let local = max(0, sinceRipple - Double(i) * 0.05)
+                target += CGFloat(sin(local * 17) * exp(-local * 3.2)) * 0.07
+            }
+            puffVel[i] += (220 * (target - puffBoost[i]) - 15 * puffVel[i]) * d
+            puffBoost[i] += puffVel[i] * d
+        }
+    }
+
+    /// A little weather for the state: vapour while thinking, a few drops on error.
+    private func updateWeather(now: Double) {
+        guard now > nextWeather else { return }
+        switch state {
+        case .thinking, .searching:
+            emitVapor()
+            nextWeather = now + Double.random(in: 0.5...0.8)
+        case .error:
+            emitDrops(1)
+            nextWeather = now + Double.random(in: 1.4...2.2)
+        default:
+            nextWeather = now + 0.5
+        }
+    }
+
+    private func emitVapor() {
+        particles.append(Particle(type: .vapor,
+                                  x: CGFloat.random(in: -0.35...0.35), y: -0.62,
+                                  vx: CGFloat.random(in: -0.06...0.06), vy: -0.32,
+                                  age: 0, life: 1.6, rot: 0, size: 0.06 + CGFloat.random(in: 0...0.04)))
+    }
+
+    func emitDrops(_ n: Int) {
+        for i in 0..<n {
+            particles.append(Particle(type: .drop,
+                                      x: CGFloat.random(in: -0.4...0.4), y: 0.55,
+                                      vx: 0, vy: 0.9 + CGFloat.random(in: 0...0.3),
+                                      age: -Double(i) * 0.18, life: 0.9, rot: 0, size: 0.07))
+        }
+    }
+
+    /// Stroking it back and forth: happy eyes, a ripple through the puffs, a little blush.
+    func pet() {
+        let now = CACurrentMediaTime()
+        guard state != .sleeping, state != .dizzy else { return }
+        rippleAt = now
+        eyeOverride = .happy
+        eyeOverrideUntil = now + 1.4
+        anim("blush", keys: [
+            TweenKey(target: 0.7, duration: 250, ease: Ease.out),
+            TweenKey(target: 0.7, duration: 700, ease: Ease.lin),
+            TweenKey(target: 0, duration: 400, ease: Ease.inOut),
+        ])
+        if now - lastPet > 4 { SoundEngine.shared.play("love") }
+        lastPet = now
     }
 
     // MARK: - Dance transform
@@ -1041,7 +1194,6 @@ final class BotEngine: ObservableObject {
 
     private func characterPath(rx: CGFloat, ry: CGFloat, morph: CGFloat, R: CGFloat) -> Path {
         let n = 96
-        let isCloud = bodyColor == nil && !isMini
         let now = CGFloat(CACurrentMediaTime())
         let puff = 1 + 0.02 * sin(now * 1.5)
         // Target mailbox dims (spec: 1.0R wide, 0.94R tall, 0.42R corner radius)
@@ -1053,7 +1205,7 @@ final class BotEngine: ObservableObject {
             let a = CGFloat(i) / CGFloat(n) * .pi * 2
             let ca = cos(a), sa = sin(a)
             let p0 = isCloud
-                ? CompagnonStyle.cloudPoint(angle: a, rx: rx, ry: ry, puff: puff, phase: now)
+                ? CompagnonStyle.cloudPoint(angle: a, rx: rx, ry: ry, puff: puff, phase: now, boosts: puffBoost)
                 : CompagnonStyle.bodyPoint(angle: a, rx: rx, ry: ry)
             let px0 = p0.x, py0 = p0.y
             let px: CGFloat
@@ -1164,6 +1316,14 @@ final class BotEngine: ObservableObject {
                 ]),
                 center: .zero, startRadius: R*0.15, endRadius: R*1.25
             ))
+            // Waiting for you: the top of the cloud darkens slowly, like before a storm
+            if state == .approval || state == .question {
+                let pulse = 0.5 + 0.5 * sin(CACurrentMediaTime() * 2.2)
+                ctx.fill(path, with: .linearGradient(
+                    Gradient(stops: [.init(color: Color.black.opacity(0.10 + 0.08 * pulse), location: 0),
+                                     .init(color: Color.black.opacity(0), location: 0.6)]),
+                    startPoint: CGPoint(x: 0, y: -ry), endPoint: CGPoint(x: 0, y: ry)))
+            }
             // Soft key light, top left
             ctx.fill(path, with: .radialGradient(
                 Gradient(stops: [
@@ -1225,8 +1385,14 @@ final class BotEngine: ObservableObject {
             let cp = cos(eyePitch)
             guard cos(eyeYaw) * cp > 0.04 else { continue }  // behind head
 
-            let ex = sin(eyeYaw) * cp * rx
-            let ey = -sin(eyePitch) * ry + (morph > 0 ? ry * 0.14 * morph : 0)
+            var ex = sin(eyeYaw) * cp * rx
+            var ey = -sin(eyePitch) * ry + (morph > 0 ? ry * 0.14 * morph : 0)
+            if isCloud {
+                // Eyes lead the head: they've already landed where the head is still turning to
+                let lead = gazeLead
+                ex += max(-0.3, min(0.3, lead.x)) * rx * 0.32
+                ey += max(-0.3, min(0.3, lead.y)) * ry * 0.3
+            }
 
             let fx = lerp(max(0.18, cos(eyeYaw)), 1, morph * 0.7)
             let fy = lerp(max(0.18, cp),          1, morph * 0.7)
@@ -1238,7 +1404,9 @@ final class BotEngine: ObservableObject {
             var eyeCtx = ctx
             eyeCtx.translateBy(x: ex, y: ey)
             eyeCtx.scaleBy(x: fx, y: fy)
-            drawEyeShape(ctx: &eyeCtx, shape: shape, w: ew, h: eh, open: open, sd: CGFloat(sd), R: R)
+            // Heavier eyelids late at night
+            let lids = isCloud ? open * (1 - 0.32 * drowsy) : open
+            drawEyeShape(ctx: &eyeCtx, shape: shape, w: ew, h: eh, open: lids, sd: CGFloat(sd), R: R)
         }
     }
 
@@ -1441,6 +1609,19 @@ final class BotEngine: ObservableObject {
                 drop.move(to: CGPoint(x: 0, y: -sz))
                 drop.addQuadCurve(to: CGPoint(x: 0, y: sz*0.6), control: CGPoint(x: sz*0.8, y: sz*0.2))
                 drop.addQuadCurve(to: CGPoint(x: 0, y: -sz), control: CGPoint(x: -sz*0.8, y: sz*0.2))
+                pctx.fill(drop, with: .color(Color(hex: "#7CC7FF")))
+            case .vapor:
+                // A small puff of steam that grows and fades as it rises
+                var c = Path()
+                let r = sz * (0.8 + k * 1.2)
+                c.addEllipse(in: CGRect(x: -r, y: -r, width: r * 2, height: r * 2))
+                pctx.opacity *= 0.55
+                pctx.fill(c, with: .color(.white))
+            case .drop:
+                var drop = Path()
+                drop.move(to: CGPoint(x: 0, y: sz))
+                drop.addQuadCurve(to: CGPoint(x: 0, y: -sz * 0.6), control: CGPoint(x: sz * 0.8, y: -sz * 0.2))
+                drop.addQuadCurve(to: CGPoint(x: 0, y: sz), control: CGPoint(x: -sz * 0.8, y: -sz * 0.2))
                 pctx.fill(drop, with: .color(Color(hex: "#7CC7FF")))
             case .z:
                 pctx.draw(Text("z").font(.system(size: sz*1.9, weight: .bold)).foregroundColor(Color(red: 0.82, green: 0.86, blue: 0.92)),

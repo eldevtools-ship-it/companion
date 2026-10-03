@@ -18,9 +18,13 @@ struct BotCanvasView: View {
                 let now = timeline.date.timeIntervalSinceReferenceDate
                 let dtRaw = min(0.05, now - engine.lastTime)
                 let dt = dtRaw
-                engine.lookX = lookX(state: state, size: size)
-                engine.lookY = lookY(state: state, size: size)
+                let ptr = pointer(state: state)
+                engine.lookX = ptr.lookX
+                engine.lookY = ptr.lookY
+                engine.pointerNear = ptr.near
+                engine.pointerAngle = ptr.angle
                 engine.particleOverhang = particleOverhang
+                updateLife(now: now)
                 // The main character is always the cloud. The focused pill only lends it
                 // a hint of its colour from below; the state colour takes over when busy.
                 engine.bodyColor = nil
@@ -36,6 +40,9 @@ struct BotCanvasView: View {
         }
         .onChange(of: state.effectiveState) { _, newState in
             engine.setState(newState)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .botPet)) { _ in
+            engine.pet()
         }
         .onChange(of: state.mode) { _, newMode in
             // Hard-reset morph when island collapses
@@ -78,25 +85,48 @@ struct BotCanvasView: View {
         }
     }
 
-    private func lookX(state: AppState, size: CGSize) -> CGFloat {
+    /// Where the pointer is for the cloud: look direction, how close it is, from which side.
+    private func pointer(state: AppState) -> (lookX: CGFloat, lookY: CGFloat, near: CGFloat, angle: CGFloat) {
         let screen = NSScreen.main ?? NSScreen.screens[0]
         let (islandW, islandH) = islandSize(mode: state.mode, view: state.view,
                                              nw: state.notchWidth, nh: state.notchHeight)
-        let (botCx, _, _, _) = botPosition(mode: state.mode, view: state.view,
-                                            islandW: islandW, islandH: islandH)
-        // Island is centered on screen; bot is at botCx within island coords
-        let botScreenX = screen.frame.midX - islandW / 2 + botCx
-        return tanh((state.mousePosition.x - botScreenX) / 260)
+        let (botCx, botCy, _, _) = botPosition(mode: state.mode, view: state.view,
+                                                islandW: islandW, islandH: islandH)
+        // Island is centred on screen and glued to its top
+        let dx = state.mousePosition.x - (screen.frame.midX - islandW / 2 + botCx)
+        let dy = state.mousePosition.y - botCy
+        let dist = hypot(dx, dy)
+        let near = state.mode == .expanded ? max(0, min(1, 1 - (dist - 36) / 170)) : 0
+        return (tanh(dx / 260), -tanh(dy / 200), near, atan2(dy, dx))
     }
 
-    private func lookY(state: AppState, size: CGSize) -> CGFloat {
-        let (islandW, islandH) = islandSize(mode: state.mode, view: state.view,
-                                             nw: state.notchWidth, nh: state.notchHeight)
-        let actualH = islandH
-        let (_, botCy, _, _) = botPosition(mode: state.mode, view: state.view,
-                                             islandW: islandW, islandH: actualH)
-        // Island top = screen top → bot screen Y = botCy from island top
-        return -tanh((state.mousePosition.y - botCy) / 200)
+    // MARK: Life signals (typing, Claude answering, naps, late hours)
+
+    private func updateLife(now: Double) {
+        let s = state
+        let wall = Date()
+        // You're typing in the chat or the notes: it watches the field
+        engine.watchingField = (s.view == .chat || s.view == .notes) && s.mode == .expanded
+            && wall.timeIntervalSince(s.typingAt) < 1.2
+        // Claude's answer is streaming in: it "speaks"
+        if wall.timeIntervalSince(s.claudeTalkingAt) < 0.3 { engine.talking = 1 }
+        // Late evening: heavier eyelids (checked once a minute)
+        if now - engine.lastHourCheck > 60 {
+            let h = Calendar.current.component(.hour, from: wall)
+            engine.drowsy = (h >= 22 || h < 6) ? 1 : 0
+            engine.lastHourCheck = now
+        }
+        // Nap after 10 minutes without the pointer moving; wake up with a yawn
+        let idle = wall.timeIntervalSince(s.lastMouseMove)
+        let shouldNap = idle > 600 && s.effectiveState == .idle && s.mode != .expanded
+        if shouldNap && !engine.napping {
+            engine.napping = true
+            engine.setState(.sleeping)
+        } else if !shouldNap && engine.napping {
+            engine.napping = false
+            engine.setState(s.effectiveState)
+            engine.triggerEmote(.yawn, duration: 1.4, silent: true)
+        }
     }
 }
 

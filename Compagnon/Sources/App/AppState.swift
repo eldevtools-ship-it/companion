@@ -25,6 +25,9 @@ final class AppState: ObservableObject {
     // Mouse tracking
     var mousePosition: CGPoint = .zero
     var lastMouseMove: Date = .now
+    /// Last keystroke in the chat / notes, and last chunk of Claude's chat answer (the cloud reacts)
+    var typingAt: Date = .distantPast
+    var claudeTalkingAt: Date = .distantPast
     var lastActivity: Date = .now
     var isPresent: Bool = true
     /// Screens asleep or session locked: pollers skip their network calls.

@@ -207,6 +207,7 @@ final class ChatService: ObservableObject {
     }
 
     private func appendToReply(_ text: String) {
+        AppState.shared.claudeTalkingAt = Date()
         mutate(activeID) { c in
             guard let i = c.messages.indices.last, c.messages[i].role == .assistant else { return }
             c.messages[i].text += text

@@ -50,11 +50,14 @@ enum CompagnonStyle {
 
     /// Point of the cloud outline at angle `a`, fitted to a box of half-size rx × ry.
     /// `puff` breathes the puffs (1 = rest), `phase` lets each puff move on its own.
-    static func cloudPoint(angle a: CGFloat, rx: CGFloat, ry: CGFloat, puff: CGFloat = 1, phase: CGFloat = 0) -> CGPoint {
+    /// `boosts` swells individual puffs (the one nearest the pointer, a ripple on click).
+    static func cloudPoint(angle a: CGFloat, rx: CGFloat, ry: CGFloat, puff: CGFloat = 1, phase: CGFloat = 0,
+                           boosts: [CGFloat] = []) -> CGPoint {
         let dx = cos(a), dy = sin(a)
         var best: CGFloat = 0
         for (i, p) in cloudPuffs.enumerated() {
-            let r = p.r * (puff + 0.012 * sin(phase * 2 + CGFloat(i)))
+            let boost = i < boosts.count ? boosts[i] : 0
+            let r = p.r * (puff + 0.012 * sin(phase * 2 + CGFloat(i)) + boost)
             let b = dx * p.x + dy * p.y
             let disc = b * b - (p.x * p.x + p.y * p.y - r * r)
             if disc >= 0 { best = max(best, b + sqrt(disc)) }

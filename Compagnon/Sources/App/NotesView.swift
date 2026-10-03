@@ -53,7 +53,10 @@ struct NotesView: View {
         }
         .onChange(of: focus) { _, _ in syncHold() }
         .onChange(of: shown.isEmpty) { _, empty in if empty { state.notesContentHeight = 0 } }
-        .onChange(of: store.draft) { _, _ in syncHold() }
+        .onChange(of: store.draft) { _, _ in
+            state.typingAt = Date()
+            syncHold()
+        }
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focus = .compose } }
         .onDisappear { endEditing(); if state.isEditingText { state.isEditingText = false } }
     }

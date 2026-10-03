@@ -17,6 +17,10 @@ pas de nouvelle fonction sans usage réel.
   reflet), la couleur de l'état qui monte par le bas. Partagé par `BotEngine.swift`
   (personnage principal) et `GreetingCanvasView.swift` (accueil). Les mini-robots
   des pastilles gardent la silhouette « bonbon » (`bodyPoint`).
+  Sa « vie » est dans `BotEngine` (section Cloud life) : regard en saccades, bouffées
+  à ressort (souris proche, clic, caresse), vapeur / gouttes / ciel d'orage selon
+  l'état, sieste après 10 min, regard vers le champ quand on tape, « parole » pendant
+  la réponse du chat, bâillement le matin, paupières lourdes tard le soir.
 - `Compagnon/Sources/App/HookServer.swift` — le pont avec Claude Code : socket
   `~/Library/Application Support/Compagnon/compagnon.sock`, script relais
   `compagnon-hook`, installation des hooks dans `~/.claude/settings.json`.

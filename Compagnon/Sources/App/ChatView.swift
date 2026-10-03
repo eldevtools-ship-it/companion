@@ -31,6 +31,7 @@ struct ChatView: View {
         }
         .onChange(of: focused) { _, _ in syncHold() }
         .onChange(of: chat.draft) { old, new in
+            state.typingAt = Date()
             syncHold()
             pasteAndSend(old: old, new: new)
         }
