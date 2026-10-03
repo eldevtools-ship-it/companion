@@ -95,7 +95,9 @@ cd Kumo && xcodegen && xcodebuild -scheme Kumo -configuration Debug build
   montré, écriture seulement après confirmation.
 - Ne jamais envoyer un mail ni autoriser une action sans clic explicite.
 - Performance : 0 % de CPU quand l'île est cachée. Le suivi de la souris tourne à
-  60 Hz seulement près de l'île ou quand elle est ouverte (8 Hz sinon) ; seules la vue
+  60 Hz seulement près de l'île ou quand elle est ouverte, à 8 Hz quand la petite île est
+  visible, et s'arrête quand elle est cachée et la souris loin (un moniteur de mouvement
+  le réveille près de l'encoche, tout changement de mode aussi) ; seules la vue
   affichée et celle qui disparaît sont construites ; les mini-animations sont plafonnées
   à 30 i/s ; aucun appel réseau pendant que les écrans dorment (`AppState.macAsleep`) ;
   les journaux s'écrivent en arrière-plan.

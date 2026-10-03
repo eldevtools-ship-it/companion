@@ -188,23 +188,61 @@ final class IslandWindowController: NSWindowController {
 
     // MARK: - Pointer polling
     // 60 Hz while the pointer is near the island or it's open (hover, look-at, cursor);
-    // 8 Hz otherwise, so a resting island barely wakes the CPU.
+    // 8 Hz while the compact island shows; nothing at all while it's hidden and the pointer
+    // is far: a mouse-move monitor (no permission needed) wakes it up when the pointer
+    // comes near the notch, and any change of mode wakes it too.
 
-    private var pollHot = true
+    private enum PollRate { case hot, warm, off }
+    private var pollRate: PollRate = .hot
+    private var wakeMonitor: Any?
+    private var modeSubscription: AnyCancellable?
 
     private func startPolling() {
-        schedulePoll(hot: true)
+        schedulePoll(.hot)
+        // The island shows or opens by itself (a session, an alert): resume at once
+        modeSubscription = state.$mode
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.pollRate == .off else { return }
+                    self.schedulePoll(.hot)
+                }
+            }
     }
 
-    private func schedulePoll(hot: Bool) {
+    private func schedulePoll(_ rate: PollRate) {
         frameTimer?.invalidate()
-        pollHot = hot
+        frameTimer = nil
+        pollRate = rate
+        guard rate != .off else { armWakeMonitor(); return }
+        disarmWakeMonitor()
+        let hot = rate == .hot
         let t = Timer(timeInterval: hot ? 1.0 / 60.0 : 1.0 / 8.0, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.pollFrame() }
         }
         t.tolerance = hot ? 0.002 : 0.04
         RunLoop.main.add(t, forMode: .common)
         frameTimer = t
+    }
+
+    /// While polling is off: wake it when the pointer comes near the island's panel.
+    private func armWakeMonitor() {
+        guard wakeMonitor == nil else { return }
+        wakeMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] _ in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, self.pollRate == .off, let panel = self.islandPanel else { return }
+                    if panel.frame.insetBy(dx: -40, dy: -40).contains(NSEvent.mouseLocation) {
+                        self.schedulePoll(.hot)
+                    }
+                }
+            }
+        }
+    }
+
+    private func disarmWakeMonitor() {
+        if let wakeMonitor { NSEvent.removeMonitor(wakeMonitor) }
+        wakeMonitor = nil
     }
 
     private func pollFrame() {
@@ -268,10 +306,11 @@ final class IslandWindowController: NSWindowController {
         wasInIsland = inIsland
         updateKeyboard(pointerInside: inIsland)
 
-        // Fast polling only when it matters
+        // Fast polling only when it matters, none while hidden with the pointer far away
         let near = islandRect.insetBy(dx: -160, dy: -160).contains(local)
-        let wantHot = near || state.mode == .expanded || botHovering
-        if wantHot != pollHot { schedulePoll(hot: wantHot) }
+        let rate: PollRate = near || state.mode == .expanded || botHovering ? .hot
+            : state.mode == .hidden && fsm.state == .hidden ? .off : .warm
+        if rate != pollRate { schedulePoll(rate) }
 
         // Bot-head hover (love emote)
         let overBot = state.mode == .expanded && state.stateOverride == nil && isBotHit(local)
