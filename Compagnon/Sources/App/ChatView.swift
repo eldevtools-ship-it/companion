@@ -12,15 +12,19 @@ struct ChatView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             CardBackground(wash: nil)
-            VStack(alignment: .leading, spacing: 8) {
-                topBar
-                conversation
+            VStack(alignment: .leading, spacing: ChatLayout.spacing) {
+                if !chat.messages.isEmpty {
+                    topBar
+                    conversation
+                }
                 inputRow
             }
             .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, IslandConst.cardInset)
-            .padding(.top, 10)
-            .padding(.bottom, IslandConst.cardInset)
+            .padding(.top, ChatLayout.top)
+            .padding(.bottom, ChatLayout.bottom)
+            // Empty chat: the field sits in the middle, next to the cloud
+            .frame(maxHeight: .infinity, alignment: chat.messages.isEmpty ? .center : .bottom)
         }
         .onChange(of: state.view) { _, v in
             if v == .chat { DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focused = true } }
@@ -30,94 +34,57 @@ struct ChatView: View {
         .onChange(of: chat.draft) { _, _ in syncHold() }
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focused = true } }
         .onDisappear { if state.isEditingText { state.isEditingText = false } }
+        .onChange(of: chat.messages.isEmpty) { _, empty in if empty { state.chatContentHeight = 0 } }
     }
 
-    // MARK: Top bar
+    // MARK: Top bar (only once there's a conversation)
 
     private var topBar: some View {
-        HStack(spacing: 6) {
-            ForEach(ChatModel.allCases, id: \.self) { m in
-                Button { chat.model = m } label: {
-                    Text(m.label)
-                        .font(.system(size: 10.5, weight: .semibold))
-                        .foregroundColor(chat.model == m ? .black : Color.white.opacity(0.7))
-                        .padding(.horizontal, 9)
-                        .frame(height: 20)
-                        .background(Capsule().fill(chat.model == m ? Color.white : Color.white.opacity(0.07)))
-                }
-                .buttonStyle(.plain)
-                .pointingHand()
-            }
+        HStack {
             Spacer(minLength: 0)
-            if !chat.messages.isEmpty {
-                Button { chat.newConversation(); focused = true } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "square.and.pencil").font(.system(size: 10, weight: .semibold))
-                        Text("Nouvelle").font(.system(size: 10.5, weight: .medium))
-                    }
-                    .foregroundColor(Color.white.opacity(0.6))
-                    .contentShape(Rectangle())
+            Button { chat.newConversation(); focused = true } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "square.and.pencil").font(.system(size: 10, weight: .semibold))
+                    Text("Nouvelle").font(.system(size: 10.5, weight: .medium))
                 }
-                .buttonStyle(.plain)
-                .pointingHand()
-                .help("Nouvelle conversation")
+                .foregroundColor(Color.white.opacity(0.6))
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .pointingHand()
+            .help("Nouvelle conversation")
         }
-        .frame(height: 20)
+        .frame(height: ChatLayout.topBar)
     }
 
-    // MARK: Conversation
+    // MARK: Conversation — the island grows with it, up to a cap, then it scrolls
 
     private var conversation: some View {
-        Group {
-            if chat.messages.isEmpty {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Demande ce que tu veux à Claude, ou travaille le texte que tu as copié :")
-                        .font(.system(size: 11.5))
-                        .foregroundColor(Color.white.opacity(0.5))
-                    HStack(spacing: 6) {
-                        quick("Corriger", "Corrige l'orthographe, la grammaire et la ponctuation de ce texte, sans changer le ton :")
-                        quick("En anglais", "Traduis ce texte en anglais naturel :")
-                        quick("Plus court", "Rends ce texte plus court et plus clair, même ton :")
-                        quick("Plus pro", "Reformule ce texte sur un ton professionnel et cordial :")
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.top, 4)
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView(.vertical, showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(chat.messages) { m in
-                                ChatBubble(message: m, typing: chat.busy && m.id == chat.messages.last?.id) {
-                                    chat.copy(m)
-                                }
-                                .id(m.id)
-                            }
+                    ForEach(chat.messages) { m in
+                        ChatBubble(message: m, typing: chat.busy && m.id == chat.messages.last?.id) {
+                            chat.copy(m)
                         }
-                        .padding(.vertical, 2)
-                    }
-                    .onChange(of: chat.messages.last?.text) { _, _ in
-                        if let id = chat.messages.last?.id { proxy.scrollTo(id, anchor: .bottom) }
+                        .id(m.id)
                     }
                 }
+                .padding(.vertical, 2)
+                .background(GeometryReader { g in
+                    Color.clear.preference(key: ChatHeightKey.self, value: g.size.height)
+                })
+            }
+            .onPreferenceChange(ChatHeightKey.self) { h in
+                MainActor.assumeIsolated {
+                    if abs(state.chatContentHeight - h) > 1 { state.chatContentHeight = h }
+                }
+            }
+            .onChange(of: chat.messages.last?.text) { _, _ in
+                if let id = chat.messages.last?.id { proxy.scrollTo(id, anchor: .bottom) }
             }
         }
         .frame(maxHeight: .infinity)
-    }
-
-    private func quick(_ title: String, _ instruction: String) -> some View {
-        Button { chat.sendWithClipboard(instruction) } label: {
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(Color.white.opacity(0.8))
-                .padding(.horizontal, 10)
-                .frame(height: 24)
-                .background(Capsule().fill(Color.white.opacity(0.08)))
-        }
-        .buttonStyle(.plain)
-        .pointingHand()
-        .help("Avec le texte copié (⌘C)")
     }
 
     // MARK: Input
@@ -140,7 +107,7 @@ struct ChatView: View {
                     .onExitCommand { if chat.busy { chat.stop() } else if chat.draft.isEmpty { state.view = .overview } else { chat.draft = "" } }
             }
             .padding(.horizontal, 10)
-            .frame(height: 32)
+            .frame(height: ChatLayout.input)
             .background(
                 RoundedRectangle(cornerRadius: IslandConst.innerRadius)
                     .fill(Color.white.opacity(focused ? 0.1 : 0.07))
@@ -175,6 +142,28 @@ struct ChatView: View {
         let writing = focused && !chat.draft.isEmpty
         if state.isEditingText != writing { state.isEditingText = writing }
     }
+}
+
+/// Vertical rhythm of the chat card; IslandWindowController sizes the island from it.
+enum ChatLayout {
+    static let top: CGFloat = 10
+    static let bottom: CGFloat = IslandConst.cardInset
+    static let spacing: CGFloat = 8
+    static let topBar: CGFloat = 18
+    static let input: CGFloat = 32
+    static let maxHeight: CGFloat = 320
+
+    /// Island height for a conversation whose messages take `content` points.
+    static func islandHeight(content: CGFloat, empty: Bool) -> CGFloat {
+        guard !empty else { return IslandConst.expandedHeight }
+        let chrome = IslandConst.cardTop + IslandConst.contentInset + top + bottom + topBar + input + spacing * 2
+        return min(maxHeight, max(IslandConst.expandedHeight, chrome + content))
+    }
+}
+
+private struct ChatHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 private struct ChatBubble: View {

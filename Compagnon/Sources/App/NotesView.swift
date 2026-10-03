@@ -24,15 +24,16 @@ struct NotesView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             CardBackground(wash: nil)
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: NotesLayout.spacing) {
                 folderBar
                 composeRow
-                list
+                if !shown.isEmpty { list }
             }
             .padding(.leading, CardLayout.contentLeading)
             .padding(.trailing, IslandConst.cardInset)
-            .padding(.top, 12)
-            .padding(.bottom, IslandConst.cardInset)
+            .padding(.top, NotesLayout.top)
+            .padding(.bottom, NotesLayout.bottom)
+            .frame(maxHeight: .infinity, alignment: .top)
         }
         .onChange(of: state.view) { _, v in
             if v == .notes {
@@ -42,6 +43,7 @@ struct NotesView: View {
             }
         }
         .onChange(of: focus) { _, _ in syncHold() }
+        .onChange(of: shown.isEmpty) { _, empty in if empty { state.notesContentHeight = 0 } }
         .onChange(of: store.draft) { _, _ in syncHold() }
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focus = .compose } }
         .onDisappear { endEditing(); if state.isEditingText { state.isEditingText = false } }
@@ -153,35 +155,33 @@ struct NotesView: View {
 
     // MARK: List
 
+    // The island grows with the list, up to a cap, then it scrolls
     private var list: some View {
-        Group {
-            if shown.isEmpty {
-                Text(folder == nil ? "Rien de noté pour l'instant. Écris au-dessus, ⏎ pour garder."
-                                   : "Rien dans ce dossier pour l'instant.")
-                    .font(.system(size: 11.5))
-                    .foregroundColor(Color.white.opacity(0.4))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding(.top, 4)
-            } else {
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 4) {
-                        ForEach(shown) { note in
-                            NoteRow(note: note,
-                                    showFolder: folder == nil,
-                                    folders: store.folders,
-                                    isEditing: editing == note.id,
-                                    isMoving: moving == note.id,
-                                    editText: $editText,
-                                    focus: $focus,
-                                    onEdit: { startEdit(note) },
-                                    onSave: saveEdit,
-                                    onCancel: { editing = nil },
-                                    onToggleMove: { withAnimation(.easeOut(duration: 0.15)) { moving = moving == note.id ? nil : note.id } },
-                                    onMove: { f in store.move(note.id, to: f); moving = nil },
-                                    onDelete: { delete(note) })
-                        }
-                    }
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(shown) { note in
+                    NoteRow(note: note,
+                            showFolder: folder == nil,
+                            folders: store.folders,
+                            isEditing: editing == note.id,
+                            isMoving: moving == note.id,
+                            editText: $editText,
+                            focus: $focus,
+                            onEdit: { startEdit(note) },
+                            onSave: saveEdit,
+                            onCancel: { editing = nil },
+                            onToggleMove: { withAnimation(.easeOut(duration: 0.15)) { moving = moving == note.id ? nil : note.id } },
+                            onMove: { f in store.move(note.id, to: f); moving = nil },
+                            onDelete: { delete(note) })
                 }
+            }
+            .background(GeometryReader { g in
+                Color.clear.preference(key: NotesHeightKey.self, value: g.size.height)
+            })
+        }
+        .onPreferenceChange(NotesHeightKey.self) { h in
+            MainActor.assumeIsolated {
+                if abs(state.notesContentHeight - h) > 1 { state.notesContentHeight = h }
             }
         }
         .frame(maxHeight: .infinity)
@@ -246,6 +246,30 @@ struct NotesView: View {
         let writing = focus != nil && (!store.draft.isEmpty || focus == .edit || focus == .folder)
         if state.isEditingText != writing { state.isEditingText = writing }
     }
+}
+
+// MARK: - Layout
+
+/// Vertical rhythm of the notes card; IslandWindowController sizes the island from it.
+enum NotesLayout {
+    static let top: CGFloat = 12
+    static let bottom: CGFloat = IslandConst.cardInset
+    static let spacing: CGFloat = 10
+    static let folderBar: CGFloat = 24
+    static let compose: CGFloat = 32
+    static let maxHeight: CGFloat = 320
+
+    /// Island height for a list taking `list` points (0 = nothing to show).
+    static func islandHeight(list: CGFloat) -> CGFloat {
+        let chrome = IslandConst.cardTop + IslandConst.contentInset + top + bottom + folderBar + compose + spacing
+        let withList = list > 0 ? chrome + spacing + list : chrome
+        return min(maxHeight, max(IslandConst.expandedHeight, withList))
+    }
+}
+
+private struct NotesHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 // MARK: - Pieces

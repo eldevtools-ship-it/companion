@@ -4,7 +4,7 @@ import AppKit
 // MARK: - Chat with Claude
 // A quick chat in the island, through the Claude Code CLI already installed and
 // signed in on this Mac (`claude -p`): it uses your Claude plan, no API key.
-// Small, fast model by default; one conversation that continues until you start
+// Claude Sonnet; one conversation that continues until you start
 // a new one. Runs in its own folder with COMPAGNON_CHAT set, so our hooks ignore it.
 
 struct ChatMessage: Identifiable, Equatable {
@@ -15,13 +15,6 @@ struct ChatMessage: Identifiable, Equatable {
     var failed = false
 }
 
-enum ChatModel: String, CaseIterable {
-    case haiku = "claude-haiku-4-5"
-    case sonnet = "claude-sonnet-5-5"
-
-    var label: String { self == .haiku ? "Haiku · rapide" : "Sonnet" }
-}
-
 @MainActor
 final class ChatService: ObservableObject {
     static let shared = ChatService()
@@ -30,9 +23,8 @@ final class ChatService: ObservableObject {
     @Published private(set) var busy = false
     /// What you're typing, kept while you visit other views.
     @Published var draft = ""
-    @Published var model: ChatModel = .haiku {
-        didSet { UserDefaults.standard.set(model.rawValue, forKey: "chatModel") }
-    }
+    /// Sonnet: quick enough for chat, good at rewriting text.
+    private let model = "claude-sonnet-5-5"
 
     private var sessionId: String?
     private var process: Process?
@@ -47,9 +39,7 @@ final class ChatService: ObservableObject {
     sans commentaire.
     """
 
-    private init() {
-        if let raw = UserDefaults.standard.string(forKey: "chatModel"), let m = ChatModel(rawValue: raw) { model = m }
-    }
+    private init() {}
 
     // MARK: Sending
 
@@ -67,16 +57,6 @@ final class ChatService: ObservableObject {
             }
             run(claude: claude, prompt: prompt)
         }
-    }
-
-    /// Clipboard shortcuts: correct, translate or shorten what you copied.
-    func sendWithClipboard(_ instruction: String) {
-        guard let copied = NSPasteboard.general.string(forType: .string)?
-            .trimmingCharacters(in: .whitespacesAndNewlines), !copied.isEmpty else {
-            messages.append(ChatMessage(role: .assistant, text: "Copie d'abord un texte (⌘C), puis clique à nouveau.", failed: true))
-            return
-        }
-        send("\(instruction)\n\n\(copied)")
     }
 
     func stop() {
@@ -99,7 +79,7 @@ final class ChatService: ObservableObject {
     private func run(claude: String, prompt: String) {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: claude)
-        var args = ["-p", prompt, "--model", model.rawValue,
+        var args = ["-p", prompt, "--model", model,
                     "--output-format", "stream-json", "--verbose", "--include-partial-messages",
                     "--append-system-prompt", Self.systemPrompt]
         if let sessionId { args += ["--resume", sessionId] }

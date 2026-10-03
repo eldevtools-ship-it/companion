@@ -145,8 +145,6 @@ enum IslandConst {
     static let compactEar: CGFloat = IslandRestingLayout.compactEar
     /// Island height while the Harvest project / task list is open.
     static let harvestListHeight: CGFloat = 284
-    /// Island height on the notes.
-    static let notesHeight: CGFloat = 300
 
     static let viewLayouts: [IslandView: ViewLayout] = {
         var d: [IslandView: ViewLayout] = [:]

@@ -48,6 +48,10 @@ final class AppState: ObservableObject {
     // True while you type in the island (Slack reply): keeps it open
     @Published var isEditingText: Bool = false
 
+    // Measured content of the chat / notes: the island grows with it (up to a cap)
+    @Published var chatContentHeight: CGFloat = 0
+    @Published var notesContentHeight: CGFloat = 0
+
     // Harvest picker: the project / task list is open (the island grows to show it)
     @Published var harvestListOpen: Bool = false
 

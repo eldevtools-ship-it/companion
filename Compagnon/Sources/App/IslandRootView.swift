@@ -128,7 +128,9 @@ struct IslandContainer: View {
                 islandHeight = h
             }
         }
-        // The Harvest list grows the island downwards while you pick
+        // The Harvest list, the chat and the notes grow the island downwards
+        .onChange(of: state.chatContentHeight) { _, _ in resizeForContent() }
+        .onChange(of: state.notesContentHeight) { _, _ in resizeForContent() }
         .onChange(of: state.harvestListOpen) { _, _ in
             guard state.mode == .expanded else { return }
             let (w, h) = islandSize(mode: .expanded, view: state.view,
@@ -148,6 +150,16 @@ struct IslandContainer: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .botGreet)) { _ in
             greetNotif.toggle()
+        }
+    }
+
+    private func resizeForContent() {
+        guard state.mode == .expanded else { return }
+        let (w, h) = islandSize(mode: .expanded, view: state.view, nw: state.notchWidth, nh: state.notchHeight)
+        guard abs(h - islandHeight) > 0.5 else { return }
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+            islandWidth = w
+            islandHeight = h
         }
     }
 
@@ -283,8 +295,10 @@ func botPosition(mode: IslandMode, view: IslandView, islandW: CGFloat, islandH: 
         if let fixedY = layout.botY {
             cy = fixedY
         } else {
-            // Centred in the card, which runs from below the header to contentInset above the bottom
-            let cardH = islandH - IslandConst.cardTop - IslandConst.contentInset
+            // Centred in the card (below the header, contentInset above the bottom). Cards
+            // that grow (chat, notes, Harvest list) keep the cloud where it was, at the top.
+            let standardCard = IslandConst.expandedHeight - IslandConst.cardTop - IslandConst.contentInset
+            let cardH = min(islandH - IslandConst.cardTop - IslandConst.contentInset, standardCard)
             cy = IslandConst.cardTop + cardH / 2 + CardLayout.botCenterYOffset
         }
         return (cx, cy, diameter, 1)

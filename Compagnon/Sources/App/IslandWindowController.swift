@@ -631,8 +631,13 @@ func islandSize(mode: IslandMode, view: IslandView,
     case .compact:  return (nw + IslandConst.compactEar * 2, nh + IslandRestingLayout.compactExtraHeight)
     case .expanded:
         let layout = IslandConst.viewLayouts[view]!
-        if view == .notes || view == .chat {
-            return (IslandConst.expandedWidth, IslandConst.notesHeight)
+        if view == .chat {
+            return (IslandConst.expandedWidth,
+                    ChatLayout.islandHeight(content: AppState.shared.chatContentHeight,
+                                            empty: ChatService.shared.messages.isEmpty))
+        }
+        if view == .notes {
+            return (IslandConst.expandedWidth, NotesLayout.islandHeight(list: AppState.shared.notesContentHeight))
         }
         if view == .harvest && AppState.shared.harvestListOpen {
             return (IslandConst.expandedWidth, IslandConst.harvestListHeight)

@@ -33,7 +33,7 @@ pas de nouvelle fonction sans usage réel.
   ⌥⌘N l'ouvre depuis n'importe quelle app (`HotKey.swift`, raccourci Carbon).
 - `ChatService.swift` / `ChatView.swift` — petit chat avec Claude (bouton bulle,
   ⌥⌘J) via la CLI Claude Code installée (`claude -p`, abonnement de l'utilisateur,
-  Haiku par défaut). Lancé avec `COMPAGNON_CHAT=1` : le relais `compagnon-hook`
+  Claude Sonnet, sans choix de modèle). Lancé avec `COMPAGNON_CHAT=1` : le relais `compagnon-hook`
   l'ignore, pour que le chat n'apparaisse jamais comme une session dans l'île.
 - `DayService.swift` / `DayCardView.swift` — bonjour le matin, résumé du soir,
   concentration automatique en réunion (caméra allumée ou réunion de l'agenda).
