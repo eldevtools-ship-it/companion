@@ -103,7 +103,7 @@ class Cloud:
 
 # ── App icon ──────────────────────────────────────────────────────────────────
 
-APP_CLOUD = Cloud(0.5, 0.52, 0.27)
+APP_CLOUD = Cloud(0.5, 0.485, 0.285)   # optical centre: a touch above the middle (its shadow weighs it down)
 
 
 def app_icon_pixel(x, y, px):

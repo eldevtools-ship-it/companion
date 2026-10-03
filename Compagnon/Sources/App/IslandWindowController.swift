@@ -218,6 +218,7 @@ final class IslandWindowController: NSWindowController {
         let cur = AppState.shared.mousePosition
         if abs(newPos.x - cur.x) > 1 || abs(newPos.y - cur.y) > 1 {
             AppState.shared.mousePosition = newPos
+            AppState.shared.lastMouseMove = .now
         }
 
         // AppState can hide the island by itself (last task ended): keep the FSM in step.
@@ -434,6 +435,11 @@ final class IslandWindowController: NSWindowController {
                 guard let self else { return }
                 self.fsm.reveal()
             }
+        }
+
+        // ⌥⌘N from anywhere: the notes, ready to type
+        NotificationCenter.default.addObserver(forName: .openNotes, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.open(to: .notes) }
         }
 
         // Collapse requests from views (OK button, etc.)

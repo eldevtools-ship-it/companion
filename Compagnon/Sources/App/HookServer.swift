@@ -329,6 +329,7 @@ final class HookServer: @unchecked Sendable {
 
         case "Stop":
             state.updateTask(id: agentId, state: .finished)
+            DayService.shared.countClaudeSession()
             if let i = state.tasks.firstIndex(where: { $0.id == agentId }), let start = state.tasks[i].startedAt {
                 state.tasks[i].lastDuration = Date().timeIntervalSince(start)
                 state.tasks[i].startedAt = nil

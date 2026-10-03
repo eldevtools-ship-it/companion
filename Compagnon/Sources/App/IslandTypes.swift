@@ -13,6 +13,7 @@ enum IslandView: String, CaseIterable {
     case confused, note, settings, greeting
     case harvest    // Harvest: choose project, task and note
     case notes      // Pense-bête: your notes and folders
+    case day        // Good morning / evening summary
 }
 
 // MARK: - Bot State

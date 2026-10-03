@@ -314,6 +314,7 @@ final class SlackService {
         let state = AppState.shared
         state.slackMessages = Array(([message] + state.slackMessages).prefix(10))
         state.slackUnread += 1
+        DayService.shared.countSlackMessage()
 
         guard let idx = state.tasks.firstIndex(where: { $0.id == Self.pillId }) else { return }
         state.tasks[idx].state = .question

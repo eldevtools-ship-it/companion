@@ -30,6 +30,9 @@ pas de nouvelle fonction sans usage réel.
 - `Compagnon/Sources/App/IslandCursor.swift` — curseur main / texte au survol de l'île.
 - `NotesStore.swift` / `NotesView.swift` — le pense-bête (bouton notes à côté de la
   lune) : notes et dossiers dans `~/Library/Application Support/Compagnon/notes.json`.
+  ⌥⌘N l'ouvre depuis n'importe quelle app (`HotKey.swift`, raccourci Carbon).
+- `DayService.swift` / `DayCardView.swift` — bonjour le matin, résumé du soir,
+  concentration automatique en réunion (caméra allumée ou réunion de l'agenda).
 - `SlackService.swift`, `HarvestService.swift`, `GithubPoller.swift`,
   `UpdateService.swift` (mise à jour automatique depuis les releases GitHub).
 - `Compagnon/Resources/sounds/` — générés par `scripts/gen-sounds.py`.

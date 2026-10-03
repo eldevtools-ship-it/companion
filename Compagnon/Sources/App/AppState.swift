@@ -103,6 +103,24 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(focusMode, forKey: "focusMode") }
     }
 
+    /// Concentration switched on by a meeting (camera in use or calendar), not by you.
+    @Published var autoFocusActive: Bool = false
+    @Published var autoFocusMeetings: Bool = true {
+        didSet { UserDefaults.standard.set(autoFocusMeetings, forKey: "autoFocusMeetings") }
+    }
+
+    // The day around you (DayService)
+    @Published var dayCard: DayCard? = nil
+    @Published var morningGreeting: Bool = true {
+        didSet { UserDefaults.standard.set(morningGreeting, forKey: "morningGreeting") }
+    }
+    @Published var eveningSummary: Bool = true {
+        didSet { UserDefaults.standard.set(eveningSummary, forKey: "eveningSummary") }
+    }
+    @Published var eveningHour: Int = 18 {
+        didSet { UserDefaults.standard.set(eveningHour, forKey: "eveningHour") }
+    }
+
     @Published var harvestReminder: Bool = true {
         didSet { UserDefaults.standard.set(harvestReminder, forKey: "harvestReminder") }
     }
@@ -132,6 +150,8 @@ final class AppState: ObservableObject {
 
     // Harvest (HarvestService)
     @Published var harvestRunning: HarvestEntry? = nil
+    /// Hours logged today on finished entries (the running one is added live).
+    @Published var harvestTodayDone: TimeInterval = 0
     @Published var harvestLast: HarvestEntry? = nil
     @Published var harvestProjects: [HarvestProject] = []
     @Published var harvestLoaded: Bool = false
@@ -155,6 +175,10 @@ final class AppState: ObservableObject {
         if let v = ud.object(forKey: "autoUpdate") as? Bool        { autoUpdate = v }
         if let v = ud.object(forKey: "harvestReminder") as? Bool   { harvestReminder = v }
         if let v = ud.object(forKey: "focusMode") as? Bool         { focusMode = v }
+        if let v = ud.object(forKey: "autoFocusMeetings") as? Bool { autoFocusMeetings = v }
+        if let v = ud.object(forKey: "morningGreeting") as? Bool   { morningGreeting = v }
+        if let v = ud.object(forKey: "eveningSummary") as? Bool    { eveningSummary = v }
+        if let v = ud.object(forKey: "eveningHour") as? Int        { eveningHour = v }
         if let v = ud.object(forKey: "questionCompatMode") as? Bool { questionCompatMode = v }
         if let v = ud.object(forKey: "calendarEnabled") as? Bool   { calendarEnabled = v }
         if let v = ud.object(forKey: "calendarLeadMinutes") as? Int { calendarLeadMinutes = v }

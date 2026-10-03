@@ -179,6 +179,25 @@ struct SettingsView: View {
             .padding(6)
         }
 
+        GroupBox("Ta journée") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Dire bonjour le matin (première réunion, dernière tâche Harvest)", isOn: $state.morningGreeting)
+                HStack(spacing: 8) {
+                    Toggle("Résumé du soir à partir de", isOn: $state.eveningSummary)
+                    Stepper(value: $state.eveningHour, in: 15...23) {
+                        Text("\(state.eveningHour) h").monospacedDigit()
+                    }
+                    .disabled(!state.eveningSummary)
+                }
+                Toggle("Concentration automatique pendant les réunions (caméra allumée ou réunion en cours dans l'agenda)",
+                       isOn: $state.autoFocusMeetings)
+                Text("Noter quelque chose depuis n'importe quelle app : ⌥⌘N.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            .padding(6)
+        }
+
         GroupBox("Raccourci clavier") {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Afficher l'île avec un raccourci", isOn: $state.hotkeyEnabled)

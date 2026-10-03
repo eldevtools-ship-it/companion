@@ -148,6 +148,9 @@ final class HarvestService {
             let entries = (json["time_entries"] as? [[String: Any]] ?? []).compactMap { parse($0, at: now) }
 
             state.harvestRunning = entries.first { $0.isRunning }
+            let today = Self.today()
+            state.harvestTodayDone = entries.filter { !$0.isRunning && $0.spentDate == today }
+                .reduce(0) { $0 + $1.hours * 3600 }
             state.harvestLast = entries.first { !$0.isRunning }
             state.harvestError = nil
             state.harvestLoaded = true

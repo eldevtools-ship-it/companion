@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -7,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let versionItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let updateItem = NSMenuItem(title: "Rechercher une mise à jour", action: nil, keyEquivalent: "u")
     private let focusItem = NSMenuItem(title: "Concentration", action: nil, keyEquivalent: "")
+    private let statusDot = CALayer()
+    private var statusSub: AnyCancellable?
     private(set) var islandController: IslandWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -41,6 +44,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         focusItem.target = self
         focusItem.action = #selector(toggleFocus)
         menu.addItem(focusItem)
+        let notesItem = NSMenuItem(title: "Noter quelque chose", action: #selector(openNotes), keyEquivalent: "n")
+        notesItem.keyEquivalentModifierMask = [.command, .option]
+        notesItem.target = self
+        menu.addItem(notesItem)
+        let dayItem = NSMenuItem(title: "Résumé du jour", action: #selector(showDay), keyEquivalent: "")
+        dayItem.target = self
+        menu.addItem(dayItem)
         menu.addItem(.separator())
         updateItem.target = self
         updateItem.action = #selector(checkForUpdate)
@@ -53,6 +63,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         statusItem?.menu = menu
         refreshMenu()
+        setupStatusDot()
+    }
+
+    // MARK: - Live status on the menu bar icon
+    // A small dot on the cloud: amber when Claude waits for you, blue while it works.
+
+    private func setupStatusDot() {
+        guard let button = statusItem?.button else { return }
+        button.wantsLayer = true
+        statusDot.cornerRadius = 3
+        statusDot.isHidden = true
+        button.layer?.addSublayer(statusDot)
+        let s = AppState.shared
+        statusSub = Publishers.CombineLatest3(s.$tasks, s.$pendingApproval.map { $0 != nil }, s.$pendingQuestion.map { $0 != nil })
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] tasks, approval, question in
+                MainActor.assumeIsolated { self?.updateStatusDot(tasks: tasks, waiting: approval || question) }
+            }
+    }
+
+    private func updateStatusDot(tasks: [AgentTask], waiting: Bool) {
+        guard let button = statusItem?.button else { return }
+        let working = tasks.contains { $0.source == .claudeCode && [.working, .thinking, .searching].contains($0.state) }
+        let color: NSColor? = waiting ? NSColor(red: 0.96, green: 0.65, blue: 0.14, alpha: 1)
+            : working ? NSColor(red: 0.23, green: 0.62, blue: 1.0, alpha: 1) : nil
+        statusDot.isHidden = color == nil
+        statusDot.backgroundColor = color?.cgColor
+        let b = button.bounds
+        statusDot.frame = CGRect(x: b.midX + 7, y: b.midY - 8, width: 6, height: 6)
     }
 
     // MARK: - Menu state
@@ -111,6 +150,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             UserDefaults.standard.set("updates", forKey: "settingsSection")
             openSettings()
         }
+    }
+
+    @objc private func openNotes() {
+        islandController?.open(to: .notes)
+    }
+
+    @objc private func showDay() {
+        AppState.shared.dayCard = Calendar.current.component(.hour, from: Date()) < 12 ? .morning : .evening
+        islandController?.open(to: .day)
     }
 
     @objc private func toggleFocus() {
@@ -181,6 +229,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         SlackService.shared.start()
         HarvestService.shared.start()
         UpdateService.shared.start()
+        DayService.shared.start()
+        NotesHotKey.register()
         NotificationCenter.default.addObserver(self, selector: #selector(openSettingsFromNotification(_:)),
                                                name: .openFullSettings, object: nil)
     }
