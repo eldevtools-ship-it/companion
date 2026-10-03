@@ -24,7 +24,6 @@ struct IslandContainer: View {
     @State private var islandHeight: CGFloat = IslandConst.notchHeight
     @State private var cornerRadius: CGFloat = IslandConst.roundedCorner
     @State private var flare: CGFloat = 0
-    @State private var greetNotif: Bool = false
     @ObservedObject private var spotify = SpotifyService.shared
 
     private let openSpring = Animation.spring(response: 0.5, dampingFraction: 0.72)
@@ -153,9 +152,6 @@ struct IslandContainer: View {
             islandHeight     = h
             cornerRadius     = state.mode == .expanded ? IslandConst.expandedCorner : IslandConst.roundedCorner
             flare            = flare(for: state.mode)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .botGreet)) { _ in
-            greetNotif.toggle()
         }
     }
 

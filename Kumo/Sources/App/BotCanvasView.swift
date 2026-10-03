@@ -38,11 +38,8 @@ struct BotCanvasView: View {
                 engine.vibing = state.view == .music && state.mode == .expanded
 
                 engine.update(dt: dt)
-                var ctx = context
-                engine.applyDance(&ctx, size: size)
-                engine.drawHandsBehind(context: ctx, size: size)
-                engine.draw(context: ctx, size: size)
-                engine.drawHandsAndExtras(context: ctx, size: size)
+                engine.draw(context: context, size: size)
+                engine.drawExtras(context: context, size: size)
             }
         }
         .onChange(of: state.effectiveState) { _, newState in
@@ -50,14 +47,6 @@ struct BotCanvasView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .botPet)) { _ in
             engine.pet()
-        }
-        .onChange(of: state.mode) { _, newMode in
-            // Hard-reset morph when island collapses
-            if newMode != .expanded {
-                engine.tweens.removeValue(forKey: "morph")
-                engine.locks.remove("morph")
-                engine.morph = 0
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .triggerEmote)) { notif in
             if let emote = notif.object as? BotEmote {
@@ -75,18 +64,6 @@ struct BotCanvasView: View {
                 engine.tgEs = v
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .botGulp)) { _ in
-            engine.gulp()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .botMorphTo)) { notif in
-            if let target = notif.object as? CGFloat {
-                let dur: CGFloat = target > 0.5 ? 550 : 650
-                engine.anim("morph", keys: [TweenKey(target: target, duration: dur, ease: Ease.inOut)])
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .botGreet)) { _ in
-            engine.greet()
-        }
         .onAppear {
             engine.setState(state.effectiveState, force: true)
         }
@@ -94,13 +71,12 @@ struct BotCanvasView: View {
 
     /// Where the pointer is for the cloud: look direction, how close it is, from which side.
     private func pointer(state: AppState) -> (lookX: CGFloat, lookY: CGFloat, near: CGFloat, angle: CGFloat) {
-        let screen = NSScreen.main ?? NSScreen.screens[0]
         let (islandW, islandH) = islandSize(mode: state.mode, view: state.view,
                                              nw: state.notchWidth, nh: state.notchHeight)
         let (botCx, botCy, _, _) = botPosition(mode: state.mode, view: state.view,
                                                 islandW: islandW, islandH: islandH)
-        // Island is centred on screen and glued to its top
-        let dx = state.mousePosition.x - (screen.frame.midX - islandW / 2 + botCx)
+        // mousePosition is measured from the island's centre line and the top of the screen
+        let dx = state.mousePosition.x - (botCx - islandW / 2)
         let dy = state.mousePosition.y - botCy
         let dist = hypot(dx, dy)
         let near = state.mode == .expanded ? max(0, min(1, 1 - (dist - 36) / 170)) : 0
@@ -140,12 +116,10 @@ struct BotCanvasView: View {
 /// Mini bot canvas (for agent pills/column)
 struct MiniBotCanvasView: View {
     let task: AgentTask
-    var isDancing: Bool = false
     @StateObject private var engine: BotEngine
 
-    init(task: AgentTask, isDancing: Bool = false) {
+    init(task: AgentTask) {
         self.task = task
-        self.isDancing = isDancing
         _engine = StateObject(wrappedValue: {
             let e = BotEngine()
             e.isMini = true
@@ -160,11 +134,8 @@ struct MiniBotCanvasView: View {
             Canvas { context, size in
                 let now = timeline.date.timeIntervalSinceReferenceDate
                 let dt = min(0.05, now - engine.lastTime)
-                engine.setDancing(isDancing)
                 engine.update(dt: dt)
-                var ctx = context
-                engine.applyDance(&ctx, size: size)
-                engine.draw(context: ctx, size: size)
+                engine.draw(context: context, size: size)
             }
         }
         .onChange(of: task.state) { _, newState in

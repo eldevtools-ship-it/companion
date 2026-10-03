@@ -70,8 +70,11 @@ final class UpdateService {
         loop = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 20_000_000_000)
             while !Task.isCancelled {
-                await self?.check()
-                await self?.installWhenIdleIfWanted()
+                // Nothing while the screens sleep: checked again on the next round
+                if !AppState.shared.macAsleep {
+                    await self?.check()
+                    await self?.installWhenIdleIfWanted()
+                }
                 try? await Task.sleep(nanoseconds: 30 * 60 * 1_000_000_000)
             }
         }

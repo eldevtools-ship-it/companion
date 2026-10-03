@@ -30,8 +30,6 @@ final class HookServer: @unchecked Sendable {
         return command.contains(hookScriptName) || command.contains(legacyHookScriptName)
     }
 
-    // No approval blocking state — notch is notification-only, user answers in VS Code
-
     private static let maxPayload = 1_048_576          // 1 MB — reject oversized messages
     private static let receiveTimeoutSeconds: Int = 5   // SO_RCVTIMEO on client sockets
     private static let maxConnections = 32              // concurrent connection ceiling
@@ -465,7 +463,7 @@ final class HookServer: @unchecked Sendable {
             // Non-alert work events: reveal compact only, never force-expand
             NotificationCenter.default.post(name: .hookReveal, object: nil)
         }
-        // Already compact and non-alert: Mochi state update is enough, no expand
+        // Already compact and non-alert: the character's state update is enough, no expand
     }
 
     // MARK: - Permission request (blocking — Claude Code waits for decision)

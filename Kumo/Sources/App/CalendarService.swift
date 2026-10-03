@@ -17,9 +17,7 @@ struct Meeting: Identifiable, Equatable {
     let calendarColor: String
 
     func timing(at now: Date = Date()) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "fr_FR")
-        f.dateFormat = "HH:mm"
+        let f = TimeFormat.hourMinute
         let range = "\(f.string(from: start))–\(f.string(from: end))"
         if now >= start { return "En cours · jusqu'à \(f.string(from: end))" }
         let minutes = Int((start.timeIntervalSince(now) / 60).rounded(.up))
@@ -101,10 +99,13 @@ final class CalendarService {
                        calendarColor: color)
     }
 
+    private static let joinRegex = try? NSRegularExpression(
+        pattern: #"https://[^\s<>"]*(meet\.google\.com|zoom\.us/(j|my|w)/|teams\.microsoft\.com/l/meetup-join|teams\.live\.com/meet|whereby\.com|webex\.com|around\.co)[^\s<>"]*"#,
+        options: .caseInsensitive)
+
     /// First video-call link found in the event's URL, location or notes.
     static func joinURL(in fields: [String?]) -> URL? {
-        let pattern = #"https://[^\s<>"]*(meet\.google\.com|zoom\.us/(j|my|w)/|teams\.microsoft\.com/l/meetup-join|teams\.live\.com/meet|whereby\.com|webex\.com|around\.co)[^\s<>"]*"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
+        guard let regex = joinRegex else { return nil }
         for field in fields.compactMap({ $0 }) {
             let range = NSRange(field.startIndex..., in: field)
             if let m = regex.firstMatch(in: field, range: range), let r = Range(m.range, in: field) {
@@ -162,4 +163,14 @@ private extension NSColor {
         guard let c = usingColorSpace(.sRGB) else { return nil }
         return String(format: "#%02X%02X%02X", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
     }
+}
+
+/// "14:30", built once (formatters are costly to create).
+enum TimeFormat {
+    nonisolated(unsafe) static let hourMinute: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "HH:mm"
+        return f
+    }()
 }

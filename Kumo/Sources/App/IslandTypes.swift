@@ -184,6 +184,8 @@ enum IslandConst {
         if let c = projectColors[key] { return c }
         // partial match (e.g. "korus-api" → "korus")
         for (k, c) in projectColors where key.hasPrefix(k) || key.contains(k) { return c }
-        return fallbackColors[abs(name.hashValue) % fallbackColors.count]
+        // djb2: the same name gets the same colour on every launch (hashValue doesn't)
+        let hash = key.utf8.reduce(UInt64(5381)) { ($0 &<< 5) &+ $0 &+ UInt64($1) }
+        return fallbackColors[Int(hash % UInt64(fallbackColors.count))]
     }
 }

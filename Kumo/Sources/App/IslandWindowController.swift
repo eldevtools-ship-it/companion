@@ -13,14 +13,12 @@ final class IslandWindowController: NSWindowController {
 
     private var wasInIsland = false
     private var frameTimer: Timer?
-    private var keyMonitor: Any?
     private var viewSubscription: AnyCancellable?
 
     // Confused recovery timer (set by handleDizzy)
     private var confusedRecoveryTimer: DispatchWorkItem?
 
     // Suppress peek sound on next reveal (e.g. musicReveal)
-    var silentNextReveal = false
 
 
     // Bot-head hover (love emote — mirrors prototype botHover())
@@ -37,14 +35,16 @@ final class IslandWindowController: NSWindowController {
     private var hasNotch = true
 
     convenience init() {
-        let screen = Self.notchScreen() ?? NSScreen.main!
-        let geometry = Self.screenGeometry(for: screen)
-        let nW = geometry.width
-        let nH = geometry.height
+        // The notched screen, else the main one (there is always one once the app runs;
+        // the fallback only avoids a crash while displays are being reconfigured)
+        let screen = Self.notchScreen() ?? NSScreen.main ?? NSScreen.screens.first
+        let geometry = screen.map(Self.screenGeometry(for:))
+        let nW = geometry?.width ?? IslandConst.notchWidth
+        let nH = geometry?.height ?? IslandConst.notchHeight
 
         let panelW: CGFloat = 720
         let panelH: CGFloat = 320
-        let sf = screen.frame
+        let sf = screen?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let panel = IslandPanel(
             contentRect: NSRect(x: sf.midX - panelW/2, y: sf.maxY - panelH,
                                 width: panelW, height: panelH),
@@ -58,11 +58,34 @@ final class IslandWindowController: NSWindowController {
         self.islandPanel = panel
         self.notchW = nW
         self.notchH = nH
-        self.hasNotch = geometry.hasNotch
-        setupPanel(screen: screen)
+        self.hasNotch = geometry?.hasNotch ?? false
+        setupPanel()
+        // Displays plugged in or out, lid closed, resolution changed: follow the notch
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.placeOnScreen() }
+        }
     }
 
-    private func setupPanel(screen: NSScreen) {
+    /// Puts the panel back at the top centre of the notched (or main) screen and refreshes the
+    /// notch size, after the displays changed.
+    private func placeOnScreen() {
+        guard let panel = islandPanel,
+              let screen = Self.notchScreen() ?? NSScreen.main ?? NSScreen.screens.first else { return }
+        let geometry = Self.screenGeometry(for: screen)
+        notchW = geometry.width
+        notchH = geometry.height
+        hasNotch = geometry.hasNotch
+        panel.notchWidth = notchW
+        panel.notchHeight = notchH
+        let sf = screen.frame, size = panel.frame.size
+        panel.setFrameOrigin(NSPoint(x: sf.midX - size.width / 2, y: sf.maxY - size.height))
+        state.notchWidth = notchW
+        state.notchHeight = notchH
+        state.hasNotch = hasNotch
+    }
+
+    private func setupPanel() {
         guard let panel = window as? IslandPanel else { return }
         panel.backgroundColor = .clear
         panel.isOpaque = false
@@ -125,11 +148,7 @@ final class IslandWindowController: NSWindowController {
                     // Fire interrupt first so canvas collapse starts before mode change
                     NotificationCenter.default.post(name: .greetingInterrupt, object: nil)
                 } else if from == .hidden {
-                    if self.silentNextReveal {
-                        self.silentNextReveal = false
-                    } else {
-                        SoundEngine.shared.play("peek")
-                    }
+                    SoundEngine.shared.play("peek")
                 }
                 // setMode BEFORE changing view: onChange(of: state.view) guards on .expanded,
                 // so setting view while already compact won't trigger a spurious open animation.
@@ -158,6 +177,7 @@ final class IslandWindowController: NSWindowController {
         }
 
         fsm.homeToPetitDelay = { max(1, AppState.shared.autoCloseDelay) }
+        fsm.petitToHiddenDelay = { AppState.shared.absenceInterval }
 
         // Stay open while Claude waits for an answer or while you're typing / picking
         fsm.isHeldOpen = {
@@ -220,9 +240,9 @@ final class IslandWindowController: NSWindowController {
             }
         }
 
-        // Mouse in screen coords (Y flipped, origin top-left) for Bot look-at
-        let screenH = panel.screen?.frame.height ?? NSScreen.main!.frame.height
-        let newPos = CGPoint(x: mouse.x - (panel.screen?.frame.minX ?? 0), y: screenH - mouse.y)
+        // Pointer for the cloud's look-at: from the panel's centre line (the island's middle)
+        // and its top edge (the top of the screen), y pointing down
+        let newPos = CGPoint(x: mouse.x - pf.midX, y: pf.maxY - mouse.y)
         let cur = AppState.shared.mousePosition
         if abs(newPos.x - cur.x) > 1 || abs(newPos.y - cur.y) > 1 {
             AppState.shared.mousePosition = newPos
@@ -231,6 +251,8 @@ final class IslandWindowController: NSWindowController {
 
         // AppState can hide the island by itself (last task ended): keep the FSM in step.
         if state.mode == .hidden && fsm.state == .petit { fsm.hiddenExternally() }
+        // …and the other way round (a session appeared while hidden): start its hide timer
+        if state.mode == .compact && fsm.state == .hidden { fsm.shownExternally() }
 
         // Feed FSM hover enter/leave
         if inIsland && !wasInIsland {
@@ -416,7 +438,6 @@ final class IslandWindowController: NSWindowController {
         } else {
             setMode(.expanded)
         }
-        state.lastActivity = .now
     }
 
     /// Opens the island from outside the FSM (menu bar, hotkey) and keeps the FSM in step,
@@ -435,24 +456,22 @@ final class IslandWindowController: NSWindowController {
         window?.resignKey()
     }
 
-    // MARK: - Keyboard (Escape closes)
+    // MARK: - Keyboard (while the island has the keyboard: answers, music, Escape closes)
 
     private func startKeyMonitor() {
-        keyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            Task { @MainActor in
-                guard let self = self else { return }
-                if event.keyCode == 53 { // Escape
-                    if self.state.mode == .expanded && !self.state.isPinned {
-                        self.collapse()
-                    }
-                }
-            }
-        }
-
-        // Answer Claude from the keyboard while the pointer is on the island
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
-            let handled = MainActor.assumeIsolated { self.handleShortcut(event) }
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                if self.handleShortcut(event) { return true }
+                // Escape folds the island (not while typing, not while it must stay open)
+                if event.keyCode == 53, event.window === self.islandPanel,
+                   self.state.mode == .expanded, !self.state.isPinned,
+                   !(self.islandPanel.firstResponder is NSText) {
+                    self.collapse()
+                    return true
+                }
+                return false
+            }
             return handled ? nil : event
         }
 
@@ -526,15 +545,11 @@ final class IslandWindowController: NSWindowController {
             }
             return event
         }
-        // Global hotkey to show island
-        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            Task { @MainActor in
-                guard let self, self.state.hotkeyEnabled else { return }
-                let pressed = event.modifierFlags.intersection([.command, .control, .option, .shift]).rawValue
-                guard pressed == self.state.hotkeyFlags, event.keyCode == self.state.hotkeyCode else { return }
-                if self.state.mode == .hidden || self.state.mode == .compact {
-                    self.open(to: .overview)
-                }
+        // Settings shortcut to show the island (Carbon hot key, see HotKey.swift)
+        NotificationCenter.default.addObserver(forName: .openIsland, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.state.mode != .expanded else { return }
+                self.open(to: self.defaultView())
             }
         }
     }
@@ -636,13 +651,9 @@ extension Notification.Name {
     static let triggerEmote     = Notification.Name("kumo.triggerEmote")
     static let triggerSlap      = Notification.Name("kumo.triggerSlap")
     static let botDizzy         = Notification.Name("kumo.botDizzy")
-    static let botGreet         = Notification.Name("kumo.botGreet")
     static let botBlink         = Notification.Name("kumo.botBlink")
     static let botPet           = Notification.Name("kumo.botPet")
     static let botSetTgEs       = Notification.Name("kumo.botSetTgEs")
-    static let botGulp          = Notification.Name("kumo.botGulp")
-    static let botMorphTo       = Notification.Name("kumo.botMorphTo")
-    static let islandAction     = Notification.Name("kumo.islandAction")
     static let islandCollapse   = Notification.Name("kumo.islandCollapse")
     static let islandNeedsKeyboard = Notification.Name("kumo.islandNeedsKeyboard")
     static let questionShortcut = Notification.Name("kumo.questionShortcut")

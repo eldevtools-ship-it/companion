@@ -2,9 +2,8 @@ import SwiftUI
 import CoreGraphics
 
 // MARK: - Kumo's look
-// Single source of truth for the character's palette, silhouette and antenna.
-// Used by the main bot (BotEngine), the greeting and the upload animation so the
-// three renderers stay identical. All coordinates are body-local, y pointing down.
+// Single source of truth for the character's palette and silhouette, shared by the main
+// bot (BotEngine) and the greeting so both stay identical. Body-local coordinates, y down.
 
 enum KumoStyle {
     // Body: a white cloud, lavender in its shadows. The state colour rises from below.
@@ -13,7 +12,6 @@ enum KumoStyle {
     // Eyes: deep blue-grey instead of black.
     static let ink        = CGColor(red: 0.149, green: 0.165, blue: 0.267, alpha: 1)  // #262A44
 
-    static var inkColor: Color        { Color(cgColor: ink) }
 
     // MARK: Silhouette — a gumdrop: rounder dome on top, flatter base
 

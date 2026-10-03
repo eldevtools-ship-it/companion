@@ -271,6 +271,11 @@ private struct ChatBubble: View {
                         .foregroundColor(message.failed ? Color(hex: "#FF8D97") : Color(hex: "#E8E9EC"))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        // Links in Claude's answer: plain web links only (no file://, no app schemes)
+                        .environment(\.openURL, OpenURLAction { url in
+                            if let safe = safeWebURL(url.absoluteString) { NSWorkspace.shared.open(safe) }
+                            return .handled
+                        })
                 }
                 if !message.text.isEmpty && !typing && !message.failed {
                     Button {

@@ -907,7 +907,7 @@ private struct VercelCard: View {
                         }
                         if !d.url.isEmpty {
                             CardLink(title: "Ouvrir", icon: "arrow.up.right") {
-                                if let u = URL(string: d.url) { NSWorkspace.shared.open(u) }
+                                if let u = safeWebURL(d.url) { NSWorkspace.shared.open(u) }
                             }
                         }
                     }

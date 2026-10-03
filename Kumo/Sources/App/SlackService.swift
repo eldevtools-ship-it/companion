@@ -90,6 +90,10 @@ final class SlackService {
     private func run() async {
         var delay: UInt64 = 2
         while !Task.isCancelled {
+            // Screens asleep: wait instead of retrying, reconnect when they wake
+            while AppState.shared.macAsleep && !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 15_000_000_000)
+            }
             guard let userToken = KeychainStore.shared.get(Self.userTokenKey),
                   let appToken = KeychainStore.shared.get(Self.appTokenKey) else {
                 AppState.shared.slackStatus = .notConfigured
@@ -268,9 +272,11 @@ final class SlackService {
         notify(message)
     }
 
+    private static let markupRegex = try? NSRegularExpression(pattern: "<([^>]+)>")
+
     /// Turns Slack markup (<@U…>, <#C…|name>, <url|label>, &amp;…) into plain text.
     private func readable(_ raw: String, token: String) async -> String {
-        guard let regex = try? NSRegularExpression(pattern: "<([^>]+)>") else { return raw }
+        guard let regex = Self.markupRegex else { return raw }
         let ns = raw as NSString
         let matches = regex.matches(in: raw, range: NSRange(location: 0, length: ns.length))
         // Resolve user names first (async), then rebuild the string.

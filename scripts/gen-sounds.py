@@ -131,8 +131,6 @@ def write(name, s, peak=0.8):
 SOUNDS = {
     # Tiny UI feedback
     "hover":    lambda: tone(1760, 0.045, attack=0.002, release=4),
-    "tick":     lambda: mix((0, 1, tone(2637, 0.03, attack=0.001, release=6)),
-                            (0, 0.3, noise(0.012, release=6, smooth=0.2))),
     "blip":     lambda: tone(note("E6"), 0.08, release=3, bell=0.2),
     "pop":      lambda: tone(note("A5"), 0.12, glide_to=note("E6"), attack=0.002, release=4),
 
@@ -148,26 +146,10 @@ SOUNDS = {
                             (0, 0.5, noise(0.06, release=4, smooth=0.6))),
     "annoyed":  lambda: mix((0, 1, tone(note("D5"), 0.16, "triangle", release=1.5)),
                             (0.17, 1, tone(note("A4"), 0.26, "triangle", release=2, glide_to=note("G4")))),
-    "dizzy":    lambda: tone(note("C5"), 0.9, vibrato=3.5, vib_rate=7, release=1.6, bell=0.1),
     "love":     lambda: seq(["E6", "G6", "B6", "E7"], 0.07, 0.35, gain=0.8, bell=0.4),
-    "proud":    lambda: mix((0, 1, tone(note("C5"), 0.16, bell=0.3)),
-                            (0.13, 1, tone(note("G5"), 0.16, bell=0.3)),
-                            (0.26, 1, tone(note("C6"), 0.5, vibrato=0.12, bell=0.3))),
-    "wink":     lambda: mix((0, 1, tone(note("B6"), 0.14, release=4, bell=0.5)),
-                            (0.05, 0.5, tone(note("E7"), 0.12, release=4))),
-    "yawn":     lambda: tone(note("A4"), 0.7, "triangle", glide_to=note("D4"), attack=0.12,
-                             release=1.4, vibrato=0.2, vib_rate=4),
-    "sleep":    lambda: mix((0, 1, tone(note("E4"), 0.22, attack=0.03, release=2)),
-                            (0.2, 0.8, tone(note("C4"), 0.3, attack=0.03, release=2))),
-    "gulp":     lambda: mix((0, 1, tone(520, 0.12, glide_to=260, release=3)),
-                            (0.14, 0.9, tone(330, 0.3, glide_to=150, release=2.5))),
-
     # What Claude is doing
     "work":     lambda: mix((0, 1, tone(note("A5"), 0.08, release=4, bell=0.3)),
                             (0.1, 0.8, tone(note("A5"), 0.12, release=4, bell=0.3))),
-    "think":    lambda: tone(note("D5"), 0.42, attack=0.04, release=1.8, vibrato=0.25, vib_rate=3),
-    "search":   lambda: mix((0, 1, tone(note("C5"), 0.2, glide_to=note("G5"), release=1)),
-                            (0.2, 0.8, tone(note("G5"), 0.22, glide_to=note("D5"), release=2.5))),
     "approval": lambda: mix((0, 1, tone(note("A5"), 0.3, bell=0.5)),
                             (0.16, 1, tone(note("E6"), 0.3, bell=0.5)),
                             (0.4, 0.7, tone(note("A5"), 0.3, bell=0.5))),
@@ -183,9 +165,6 @@ SOUNDS = {
     # Files and messages
     "send":     lambda: mix((0, 0.6, noise(0.3, attack=0.12, release=2, smooth=0.3)),
                             (0.05, 1, tone(note("C5"), 0.3, glide_to=note("C6"), release=2))),
-    "attach":   lambda: mix((0, 0.7, tone(2093, 0.03, release=6)),
-                            (0.07, 0.7, tone(2093, 0.03, release=6)),
-                            (0.16, 1, tone(note("G5"), 0.4, bell=0.4))),
 }
 
 

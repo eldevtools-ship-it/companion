@@ -56,10 +56,7 @@ struct DayCardView: View {
         guard let m = state.nextMeeting, Calendar.current.isDateInToday(m.start) else {
             return "Aucune réunion aujourd'hui."
         }
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "fr_FR")
-        f.dateFormat = "HH:mm"
-        return "Première réunion : \(m.title) à \(f.string(from: m.start))"
+        return "Première réunion : \(m.title) à \(TimeFormat.hourMinute.string(from: m.start))"
     }
 
     // "Ta journée" · Harvest / Claude / Slack

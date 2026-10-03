@@ -7,7 +7,6 @@ import AppKit
 final class SoundEngine {
     static let shared = SoundEngine()
 
-    var enabled: Bool = true
     var volume: Float = 0.12 {
         didSet { players.values.forEach { $0.forEach { $0.volume = volume } } }
     }
@@ -33,7 +32,7 @@ final class SoundEngine {
     }
 
     func play(_ name: String) {
-        guard enabled && AppState.shared.soundEnabled, let pool = pool(for: name) else { return }
+        guard AppState.shared.soundEnabled, let pool = pool(for: name) else { return }
         let player = pool.first { !$0.isPlaying } ?? pool[0]
         player.currentTime = 0
         player.volume = volume

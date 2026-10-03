@@ -131,12 +131,6 @@ final class SpotifyService: ObservableObject {
     func next() { send("next track") }
     func previous() { send("previous track") }
 
-    func seek(to seconds: Double) {
-        let s = max(0, min(duration, seconds))
-        position = s; positionAt = Date()
-        send(String(format: "set player position to %.2f", locale: Locale(identifier: "en_US_POSIX"), s))
-    }
-
     /// Opens Spotify (when it's closed).
     func open() {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.bundleID) else { return }

@@ -1,163 +1,62 @@
-# Kumo — third-party agent integration
+# Brancher un autre agent sur Kumo
 
-Any tool that can write to a Unix domain socket (macOS, Linux) or a named pipe (Windows) can send events to Coucou and have its own pill next to Claude Code.
+Kumo suit Claude Code de lui-même. N'importe quel autre outil capable de lancer une
+commande à chaque étape (un hook) peut aussi apparaître dans l'île, avec sa propre
+pastille.
 
-## The `kumo_agent` field
+## La commande
 
-Add the optional field `kumo_agent` to any hook JSON payload. Coucou will create a pill labelled with the agent name and route all events to it.
-
-**Validation:** the name must match `^[a-z0-9-]{1,24}$` (lowercase letters, digits and hyphens, 1–24 characters). An absent or invalid name routes the event to the Claude Code pill instead.
-
-## Hook command (macOS)
-
-Configure your tool to call the Coucou relay with `--agent <your-name>` after the hook executable:
+Fais appeler le relais de Kumo avec `--agent <nom>` :
 
 ```json
 {
   "hooks": {
     "UserPromptSubmit": [
-      { "type": "command", "command": "/path/to/kumo-hook --agent my-tool" }
+      { "type": "command", "command": "\"$HOME/Library/Application Support/Kumo/kumo-hook\" --agent mon-outil" }
     ]
   }
 }
 ```
 
-The shell wrapper passes `"$@"` to the Python relay, which extracts the agent name and injects it into the payload before forwarding to Coucou.
+Le relais lit le JSON reçu sur l'entrée standard, y ajoute `"kumo_agent": "mon-outil"` et
+l'envoie à Kumo. Si l'outil ne précise pas le nom de l'étape (`hook_event_name`), passe-le
+en argument : `kumo-hook --agent mon-outil Stop`.
 
-## Hook command (Windows)
+Le nom doit respecter `^[a-z0-9-]{1,24}$` (minuscules, chiffres, tirets). Sans nom valide,
+l'évènement va à la pastille Claude Code.
 
-Same pattern with the Windows relay:
+## Parler directement à Kumo
 
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      { "type": "command", "command": "C:\\path\\to\\coucou-hook.exe --agent my-tool" }
-    ]
-  }
-}
-```
-
-## Hook command (Linux)
-
-Same pattern with the Linux relay. Coucou copies the relay to `~/.local/share/coucou/bin/coucou-hook` at startup.
+On peut aussi écrire une ligne de JSON sur le socket
+`~/Library/Application Support/Kumo/kumo.sock` :
 
 ```json
-{
-  "hooks": {
-    "UserPromptSubmit": [
-      { "type": "command", "command": "/path/to/coucou-hook --agent my-tool" }
-    ]
-  }
-}
+{"hook_event_name": "UserPromptSubmit", "session_id": "s1", "kumo_agent": "mon-outil", "prompt": "Je m'y mets"}
 ```
 
-## Payload format
+## Ce que chaque étape fait
 
-The relay adds `kumo_agent` to the JSON it forwards. You can also add it yourself if you talk to the socket directly:
-
-```json
-{
-  "hook_event_name": "UserPromptSubmit",
-  "session_id": "my-session-1",
-  "kumo_agent": "my-tool",
-  "prompt": "Running task…"
-}
-```
-
-Send newline-terminated JSON to the socket:
-- **macOS (GitHub build):** `~/Library/Application Support/Kumo/kumo.sock`
-- **Windows:** `\\.\pipe\coucou-<user-SID>`
-- **Linux:** `$XDG_RUNTIME_DIR/coucou.sock` (usually `/run/user/<uid>/coucou.sock`). Only your own user account can connect.
-
-## Supported events
-
-All standard Claude Code hook events are supported, **except `PermissionRequest`**:
-approval cards are not yet implemented for third-party agents (only Claude Code gets
-one). A `PermissionRequest` from an external agent is answered immediately with no
-decision, so the relay writes nothing and the agent re-asks in its terminal.
-Approval support for other agents will be added with Codex support.
-
-The pill lifecycle:
-
-| Event | Effect |
+| Étape | Effet dans l'île |
 |---|---|
-| `SessionStart` | Creates the pill (if absent), sets state to idle |
-| `UserPromptSubmit` | State → thinking; prompt shown in ticker |
-| `PreToolUse` | State → working; tool label shown in ticker |
-| `PostToolUse` / `PostToolUseFailure` | State → working |
-| `Notification` | Rate-limit or question state if applicable |
-| `Stop` | State → finished for 5 s; active declared pills (catalog + checked in Settings) reset to idle — all others are removed |
-| `StopFailure` | State → error |
-| `SessionEnd` | Active declared pills (catalog + checked in Settings) reset to idle — all others are removed |
-| `SubagentStart` / `SubagentStop` | Step added to ticker |
+| `SessionStart` | Crée la pastille |
+| `UserPromptSubmit` | Réfléchit ; la demande s'affiche |
+| `PreToolUse` | Travaille ; l'outil utilisé s'affiche |
+| `PostToolUse` / `PostToolUseFailure` | Travaille |
+| `Notification` | Limite atteinte ou question, si c'est le cas |
+| `Stop` | Terminé |
+| `StopFailure` | Erreur |
+| `SessionEnd` | Retire la pastille |
 
-## Declared pills
+Les demandes d'autorisation (`PermissionRequest`) restent réservées à Claude Code : pour un
+autre agent, Kumo ne répond rien et l'agent repose la question dans son terminal.
 
-A **declared pill** is a catalog entry (`PillCatalog.swift`) that has been enabled in **Settings → Active pills**. When a session ends for a declared pill, the pill stays visible and resets to idle instead of disappearing.
+## Essai rapide
 
-A catalog pill that is not checked in Settings behaves like any other agent: it gets an automatic pill when a session starts, and that pill is removed when the session ends.
-
-The GitHub build exposes Gemini CLI (`agent_gemini`) and Antigravity (`agent_antigravity`) in Settings → Active pills. Cursor (`agent_cursor`) and Codex (`agent_codex`, GitHub build only) are there too — their pills can be declared and set as the main pill; session support is coming in a future version.
-
-## Real-world examples
-
-### Gemini CLI (macOS)
-
-Coucou supports Gemini CLI out of the box via **Settings → Gemini CLI → Install hooks**.
-The installer writes to `~/.gemini/settings.json` and uses `--agent gemini` so
-Gemini sessions get their own pill. The relay translates Gemini event names to canonical
-Coucou events automatically.
-
-| Gemini CLI event | Canonical event |
-|---|---|
-| `BeforeTool` | `PreToolUse` |
-| `AfterTool` | `PostToolUse` |
-| `BeforeAgent` | `UserPromptSubmit` |
-| `AfterAgent` | `Stop` |
-
-`AfterModel` is not installed — it fires on every response chunk and would flood the island.
-
-### Antigravity — `agy` (macOS)
-
-Coucou supports Antigravity out of the box via **Settings → Antigravity → Install hooks**.
-The installer writes to `~/.gemini/config/hooks.json` (timeouts in seconds) and uses
-`--agent antigravity`. The relay translates `toolCall.name` / `conversationId` to the
-island's `tool_name` / `session_id`.
-
-| Antigravity event | Canonical event |
-|---|---|
-| `PreInvocation` | `UserPromptSubmit` |
-| `PreToolUse` | `PreToolUse` |
-| `PostToolUse` | `PostToolUse` |
-| `PostInvocation` | `PostToolUse` |
-| `Stop` | `Stop` |
-
-### Any other tool
-
-Follow the generic pattern: call `kumo-hook --agent <your-name> <EventName>` (macOS),
-`coucou-hook.exe --agent <your-name> <EventName>` (Windows)
-or `~/.local/share/coucou/bin/coucou-hook --agent <your-name> <EventName>` (Linux)
-and let the relay forward the event.
-
-## Quick test (Linux)
-
-With Coucou running:
+Kumo ouvert :
 
 ```sh
-echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","kumo_agent":"demo"}' \
-  | ~/.local/share/coucou/bin/coucou-hook --agent demo
-```
-
-A "demo" pill should appear in the island.
-
-## Quick test (macOS)
-
-With Coucou running:
-
-```sh
-echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"hello","kumo_agent":"demo"}' \
+echo '{"hook_event_name":"UserPromptSubmit","session_id":"t1","prompt":"bonjour"}' \
   | /bin/sh ~/Library/Application\ Support/Kumo/kumo-hook --agent demo
 ```
 
-A "demo" pill should appear in the island.
+Une pastille « demo » apparaît dans l'île.

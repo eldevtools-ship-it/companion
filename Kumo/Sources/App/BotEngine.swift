@@ -184,8 +184,6 @@ final class BotEngine: ObservableObject {
     var oy:     CGFloat = 0          // offset Y (bounce)
     var ox:     CGFloat = 0          // offset X (shake)
     var tint:   CGFloat = 0
-    var morph:  CGFloat = 0          // morph to rect (for upload bucket)
-    var hands:  CGFloat = 0
     var blush:  CGFloat = 0
     var es:     CGFloat = 1          // eye scale
     var badgeS: CGFloat = 0          // badge scale
@@ -200,12 +198,6 @@ final class BotEngine: ObservableObject {
 
     // Particle canvas overhang (extra canvas height at top for hearts to fly into)
     var particleOverhang: CGFloat = 0
-
-    // Mouth spring (fraction of R: 0=closed, 0.20=hover, 0.42=open, 0.50=overopen)
-    var slotH: CGFloat = 0           // current height (fraction of R)
-    var slotHTarget: CGFloat = 0     // spring target
-    var slotHVel: CGFloat = 0        // spring velocity (fraction of R / s)
-    var isChewing: Bool = false       // true for ~800ms after gulp swallow
 
     // Color (animated)
     var col:  (CGFloat, CGFloat, CGFloat) = (0.902, 0.914, 0.933)  // idle
@@ -242,23 +234,11 @@ final class BotEngine: ObservableObject {
     var lastTime: Double = CACurrentMediaTime()
     var t0: Double = CACurrentMediaTime() - Double.random(in: 0...5)
     var nextBlink: Double = CACurrentMediaTime() + 1.5 + Double.random(in: 0...2)
-    var waveUntil: Double = 0
-    var waveStart: Double = 0     // CACurrentMediaTime() when wave animation began
-    var greetToken: Int = 0       // incremented to invalidate stale greet closures
     var lastAmbient: Double = 0
 
     // Slap tracking (for dizzy on 3 slaps)
     var slapTimes: [Double] = []
 
-    // Dancing (Apple Music)
-    var isDancing: Bool = false
-    var dancingLevel: CGFloat = 0   // 0→1 over 0.3s, 1→0 over 0.5s
-
-    // Antenna spring (radians, 0 = upright). Lags behind bounces and shakes.
-    var antennaAngle: CGFloat = 0
-    var antennaVel: CGFloat = 0
-    private var antennaLastOx: CGFloat = 0
-    private var antennaLastOy: CGFloat = 0
 
     // MARK: Cloud life (main character only)
     // Set every frame by BotCanvasView:
@@ -376,35 +356,9 @@ final class BotEngine: ObservableObject {
         ])
     }
 
-    // MARK: - Gulp (mailbox swallow)
-
-    func gulp() {
-        // Open mouth wide for the swallow, then close during chewing
-        slotHTarget = 0.42
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.46) { [weak self] in
-            self?.slotHTarget = 0
-            self?.isChewing = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.80) { [weak self] in
-                self?.isChewing = false
-            }
-        }
-        anim("sy", keys: [
-            TweenKey(target: 0.78, duration: 80,  ease: Ease.out),
-            TweenKey(target: 1.18, duration: 130, ease: Ease.out),
-            TweenKey(target: 1,    duration: 220, ease: Ease.back),
-        ])
-        anim("sx", keys: [
-            TweenKey(target: 1.28, duration: 80,  ease: Ease.out),
-            TweenKey(target: 0.92, duration: 130, ease: Ease.out),
-            TweenKey(target: 1,    duration: 220, ease: Ease.back),
-        ])
-        blink()
-    }
-
     // MARK: - Slap (dizzy mechanic)
 
     func slap() {
-        interruptGreet()
         guard state != .dizzy else { return }
         let now = CACurrentMediaTime()
         slapTimes = slapTimes.filter { now - $0 < 1.7 }
@@ -423,13 +377,6 @@ final class BotEngine: ObservableObject {
                 SoundEngine.shared.play("annoyed")
             }
         }
-    }
-
-    // MARK: - Dancing
-
-    func setDancing(_ dancing: Bool) {
-        guard isDancing != dancing else { return }
-        isDancing = dancing
     }
 
     // MARK: - Mini periodic behavior loop
@@ -510,72 +457,6 @@ final class BotEngine: ObservableObject {
         anim("roll", keys: [TweenKey(target: .pi * 2 * turns, duration: duration, ease: Ease.inOut)]) { [weak self] in
             self?.roll = 0
         }
-    }
-
-    func greet() {
-        let now = CACurrentMediaTime()
-        greetToken += 1
-        let tok = greetToken
-        waveStart = now + 0.45   // wave begins at 0.45s
-        waveUntil = now + 1.55   // wave ends at 1.55s
-
-        // 0s: happy eyes for full greeting (2s — no gap, no flicker)
-        eyeOverride = .happy
-        eyeOverrideUntil = now + 2.0
-        anim("oy", keys: [
-            TweenKey(target: -0.06, duration: 220, ease: Ease.out),
-            TweenKey(target:  0.0,  duration: 220, ease: Ease.back),
-        ])
-
-        // 0.25s: hands out + body squash + sound
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-            guard let self, self.greetToken == tok else { return }
-            self.anim("hands", keys: [TweenKey(target: 1, duration: 280, ease: Ease.out)])
-            self.anim("sy", keys: [
-                TweenKey(target: 0.95, duration: 100, ease: Ease.out),
-                TweenKey(target: 1.0,  duration: 260, ease: Ease.back),
-            ])
-            self.anim("sx", keys: [
-                TweenKey(target: 1.04, duration: 100, ease: Ease.out),
-                TweenKey(target: 1.0,  duration: 260, ease: Ease.back),
-            ])
-            SoundEngine.shared.play("greet")
-        }
-
-        // 0.55s: first blink
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
-            guard let self, self.greetToken == tok else { return }
-            self.blink()
-        }
-
-        // 1.50s: second blink
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.50) { [weak self] in
-            guard let self, self.greetToken == tok else { return }
-            self.blink()
-        }
-
-        // 1.55s: retract hands
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.55) { [weak self] in
-            guard let self, self.greetToken == tok else { return }
-            self.waveUntil = 0
-            self.anim("hands", keys: [TweenKey(target: 0, duration: 200, ease: Ease.inOut)])
-        }
-
-        // 1.75s: brief happy eyes then back to normal
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.75) { [weak self] in
-            guard let self, self.greetToken == tok else { return }
-            self.eyeOverride = .happy
-            self.eyeOverrideUntil = CACurrentMediaTime() + 0.30
-        }
-    }
-
-    /// Immediately interrupts an in-progress greeting (hands retract in 150 ms).
-    func interruptGreet() {
-        guard hands > 0.01 || CACurrentMediaTime() < waveUntil else { return }
-        greetToken += 1   // invalidate any pending closures
-        waveUntil = 0
-        waveStart = 0
-        anim("hands", keys: [TweenKey(target: 0, duration: 150, ease: Ease.inOut)])
     }
 
     /// Sets a permanent eye expression that survives blinks and transient emotes.
@@ -755,12 +636,6 @@ final class BotEngine: ObservableObject {
         tgPitch = tp
         tgTilt  = cfg.tilt
 
-        // Body sway during greeting wave
-        if now > waveStart && now < waveUntil {
-            let wt = CGFloat(now - waveStart)
-            tgTilt = -0.06 + sin(2 * .pi * 1.2 * wt) * 0.07
-        }
-
         var bounce = cfg.bounces ? -abs(sin(t * 5.2)) * 0.07 : CGFloat(0)
         if isCloud && state == .sleeping { bounce = 0.07 }   // naps a little lower
         // oy tween can override if not locked
@@ -859,36 +734,6 @@ final class BotEngine: ObservableObject {
         // Age particles
         for i in particles.indices { particles[i].age += dt }
         particles.removeAll { $0.age >= $0.life }
-
-        // Mouth slot spring — ω₀ ≈ 25 rad/s (T=0.25s), ζ=0.6 (underdamped, slight clack)
-        let slotOmega: CGFloat = 2 * .pi / 0.25
-        let slotZeta: CGFloat = 0.6
-        let slotAcc = slotOmega * slotOmega * (slotHTarget - slotH)
-                    - 2 * slotZeta * slotOmega * slotHVel
-        slotHVel += slotAcc * dtCG
-        slotH = max(0, slotH + slotHVel * dtCG)
-
-        // Dance level: fade in 0.3s, out 0.5s
-        let dancingTarget: CGFloat = isDancing ? 1 : 0
-        if dancingLevel < dancingTarget {
-            dancingLevel = min(dancingTarget, dancingLevel + CGFloat(dt) / 0.3)
-        } else if dancingLevel > dancingTarget {
-            dancingLevel = max(dancingTarget, dancingLevel - CGFloat(dt) / 0.5)
-        }
-
-        // Antenna: underdamped spring towards the head direction, kicked by body motion
-        if dt > 0 {
-            let vx = (ox - antennaLastOx) / dtCG
-            let vy = (oy - antennaLastOy) / dtCG
-            antennaVel += (-vx * 1.6 + vy * 0.5 * sin(antennaAngle + 0.3)) * dtCG * 6
-            let target = -yaw * 0.35 + (dancingLevel > 0 ? 0.25 * sin(CGFloat(now) * .pi * 112 / 60) * dancingLevel : 0)
-            let omega: CGFloat = 2 * .pi / 0.5
-            let zeta: CGFloat = 0.22
-            antennaVel += (omega * omega * (target - antennaAngle) - 2 * zeta * omega * antennaVel) * dtCG
-            antennaAngle = max(-0.9, min(0.9, antennaAngle + antennaVel * dtCG))
-        }
-        antennaLastOx = ox
-        antennaLastOy = oy
 
         lastTime = now
     }
@@ -1008,23 +853,6 @@ final class BotEngine: ObservableObject {
         lastPet = now
     }
 
-    // MARK: - Dance transform
-
-    /// Applies a 112-BPM dance bounce/sway around the bottom of the body.
-    /// Call this on a copy of the GraphicsContext before the three draw passes.
-    func applyDance(_ ctx: inout GraphicsContext, size: CGSize) {
-        guard dancingLevel > 0.001 else { return }
-        let W = size.width, H = size.height, R = W * 0.3
-        let px = W / 2 + ox * R
-        let py = H / 2 + particleOverhang / 2 + oy * R + R * 0.06 + R * 0.88
-        let beat = CGFloat(CACurrentMediaTime()) * 112 / 60
-        let hop = abs(sin(.pi * beat)), land = pow(1 - hop, 6), l = dancingLevel
-        ctx.translateBy(x: px + 0.08 * R * sin(.pi * beat) * l, y: py - 0.20 * R * hop * l)
-        ctx.rotate(by: .radians(0.10 * sin(.pi * beat) * l))
-        ctx.scaleBy(x: 1 + 0.045 * land * l, y: 1 - 0.06 * land * l)
-        ctx.translateBy(x: -px, y: -py)
-    }
-
     // MARK: - Draw
 
     func draw(context: GraphicsContext, size: CGSize) {
@@ -1041,7 +869,7 @@ final class BotEngine: ObservableObject {
 
         let light = lighting
         // Light pooled on the card under the cloud: fainter as it floats up
-        if isCloud && morph < 0.5 && R > 14 {
+        if isCloud && R > 14 {
             let lift = max(0, min(1, 1 + (oy - hop) * 4))
             let gy = H / 2 + particleOverhang / 2 + R * 0.06 + ry * 1.32
             var pool = context
@@ -1058,190 +886,44 @@ final class BotEngine: ObservableObject {
         if tilt + sway != 0 { ctx.rotate(by: .radians(tilt + sway)) }
         ctx.scaleBy(x: sx, y: sy)
 
-        // Body path (gumdrop silhouette, morph to rect for upload)
-        let bodyPath = characterPath(rx: rx, ry: ry, morph: morph, R: R)
+        // Body path (cloud, or the minis' gumdrop)
+        let bodyPath = characterPath(rx: rx, ry: ry)
 
         // Halo shaped like the cloud, in the colour lighting it (follows every puff)
-        if isCloud && morph < 0.5 {
+        if isCloud {
             var halo = ctx
             halo.addFilter(.blur(radius: R * 0.26))
-            halo.opacity = Double(light.halo * (1 - morph * 2))
+            halo.opacity = Double(light.halo)
             halo.translateBy(x: 0, y: R * 0.05)
             halo.scaleBy(x: 1.04, y: 1.06)
             halo.fill(bodyPath, with: .color(light.glow))
         }
 
-        // The cloud has no antenna: its state shows in its colour
-
         // Body fill
         drawBody(ctx: &ctx, path: bodyPath, R: R, rx: rx, ry: ry)
 
-        // Blush — always shows a floor proportional to tint (prototype behaviour)
-        let blushVal = blush * (1 - morph)
-        if blushVal > 0.01 {
-            drawBlush(ctx: &ctx, path: bodyPath, rx: rx, ry: ry, R: R, blush: blushVal)
+        // Blush (petting, pleasure)
+        if blush > 0.01 {
+            drawBlush(ctx: &ctx, path: bodyPath, rx: rx, ry: ry, R: R, blush: blush)
         }
 
         // Eyes
         drawEyes(ctx: &ctx, path: bodyPath, R: R, rx: rx, ry: ry)
 
-        // Mouth hole — dark pill cutout inside the box face
-        // Spec: left/right margins 0.10R, top margin 0.08R from box top (-0.94R)
-        if morph > 0.05 {
-            let hW = R * 1.80 * morph   // hole width = box width (2×1.0R) − 2×0.10R margin
-            let hH = slotH * R * morph  // hole height (spring-animated, scaled by morph)
-            let hX = -hW / 2
-            // Hole Y: box top is -R*0.94 at morph=1, lerped from -R*0.88 at morph=0
-            let boxTop = -R * (0.88 + 0.06 * morph)
-            let hY = boxTop + R * 0.08 * morph  // top margin scales with morph
-
-            var boxCtx = ctx
-            boxCtx.clip(to: bodyPath)  // everything clipped inside body
-
-            // Top rim — 1pt white 55% line at box top edge
-            var rim = Path()
-            rim.move(to: CGPoint(x: -R * 0.90 * morph, y: boxTop + 1))
-            rim.addLine(to: CGPoint(x: R * 0.90 * morph, y: boxTop + 1))
-            boxCtx.stroke(rim, with: .color(Color.white.opacity(0.55 * Double(morph))),
-                          style: StrokeStyle(lineWidth: 1, lineCap: .round))
-
-            // Hole interior — only draw if visibly open
-            if hH > 0.8 {
-                let hR = min(hW / 2, hH / 2)  // fully rounded when hH < hW (pill shape)
-                var hole = Path()
-                hole.addRoundedRect(in: CGRect(x: hX, y: hY, width: hW, height: hH),
-                                    cornerSize: CGSize(width: hR, height: hR))
-                boxCtx.fill(hole, with: .linearGradient(
-                    Gradient(colors: [Color(red: 0.027, green: 0.031, blue: 0.039),
-                                      Color(red: 0.063, green: 0.075, blue: 0.102)]),
-                    startPoint: CGPoint(x: 0, y: hY),
-                    endPoint: CGPoint(x: 0, y: hY + hH)
-                ))
-                // Bottom lip — 1pt white 28% highlight
-                if hH > 4 {
-                    let lipR = min(hR, (hW - 2) / 2)
-                    var lip = Path()
-                    lip.move(to: CGPoint(x: hX + lipR, y: hY + hH - 0.5))
-                    lip.addLine(to: CGPoint(x: hX + hW - lipR, y: hY + hH - 0.5))
-                    boxCtx.stroke(lip, with: .color(Color.white.opacity(0.28 * Double(morph))),
-                                  style: StrokeStyle(lineWidth: 1, lineCap: .round))
-                }
-            }
-        }
-
-        // Reset transform for hands, badge, particles which need world coords
-        // (We'll pass world-space cx/cy to these helpers)
     }
 
-    // MARK: - Draw hands behind body (called before draw() so hands appear under Mochi)
+    // MARK: - Badge and particles (world coordinates, after the body)
 
-    func drawHandsBehind(context: GraphicsContext, size: CGSize) {
-        guard hands > 0.01, !isMini else { return }
-        let W = size.width, H = size.height
-        let R = W * 0.3
-        // Only draw hands when Mochi is large enough to be meaningful (not compact/peek)
-        guard R > 14 else { return }
-        let rx = R * 1.14
-        let ry = R * 0.88
-        let cx = W / 2 + ox * R
-        let cy = H / 2 + particleOverhang / 2 + oy * R + R * 0.06
-
-        let now = CACurrentMediaTime()
-        let bodyH = 2 * ry   // full body height
-
-        // Hand ellipse half-dims: 0.30×bodyH wide, 0.26×bodyH tall (scaled by hands 0→1)
-        let hew = 0.30 * ry * hands   // half-width
-        let heh = 0.26 * ry * hands   // half-height
-
-        // Body half-dims with current squash scale
-        let hwB = rx * sx
-        let hhB = ry * sy
-
-        let isWaving = now >= waveStart && waveStart > 0 && now < waveUntil
-
-        for sd in [-1.0, 1.0] {
-            var localX: CGFloat
-            var localY: CGFloat
-            var handRot: CGFloat = 0
-
-            if sd > 0 && isWaving {
-                // Right hand: rise to wave position over first 180ms, then oscillate
-                let wt = CGFloat(now - waveStart)
-                let rise = min(1.0, wt / 0.18)
-                let riseEased: CGFloat = 1 - pow(1 - rise, 3)   // easeOut cubic
-
-                // Rest position is lower-side; wave position is upper-side (at eye height)
-                let restX: CGFloat = hwB * 1.08
-                let restY: CGFloat = hhB * 0.70
-                let oscX = cos(13 * wt) * 0.06 * bodyH
-                let oscY = -sin(13 * wt) * 0.14 * bodyH
-                let waveX: CGFloat = hwB * 1.10 + oscX
-                let waveY: CGFloat = -hhB * 0.15 + oscY
-                localX = restX + (waveX - restX) * riseEased
-                localY = restY + (waveY - restY) * riseEased
-                handRot = (-0.5 + sin(13 * wt) * 0.35) * riseEased
-
-            } else if sd < 0 && isWaving {
-                // Left hand: gentle sway at rest position
-                let wt = CGFloat(now - waveStart)
-                localX = -hwB * 1.08
-                localY = hhB * 0.70 + sin(6 * wt) * 0.04 * bodyH
-
-            } else {
-                // Rest: lower-side, clearly peeking behind body bottom
-                localX = CGFloat(sd) * hwB * 1.08
-                localY = hhB * 0.70
-            }
-
-            // Apply body tilt to get world position
-            let cosT = cos(tilt), sinT = sin(tilt)
-            let worldX = cx + cosT * localX - sinT * localY
-            let worldY = cy + sinT * localX + cosT * localY
-
-            // Draw
-            var handCtx = context
-            handCtx.translateBy(x: worldX, y: worldY)
-            if handRot != 0 { handCtx.rotate(by: .radians(handRot)) }
-
-            let handRect = CGRect(x: -hew, y: -heh, width: hew * 2, height: heh * 2)
-            var handPath = Path()
-            handPath.addEllipse(in: handRect)
-
-            // Fill with body material (same gradient as body)
-            if let bc = bodyColor {
-                let c0 = mix3(cgColorToTuple(bc), (1, 1, 1), 0.35)
-                let c1 = cgColorToTuple(bc)
-                handCtx.fill(handPath, with: .linearGradient(
-                    Gradient(colors: [colorFromTuple(c0), colorFromTuple(c1)]),
-                    startPoint: CGPoint(x: hew * 0.7, y: -heh * 0.85),
-                    endPoint: CGPoint(x: -hew * 0.8, y: heh * 0.9)
-                ))
-            } else {
-                let c0 = cgColorToTuple(BotConst.baseTop)
-                let c1 = cgColorToTuple(BotConst.baseBottom)
-                handCtx.fill(handPath, with: .linearGradient(
-                    Gradient(colors: [colorFromTuple(c0), colorFromTuple(c1)]),
-                    startPoint: CGPoint(x: hew * 0.7, y: -heh * 0.85),
-                    endPoint: CGPoint(x: -hew * 0.8, y: heh * 0.9)
-                ))
-            }
-
-            // Subtle separation border — rgba(0,0,0,0.08) 1pt
-            handCtx.stroke(handPath, with: .color(Color.black.opacity(0.08)), lineWidth: 1)
-        }
-    }
-
-    func drawHandsAndExtras(context: GraphicsContext, size: CGSize) {
+    func drawExtras(context: GraphicsContext, size: CGSize) {
         let W = size.width
         let H = size.height
         let R = W * 0.3
         let rx = R * 1.14
         let ry = R * 0.88
         let cx = W / 2 + ox * R
-        let cy = H / 2 + particleOverhang / 2 + oy * R + R * 0.06
+        let cy = H / 2 + particleOverhang / 2 + (oy - hop) * R + R * 0.06
 
-        // Badge — hidden while morphing to mailbox
-        if let badge = badge, badgeS > 0.01, morph < 0.25 {
+        if let badge = badge, badgeS > 0.01 {
             drawBadge(context: context, size: size, badge: badge, R: R, rx: rx, ry: ry, cx: cx, cy: cy)
         }
 
@@ -1251,77 +933,20 @@ final class BotEngine: ObservableObject {
 
     // MARK: - Private draw helpers
 
-    private func characterPath(rx: CGFloat, ry: CGFloat, morph: CGFloat, R: CGFloat) -> Path {
+    private func characterPath(rx: CGFloat, ry: CGFloat) -> Path {
         let n = 96
         let now = CGFloat(CACurrentMediaTime())
         let puff = 1 + 0.02 * sin(now * 1.5)
-        // Target mailbox dims (spec: 1.0R wide, 0.94R tall, 0.42R corner radius)
-        let tw = R * 1.0
-        let th = R * 0.94
-        let tr = R * 0.42
         var path = Path()
         for i in 0...n {
             let a = CGFloat(i) / CGFloat(n) * .pi * 2
-            let ca = cos(a), sa = sin(a)
-            let p0 = isCloud
+            let p = isCloud
                 ? KumoStyle.cloudPoint(angle: a, rx: rx, ry: ry, puff: puff, phase: now, boosts: puffBoost)
                 : KumoStyle.bodyPoint(angle: a, rx: rx, ry: ry)
-            let px0 = p0.x, py0 = p0.y
-            let px: CGFloat
-            let py: CGFloat
-            if morph < 0.005 {
-                px = px0; py = py0
-            } else {
-                let rr = rrPoint(ca: ca, sa: sa, W: tw, H: th, cr: tr)
-                px = lerp(px0, rr.x, morph)
-                py = lerp(py0, rr.y, morph)
-            }
-            if i == 0 { path.move(to: CGPoint(x: px, y: py)) }
-            else { path.addLine(to: CGPoint(x: px, y: py)) }
+            if i == 0 { path.move(to: p) } else { path.addLine(to: p) }
         }
         path.closeSubpath()
         return path
-    }
-
-    /// Ray-rounded-rect intersection: find the point on the rounded rect boundary in direction (ca, sa).
-    private func rrPoint(ca: CGFloat, sa: CGFloat, W: CGFloat, H: CGFloat, cr: CGFloat) -> CGPoint {
-        let eps: CGFloat = 1e-6
-        let kx: CGFloat = ca >= 0 ? 1 : -1
-        let ky: CGFloat = sa >= 0 ? 1 : -1
-        let cx = kx * (W - cr)
-        let cy = ky * (H - cr)
-
-        // Try corner arc
-        let dot  = ca * cx + sa * cy
-        let disc = dot * dot - (cx*cx + cy*cy - cr*cr)
-        if disc >= 0 {
-            let t = dot + sqrt(disc)
-            if t > eps {
-                let px = ca * t, py = sa * t
-                if abs(px) >= W - cr - eps && abs(py) >= H - cr - eps {
-                    return CGPoint(x: px, y: py)
-                }
-            }
-        }
-
-        // Horizontal edge |y| = H
-        if abs(sa) > eps {
-            let t = (ky * H) / sa
-            if t > eps {
-                let x = ca * t
-                if abs(x) <= W - cr + eps { return CGPoint(x: x, y: ky * H) }
-            }
-        }
-        // Vertical edge |x| = W
-        if abs(ca) > eps {
-            let t = (kx * W) / ca
-            if t > eps {
-                let y = sa * t
-                if abs(y) <= H - cr + eps { return CGPoint(x: kx * W, y: y) }
-            }
-        }
-
-        return CGPoint(x: kx * W, y: ky * H)
     }
 
     private func drawBody(ctx: inout GraphicsContext, path: Path, R: CGFloat, rx: CGFloat, ry: CGFloat) {
@@ -1344,7 +969,7 @@ final class BotEngine: ObservableObject {
                 endPoint: CGPoint(x: -rx*0.4, y: ry*0.95)
             ))
             // Volume: the upper puffs each catch the light (bumps, no seams across the face)
-            if morph < 0.5 {
+            do {
                 var puffs = ctx
                 puffs.clip(to: path)
                 let breathe = 1 + 0.02 * sin(CGFloat(CACurrentMediaTime()) * 1.5)
@@ -1376,7 +1001,7 @@ final class BotEngine: ObservableObject {
                 ))
             }
             // State colour rising through the cloud from below
-            let effectiveTint = tint * (1 - morph)
+            let effectiveTint = tint
             if effectiveTint > 0.01 {
                 let tc = colorFromTuple(col)
                 ctx.fill(path, with: .linearGradient(
@@ -1464,15 +1089,6 @@ final class BotEngine: ObservableObject {
         var shape = eyeOverride ?? cfg.eye
         // Dancing to the music: eyes closed, smiling
         if isCloud && eyeOverride == nil && groove > 0.8 && state == .idle { shape = .happy }
-        // Dance: happy eyes in calm states
-        if isDancing && dancingLevel > 0.15 && !isMini && (state == .idle || state == .finished) {
-            shape = .happy
-        }
-        // In box mode: cup eyes when file over box (slotHTarget set), happy arcs while chewing
-        if morph > 0.5 {
-            if isChewing { shape = .happy }
-            else if slotHTarget > 0.05 || slotH > 0.10 { shape = .cup }
-        }
         ctx.clip(to: path)
 
         for sd in [-1.0, 1.0] {
@@ -1485,7 +1101,7 @@ final class BotEngine: ObservableObject {
             guard cos(eyeYaw) * cp > 0.04 else { continue }  // behind head
 
             var ex = sin(eyeYaw) * cp * rx
-            var ey = -sin(eyePitch) * ry + (morph > 0 ? ry * 0.14 * morph : 0)
+            var ey = -sin(eyePitch) * ry
             if isCloud {
                 // Eyes lead the head: they've already landed where the head is still turning to
                 let lead = gazeLead
@@ -1493,8 +1109,8 @@ final class BotEngine: ObservableObject {
                 ey += max(-0.3, min(0.3, lead.y)) * ry * 0.3
             }
 
-            let fx = lerp(max(0.18, cos(eyeYaw)), 1, morph * 0.7)
-            let fy = lerp(max(0.18, cp),          1, morph * 0.7)
+            let fx = max(0.18, cos(eyeYaw))
+            let fy = max(0.18, cp)
 
             let eyeMult: CGFloat = isMini ? 1.9 : 1.0
             let ew = R * BotConst.eyeW * es * eyeMult
@@ -1775,8 +1391,6 @@ final class BotEngine: ObservableObject {
         case "oy":     oy     = value
         case "ox":     ox     = value
         case "tint":   tint   = value
-        case "morph":  morph  = value
-        case "hands":  hands  = value
         case "blush":  blush  = value
         case "es":     es     = value
         case "badgeS": badgeS = value
@@ -1796,8 +1410,6 @@ final class BotEngine: ObservableObject {
         case "oy":     return oy
         case "ox":     return ox
         case "tint":   return tint
-        case "morph":  return morph
-        case "hands":  return hands
         case "blush":  return blush
         case "es":     return es
         case "badgeS": return badgeS

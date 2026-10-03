@@ -28,7 +28,6 @@ final class AppState: ObservableObject {
     /// Last keystroke in the chat / notes, and last chunk of Claude's chat answer (the cloud reacts)
     var typingAt: Date = .distantPast
     var claudeTalkingAt: Date = .distantPast
-    var lastActivity: Date = .now
     var isPresent: Bool = true
     /// Screens asleep or session locked: pollers skip their network calls.
     var macAsleep: Bool = false
@@ -86,20 +85,15 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(absenceInterval, forKey: "absenceInterval") }
     }
 
-    // How long hidden before greeting on reappear (default 2 min)
-    var greetThresholdSeconds: TimeInterval = 120 {
-        didSet { UserDefaults.standard.set(greetThresholdSeconds, forKey: "greetThreshold") }
-    }
-
     // Hotkey to show island (e.g. ⌘⇧N)
     @Published var hotkeyEnabled: Bool = false {
-        didSet { UserDefaults.standard.set(hotkeyEnabled, forKey: "hotkeyEnabled") }
+        didSet { UserDefaults.standard.set(hotkeyEnabled, forKey: "hotkeyEnabled"); NotesHotKey.updateIslandHotKey() }
     }
     var hotkeyFlags: UInt = NSEvent.ModifierFlags([.command, .shift]).rawValue {
-        didSet { UserDefaults.standard.set(Int(hotkeyFlags), forKey: "hotkeyFlags") }
+        didSet { UserDefaults.standard.set(Int(hotkeyFlags), forKey: "hotkeyFlags"); NotesHotKey.updateIslandHotKey() }
     }
     var hotkeyCode: UInt16 = 45 {  // 'n'
-        didSet { UserDefaults.standard.set(Int(hotkeyCode), forKey: "hotkeyCode") }
+        didSet { UserDefaults.standard.set(Int(hotkeyCode), forKey: "hotkeyCode"); NotesHotKey.updateIslandHotKey() }
     }
 
     @Published var autoUpdate: Bool = true {
@@ -182,7 +176,6 @@ final class AppState: ObservableObject {
         if let v = ud.object(forKey: "soundVolume") as? Double     { soundVolume = v }
         if let v = ud.object(forKey: "autoCloseDelay") as? Double  { autoCloseDelay = v }
         if let v = ud.object(forKey: "absenceInterval") as? Double { absenceInterval = v }
-        if let v = ud.object(forKey: "greetThreshold") as? Double  { greetThresholdSeconds = v }
         if let v = ud.object(forKey: "hotkeyEnabled") as? Bool     { hotkeyEnabled = v }
         if let v = ud.object(forKey: "hotkeyFlags") as? Int        { hotkeyFlags = UInt(v) }
         if let v = ud.object(forKey: "hotkeyCode") as? Int         { hotkeyCode = UInt16(v) }

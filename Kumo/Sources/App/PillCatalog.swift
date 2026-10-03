@@ -31,9 +31,6 @@ struct PillDefinition {
     let source:     AgentSource
     /// True when the service has what it needs (tokens…). Workspace pills are always on.
     let isConfigured: @MainActor @Sendable () -> Bool
-
-    /// Label shown in the active-session card header.
-    var sessionSubtitle: String { "Claude Code" }
 }
 
 // MARK: - Catalog

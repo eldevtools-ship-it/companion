@@ -26,8 +26,8 @@ final class IslandStateMachine {
     /// home → petit delay when the app opened the island on its own and the pointer
     /// isn't over it (an alert, a reminder): long enough to read it.
     var externalOpenDelay: TimeInterval = 6
-    /// petit → hidden delay (seconds). Override for debug.
-    var petitToHiddenDelay: TimeInterval = 60
+    /// petit → hidden delay (seconds): Settings → « Masquer après N min sans mouvement ».
+    var petitToHiddenDelay: () -> TimeInterval = { 60 }
     /// greeting → petit delay after greeting animation ends (no hover). ~0.6s syncs with canvas collapse.
     var greetAutoCollapseDelay: TimeInterval = 0.6
     /// greeting → petit delay when mouse is hovering over the greeting.
@@ -104,6 +104,15 @@ final class IslandStateMachine {
         state = .hidden
     }
 
+    /// AppState showed the compact island by itself (a session or pill appeared): sync to
+    /// `.petit` and start the hide timer, so it doesn't stay (and animate) forever.
+    func shownExternally() {
+        guard state == .hidden else { return }
+        cancelTimers()
+        state = .petit
+        schedulePetitHide()
+    }
+
     /// The app expanded the island externally (hookExpand for an alert).
     /// Cancel timers and sync state to `.home` without firing `onTransition`, so the
     /// next hover/mouseLeft behave correctly instead of collapsing the island.
@@ -115,7 +124,7 @@ final class IslandStateMachine {
 
     /// The app folded the island itself (Escape, Settings, OK button, auto-close).
     /// Move to `.petit` right away so hover and click keep working; waiting for the
-    /// 15 s home timer left the island compact on screen while the FSM still said `.home`.
+    /// home timer left the island compact on screen while the FSM still said `.home`.
     func collapse() {
         guard state == .home || state == .greeting else { return }
         cancelTimers()
@@ -159,7 +168,7 @@ final class IslandStateMachine {
             self.transition(to: .hidden)
         }
         petitHideWork = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + petitToHiddenDelay, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(10, petitToHiddenDelay()), execute: item)
     }
 
     /// Folds the island after a delay. While something holds it open (an approval,

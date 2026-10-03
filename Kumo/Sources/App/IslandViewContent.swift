@@ -1008,29 +1008,6 @@ extension CardBackground where Content == EmptyView {
         self.wash = wash
         self.content = nil
     }
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: IslandConst.cardRadius)
-                .fill(Color(hex: "#141518"))
-                .overlay(
-                    RadialGradient(
-                        gradient: Gradient(stops: [
-                            .init(color: washColor, location: 0),
-                            .init(color: .clear, location: 0.7)
-                        ]),
-                        center: UnitPoint(x: 0.5, y: 1.3),
-                        startRadius: 0,
-                        endRadius: 280
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: IslandConst.cardRadius))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: IslandConst.cardRadius)
-                        .stroke(Color.white.opacity(0.035), lineWidth: 1)
-                )
-        }
-    }
 }
 
 // MARK: - Shared sub-components

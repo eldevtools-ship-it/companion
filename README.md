@@ -13,7 +13,8 @@ Un petit assistant qui vit dans l'encoche du Mac et fait trois choses :
   de la tâche et d'une note, et un rappel si tu travailles sans timer.
 
 Plus **Agenda** (rappel avant tes réunions, bouton Rejoindre, lu dans l'app
-Calendrier du Mac), **Vercel** (déploiements) et **GitHub**. Les pastilles
+Calendrier du Mac), **Vercel** (déploiements), **GitHub**, un **pense-bête**, un
+petit **chat avec Claude** et la **musique** (Spotify). Les pastilles
 apparaissent toutes seules dès que le service est configuré.
 
 Kumo est notre version de [Coucou](https://github.com/Louis-CFM/coucou)
@@ -94,7 +95,7 @@ cd Kumo && xcodegen && open Kumo.xcodeproj   # puis ⌘R
 Générés par script, rien n'est repris de Coucou :
 
 ```bash
-python3 scripts/gen-sounds.py   # 28 sons dans Kumo/Resources/sounds/
+python3 scripts/gen-sounds.py   # les sons dans Kumo/Resources/sounds/
 python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 ```
 
@@ -118,7 +119,8 @@ python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 - [x] Harvest : timer en cours, démarrer / arrêter, rappel ([docs/HARVEST.md](docs/HARVEST.md))
 - [x] Répondre aux questions de Claude depuis Kumo (à confirmer à l'usage)
 - [x] Rappel de réunion (Calendrier du Mac) et Vercel
-- [ ] Écrire à Claude depuis Kumo
+- [x] Écrire à Claude depuis Kumo (petit chat, ⌥⌘J)
+- [x] Pense-bête (⌥⌘N) et musique Spotify
 - [x] Recentrer l'app sur Claude Code, Slack, Harvest et GitHub
 
 ## Où est quoi
@@ -126,4 +128,4 @@ python3 scripts/gen-icons.py    # icône de l'app et de la barre des menus
 - `Kumo/` — l'app macOS (Swift 6, SwiftUI, AppKit, sans dépendance).
 - `scripts/` — génération des sons et icônes, petits tests.
 - `docs/SLACK.md`, `docs/HARVEST.md` — mise en place des intégrations.
-- `docs/COUCOU-README.md` — le README d'origine de Coucou.
+- `docs/AGENTS.md` — brancher un autre agent que Claude Code.

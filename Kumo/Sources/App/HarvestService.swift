@@ -290,12 +290,16 @@ final class HarvestService {
     }
 
     nonisolated static func today() -> String {
+        dayFormatter.string(from: Date())
+    }
+
+    nonisolated(unsafe) private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.calendar = Calendar(identifier: .gregorian)
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: Date())
-    }
+        return f
+    }()
 
     /// 1:05:09
     nonisolated static func clock(_ seconds: TimeInterval) -> String {
