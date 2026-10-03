@@ -12,9 +12,11 @@ pas de nouvelle fonction sans usage réel.
 ## Où est quoi
 - `Compagnon/Sources/App/` — tout le code Swift. `Compagnon/project.yml` — projet
   XcodeGen (le `.xcodeproj` est généré, jamais commité).
-- `Compagnon/Sources/App/CompagnonStyle.swift` — l'apparence du personnage
-  (couleurs, silhouette, antenne), partagée par `BotEngine.swift` (personnage
-  principal) et `GreetingCanvasView.swift` (accueil).
+- `Compagnon/Sources/App/CompagnonStyle.swift` — l'apparence du personnage :
+  un nuage blanc à cinq bouffées (`cloudPoint`), yeux en pilules sobres (sans
+  reflet), la couleur de l'état qui monte par le bas. Partagé par `BotEngine.swift`
+  (personnage principal) et `GreetingCanvasView.swift` (accueil). Les mini-robots
+  des pastilles gardent la silhouette « bonbon » (`bodyPoint`).
 - `Compagnon/Sources/App/HookServer.swift` — le pont avec Claude Code : socket
   `~/Library/Application Support/Compagnon/compagnon.sock`, script relais
   `compagnon-hook`, installation des hooks dans `~/.claude/settings.json`.
