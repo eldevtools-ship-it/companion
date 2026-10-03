@@ -48,6 +48,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         notesItem.keyEquivalentModifierMask = [.command, .option]
         notesItem.target = self
         menu.addItem(notesItem)
+        let chatItem = NSMenuItem(title: "Demander à Claude", action: #selector(openChat), keyEquivalent: "j")
+        chatItem.keyEquivalentModifierMask = [.command, .option]
+        chatItem.target = self
+        menu.addItem(chatItem)
         let dayItem = NSMenuItem(title: "Résumé du jour", action: #selector(showDay), keyEquivalent: "")
         dayItem.target = self
         menu.addItem(dayItem)
@@ -154,6 +158,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openNotes() {
         islandController?.open(to: .notes)
+    }
+
+    @objc private func openChat() {
+        islandController?.open(to: .chat)
     }
 
     @objc private func showDay() {

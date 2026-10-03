@@ -103,7 +103,7 @@ final class IslandWindowController: NSWindowController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newView in
                 guard let self else { return }
-                if newView == .harvest || newView == .question || newView == .notes {
+                if newView == .harvest || newView == .question || newView == .notes || newView == .chat {
                     self.islandPanel.makeKey()
                 }
             }
@@ -437,6 +437,11 @@ final class IslandWindowController: NSWindowController {
             }
         }
 
+        // ⌥⌘J from anywhere: chat with Claude
+        NotificationCenter.default.addObserver(forName: .openChat, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.open(to: .chat) }
+        }
+
         // ⌥⌘N from anywhere: the notes, ready to type
         NotificationCenter.default.addObserver(forName: .openNotes, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.open(to: .notes) }
@@ -652,7 +657,7 @@ func islandSize(mode: IslandMode, view: IslandView,
     case .compact:  return (nw + IslandConst.compactEar * 2, nh + IslandRestingLayout.compactExtraHeight)
     case .expanded:
         let layout = IslandConst.viewLayouts[view]!
-        if view == .notes {
+        if view == .notes || view == .chat {
             return (IslandConst.expandedWidth, IslandConst.notesHeight)
         }
         if view == .harvest && AppState.shared.harvestListOpen {

@@ -5,7 +5,7 @@ dans l'encoche du Mac et fait trois choses, pour un seul utilisateur :
 - suivre les sessions Claude Code via leurs hooks et autoriser / refuser depuis l'encoche ;
 - afficher les messages directs et mentions Slack, et y répondre ;
 - piloter le timer Harvest (projet, tâche, note, start / stop, rappel).
-Plus l'Agenda, Vercel, GitHub et un pense-bête. C'est un fork de [Coucou](https://github.com/Louis-CFM/coucou)
+Plus l'Agenda, Vercel, GitHub, un pense-bête et un petit chat avec Claude. C'est un fork de [Coucou](https://github.com/Louis-CFM/coucou)
 (MIT), entièrement en français et avec sa propre identité. Garder l'app minimale :
 pas de nouvelle fonction sans usage réel.
 
@@ -31,6 +31,10 @@ pas de nouvelle fonction sans usage réel.
 - `NotesStore.swift` / `NotesView.swift` — le pense-bête (bouton notes à côté de la
   lune) : notes et dossiers dans `~/Library/Application Support/Compagnon/notes.json`.
   ⌥⌘N l'ouvre depuis n'importe quelle app (`HotKey.swift`, raccourci Carbon).
+- `ChatService.swift` / `ChatView.swift` — petit chat avec Claude (bouton bulle,
+  ⌥⌘J) via la CLI Claude Code installée (`claude -p`, abonnement de l'utilisateur,
+  Haiku par défaut). Lancé avec `COMPAGNON_CHAT=1` : le relais `compagnon-hook`
+  l'ignore, pour que le chat n'apparaisse jamais comme une session dans l'île.
 - `DayService.swift` / `DayCardView.swift` — bonjour le matin, résumé du soir,
   concentration automatique en réunion (caméra allumée ou réunion de l'agenda).
 - `SlackService.swift`, `HarvestService.swift`, `GithubPoller.swift`,

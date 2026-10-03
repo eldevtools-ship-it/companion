@@ -1023,6 +1023,8 @@ private let hookShellWrapper = """
 #!/bin/sh
 # Compagnon hook relay — always exits 0, never blocks Claude Code
 HOOK_DIR="$(dirname "$0")"
+# Compagnon's own chat runs Claude Code too: stay out of the island for it
+if [ -n "$COMPAGNON_CHAT" ]; then cat >/dev/null; exit 0; fi
 if xcode-select -p >/dev/null 2>&1; then
     out=$(/usr/bin/python3 "$HOOK_DIR/compagnon-hook.py" "$@" 2>/dev/null)
     rc=$?

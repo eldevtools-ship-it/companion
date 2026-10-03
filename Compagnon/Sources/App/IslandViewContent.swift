@@ -19,6 +19,7 @@ struct IslandViewContent: View {
         case .harvest:   HarvestPickerView(state: state)
         case .notes:     NotesView(state: state)
         case .day:       DayCardView(state: state)
+        case .chat:      ChatView(state: state)
         case .settings:  SettingsIslandView(state: state)
         case .greeting:  EmptyView()  // GreetingCanvasView overlaid in IslandRootView
         }

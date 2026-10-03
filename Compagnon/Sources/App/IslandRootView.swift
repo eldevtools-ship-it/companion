@@ -347,6 +347,7 @@ struct IslandHeader: View {
                 }
                 FocusButton(state: state)
                 NotesButton(state: state)
+                HeaderToggle(state: state, target: .chat, icon: "bubble.left", help: "Demander à Claude (⌥⌘J)")
             }
             .animation(.spring(response: 0.38, dampingFraction: 0.82), value: showsBack)
             .padding(.leading, 10)
@@ -429,6 +430,36 @@ struct FocusButton: View {
         .onHover { hovered = $0 }
         .help(on ? "Concentration activée : seul Claude te dérange. Clique pour l'arrêter."
                  : "Concentration : couper Slack, Vercel et le rappel Harvest")
+    }
+}
+
+/// Opens a view from the header; again to go back.
+struct HeaderToggle: View {
+    @ObservedObject var state: AppState
+    let target: IslandView
+    let icon: String
+    let help: String
+    @State private var hovered = false
+
+    private var on: Bool { state.view == target }
+
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                state.view = on ? .overview : target
+            }
+        } label: {
+            Image(systemName: on ? icon + ".fill" : icon)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundColor(on ? Color(hex: "#F5F6F8") : (hovered ? Color(hex: "#B0B5BE") : Color(hex: "#8E939C")))
+                .frame(width: 28, height: 22)
+                .background(Capsule().fill(Color.white.opacity(on ? 0.12 : (hovered ? 0.06 : 0))))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .pointingHand()
+        .onHover { hovered = $0 }
+        .help(on ? "Revenir" : help)
     }
 }
 
