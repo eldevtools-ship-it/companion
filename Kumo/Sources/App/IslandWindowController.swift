@@ -188,9 +188,9 @@ final class IslandWindowController: NSWindowController {
 
     // MARK: - Pointer polling
     // 60 Hz while the pointer is near the island or it's open (hover, look-at, cursor);
-    // 8 Hz while the compact island shows; nothing at all while it's hidden and the pointer
-    // is far: a mouse-move monitor (no permission needed) wakes it up when the pointer
-    // comes near the notch, and any change of mode wakes it too.
+    // 8 Hz while the compact island shows; once a second while it's hidden and the pointer
+    // is far, with a mouse-move monitor (no permission needed) that wakes it up at once
+    // when the pointer comes near the notch; any change of mode wakes it too.
 
     private enum PollRate { case hot, warm, off }
     private var pollRate: PollRate = .hot
@@ -214,13 +214,14 @@ final class IslandWindowController: NSWindowController {
         frameTimer?.invalidate()
         frameTimer = nil
         pollRate = rate
-        guard rate != .off else { armWakeMonitor(); return }
-        disarmWakeMonitor()
+        if rate == .off { armWakeMonitor() } else { disarmWakeMonitor() }
         let hot = rate == .hot
-        let t = Timer(timeInterval: hot ? 1.0 / 60.0 : 1.0 / 8.0, repeats: true) { [weak self] _ in
+        // Resting: a slow safety net in case the monitor misses the approach
+        let interval = hot ? 1.0 / 60.0 : rate == .warm ? 1.0 / 8.0 : 1.0
+        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.pollFrame() }
         }
-        t.tolerance = hot ? 0.002 : 0.04
+        t.tolerance = hot ? 0.002 : rate == .warm ? 0.04 : 0.5
         RunLoop.main.add(t, forMode: .common)
         frameTimer = t
     }

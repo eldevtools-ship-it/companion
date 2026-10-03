@@ -177,6 +177,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         islandController?.open(to: .overview)
     }
 
+    /// Double-click on Kumo while it's already running (it has no Dock icon): open the
+    /// island instead of doing nothing visible.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if let c = islandController { c.open(to: c.defaultView()) }
+        return false
+    }
+
     private var settingsWindow: NSWindow?
 
     @objc private func openSettingsFromNotification(_ notification: Notification) {
