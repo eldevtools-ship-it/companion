@@ -308,8 +308,10 @@ struct IslandContentView: View {
                     let anim: Animation = active
                         ? .spring(response: 0.4, dampingFraction: 0.8).delay(0.16)
                         : .easeIn(duration: 0.16)
+                    // minHeight 0: a hidden view that needs more room (the notes) must never
+                    // stretch the stack, or the bottom margin gets eaten
                     IslandViewContent(view: v, state: state)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                         .opacity(active ? 1 : 0)
                         .scaleEffect(active ? 1 : 0.97)
                         .allowsHitTesting(active)

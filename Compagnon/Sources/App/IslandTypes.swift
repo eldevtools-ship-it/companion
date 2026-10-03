@@ -116,7 +116,6 @@ enum CardLayout {
     /// The cloud spans ±0.44 D around its body centre, which sits 0.03 D below the
     /// canvas centre: lift the canvas by that much to centre the cloud in the card.
     static let botCenterYOffset: CGFloat = -botDiameter * 0.03
-    static let leftCardWidth: CGFloat = 322
     static let headerTop: CGFloat = IslandConst.cardInset + 2
     /// Top of the line under a card's title — the same gap in every card.
     static let secondLineTop: CGFloat = headerTop + 21

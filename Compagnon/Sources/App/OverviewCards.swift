@@ -13,6 +13,7 @@ struct OverviewView: View {
     @ObservedObject var state: AppState
 
     var body: some View {
+        // Two equal halves; the gap between them equals the island's side and bottom margins
         HStack(spacing: IslandConst.contentInset) {
             ZStack(alignment: .topLeading) {
                 CardBackground(wash: nil)
@@ -24,11 +25,12 @@ struct OverviewView: View {
                     .padding(.trailing, IslandConst.cardInset)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .frame(width: CardLayout.leftCardWidth)
+            .frame(maxWidth: .infinity)
 
             CardBackground(wash: nil) {
                 AgentPillsView(state: state)
             }
+            .frame(maxWidth: .infinity)
         }
     }
 }
