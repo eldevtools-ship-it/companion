@@ -29,6 +29,8 @@ final class NotesStore: ObservableObject {
 
     @Published private(set) var notes: [Note] = []      // newest first
     @Published private(set) var folders: [String] = []
+    /// What you're typing, kept while you visit other views.
+    @Published var draft = ""
 
     private struct Stored: Codable { var notes: [Note]; var folders: [String] }
     private let url: URL

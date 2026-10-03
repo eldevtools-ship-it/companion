@@ -95,11 +95,6 @@ struct ViewLayout {
     let botX: CGFloat
     let botY: CGFloat?         // nil = auto-centered
     let botDiameter: CGFloat
-    let agentMode: AgentLayoutMode
-}
-
-enum AgentLayoutMode {
-    case none, grid, pills, column
 }
 
 // MARK: - Card layout
@@ -130,7 +125,6 @@ enum IslandConst {
     static let notchHeight: CGFloat = 32
     static let expandedWidth: CGFloat = 640
     static let expandedHeight: CGFloat = 146
-    static let earRadius: CGFloat   = 14
     static let roundedCorner: CGFloat = 14    // hidden/peek/compact
 
     // Corner radii follow one rule: inner radius = outer radius − the gap between them.
@@ -158,10 +152,10 @@ enum IslandConst {
         var d: [IslandView: ViewLayout] = [:]
         for v in IslandView.allCases where v != .greeting {
             d[v] = ViewLayout(height: IslandConst.expandedHeight, botX: CardLayout.botCenterX, botY: nil,
-                              botDiameter: CardLayout.botDiameter, agentMode: .none)
+                              botDiameter: CardLayout.botDiameter)
         }
         // Greeting: bot drawn by GreetingCanvasView; no BotPlacement needed
-        d[.greeting] = ViewLayout(height: 150, botX: 320, botY: 90, botDiameter: 0, agentMode: .none)
+        d[.greeting] = ViewLayout(height: 150, botX: 320, botY: 90, botDiameter: 0)
         return d
     }()
 
@@ -181,13 +175,4 @@ enum IslandConst {
         for (k, c) in projectColors where key.hasPrefix(k) || key.contains(k) { return c }
         return fallbackColors[abs(name.hashValue) % fallbackColors.count]
     }
-
-    // State card wash colors (radial gradient from bottom)
-    static let washColors: [IslandView: String] = [
-        .approval:  "rgba(245,165,36,0.42)",
-        .question:  "rgba(34,211,238,0.38)",
-        .error:     "rgba(244,80,94,0.55)",
-        .finished:  "rgba(52,211,153,0.5)",
-        .confused:  "rgba(244,114,182,0.55)",
-    ]
 }

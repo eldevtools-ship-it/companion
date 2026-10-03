@@ -258,16 +258,19 @@ struct ErrorView: View {
     var body: some View {
         ZStack {
             CardBackground(wash: .red)
-            VStack(alignment: .leading, spacing: 5) {
-                AgentWho(task: state.focusTask, label: "n8n")
-                Text("Workflow arrêté.")
-                    .font(.system(size: 15, weight: .semibold))
-                Text("Le nœud Gmail a expiré après 30 s. Réessaie ou ouvre n8n.")
-                    .font(.system(size: 12))
-                    .foregroundColor(Color(hex: "#FF8D97"))
+            VStack(alignment: .leading, spacing: 6) {
+                AgentWho(task: state.focusTask, label: "s'est arrêté sur une erreur")
+                Text(state.focusTask?.steps.last ?? "Erreur inattendue")
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(2)
                 HStack(spacing: 8) {
-                    PrimaryButton("Réessayer") { /* retry */ }
-                    SecondaryButton("Ouvrir dans n8n") { /* open */ }
+                    PrimaryButton("Revenir") {
+                        returnToSession(state.focusTask)
+                        NotificationCenter.default.post(name: .islandCollapse, object: nil)
+                    }
+                    SecondaryButton("OK") {
+                        NotificationCenter.default.post(name: .islandCollapse, object: nil)
+                    }
                 }
             }
             .padding(.leading, CardLayout.contentLeading)
@@ -521,7 +524,7 @@ struct TickerShimmerText: View {
     let text: String
 
     var body: some View {
-        TimelineView(.animation) { tl in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { tl in
             let t = tl.date.timeIntervalSinceReferenceDate
             let p = CGFloat(t.truncatingRemainder(dividingBy: 2.2) / 2.2)
             // phase sweeps -0.1 → 1.1 so white peak enters from left and exits right
@@ -670,28 +673,6 @@ struct PillBadgeView: View {
     }
 }
 
-// MARK: - Column agents (right side of non-overview views)
-
-struct ColumnAgentsView: View {
-    @ObservedObject var state: AppState
-
-    var others: [AgentTask] {
-        state.tasks.filter { $0.id != state.focusId }
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(others.prefix(4).enumerated()), id: \.1.id) { idx, task in
-                MiniBotCanvasView(task: task)
-                    .frame(width: 16 / 0.6, height: 16 / 0.6)
-                    .frame(width: 16, height: 16)
-                    .position(x: 0, y: CGFloat(50 + idx * 24))
-                    .animation(.spring(response: 0.5, dampingFraction: 0.72).delay(Double(idx) * 0.035), value: idx)
-            }
-        }
-    }
-}
-
 // MARK: - Card background
 
 struct CardBackground<Content: View>: View {
@@ -807,48 +788,6 @@ struct CodeBlock: View {
     }
 }
 
-struct ShimmeringText: View {
-    let text: String
-    init(_ text: String) { self.text = text }
-
-    var body: some View {
-        Text(text)
-            .foregroundStyle(
-                LinearGradient(
-                    stops: [
-                        .init(color: Color(hex: "#7c818a"), location: 0),
-                        .init(color: .white, location: 0.4),
-                        .init(color: Color(hex: "#7c818a"), location: 0.7)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-    }
-}
-
-struct ShimmerOverlay: View {
-    @State private var phase: CGFloat = 0.0
-
-    var body: some View {
-        LinearGradient(
-            stops: [
-                // Clamp all locations to [0,1] and keep them ordered
-                .init(color: .clear,                   location: max(0, phase - 0.3)),
-                .init(color: Color.white.opacity(0.6), location: max(0, min(1, phase))),
-                .init(color: .clear,                   location: min(1, phase + 0.3))
-            ],
-            startPoint: .leading, endPoint: .trailing
-        )
-        .blendMode(.overlay)
-        .onAppear {
-            withAnimation(.linear(duration: 2.2).repeatForever(autoreverses: false)) {
-                phase = 1.3  // travels left→right, exits right edge cleanly
-            }
-        }
-    }
-}
-
 // MARK: - Button styles
 
 struct PrimaryButton: View {
@@ -908,26 +847,6 @@ struct SecondaryButton: View {
         }
         .buttonStyle(.plain)
         .pointingHand()
-    }
-}
-
-struct IconButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .frame(width: 28, height: 28)
-            .background(Color.white.opacity(0.08))
-            .clipShape(Circle())
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
-    }
-}
-
-struct SendButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .frame(width: 28, height: 28)
-            .background(Color(hex: "#F5F6F8"))
-            .clipShape(Circle())
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
     }
 }
 

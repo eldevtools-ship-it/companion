@@ -73,6 +73,10 @@ cd Compagnon && xcodegen && xcodebuild -scheme Compagnon -configuration Debug bu
 - Ne jamais écraser `~/.claude/settings.json` : sauvegarde datée, fusion, diff
   montré, écriture seulement après confirmation.
 - Ne jamais envoyer un mail ni autoriser une action sans clic explicite.
-- Performance : 0 % de CPU quand l'île est cachée.
+- Performance : 0 % de CPU quand l'île est cachée. Le suivi de la souris tourne à
+  60 Hz seulement près de l'île ou quand elle est ouverte (8 Hz sinon) ; seules la vue
+  affichée et celle qui disparaît sont construites ; les mini-animations sont plafonnées
+  à 30 i/s ; aucun appel réseau pendant que les écrans dorment (`AppState.macAsleep`) ;
+  les journaux s'écrivent en arrière-plan.
 - Les identifiants de pastilles sont des valeurs stables (Trousseau, réglages,
   routage des hooks) : ne pas les renommer.

@@ -1,62 +1,43 @@
 import Foundation
 
-final class GithubPoller: @unchecked Sendable {
+// MARK: - GitHub
+// Repos and stars for the GitHub card. They change slowly: every 15 minutes is plenty.
+
+@MainActor
+final class GithubPoller {
     static let shared = GithubPoller()
-    private var timer: DispatchSourceTimer?
+    private var loop: Task<Void, Never>?
     private init() {}
 
     func start() {
-        guard timer == nil else { return }
-        let t = DispatchSource.makeTimerSource(queue: .global(qos: .background))
-        t.schedule(deadline: .now() + 7, repeating: 300)  // every 5 minutes
-        t.setEventHandler { [weak self] in self?.poll() }
-        t.resume()
-        timer = t
+        guard loop == nil else { return }
+        loop = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 7_000_000_000)
+            while !Task.isCancelled {
+                if !AppState.shared.macAsleep { await self?.poll() }
+                try? await Task.sleep(nanoseconds: 15 * 60 * 1_000_000_000)
+            }
+        }
     }
 
-    private func poll() {
-        guard let token = KeychainStore.shared.get("github-token") else { return }
-        fetchUser(token: token)
+    private func poll() async {
+        guard let token = KeychainStore.shared.get("github-token"),
+              let user = await get("https://api.github.com/user", token: token) as? [String: Any],
+              let repos = await get("https://api.github.com/user/repos?per_page=100&affiliation=owner&sort=pushed",
+                                    token: token) as? [[String: Any]] else { return }
+        let publicRepos = (user["public_repos"] as? Int) ?? 0
+        let privateOwned = (user["owned_private_repos"] as? Int) ?? (user["total_private_repos"] as? Int) ?? 0
+        let stars = repos.reduce(0) { $0 + (($1["stargazers_count"] as? Int) ?? 0) }
+        AppState.shared.githubStats = GitHubStats(totalRepos: publicRepos + privateOwned, totalStars: stars)
     }
 
-    private func fetchUser(token: String) {
-        guard let url = URL(string: "https://api.github.com/user") else { return }
-        var req = URLRequest(url: url, timeoutInterval: 10)
-        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-
-        URLSession.shared.dataTask(with: req) { [weak self] data, response, _ in
-            guard let self else { return }
-            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-            guard let data, code == 200,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
-
-            let publicRepos  = (json["public_repos"]       as? Int) ?? 0
-            let privateOwned = (json["owned_private_repos"] as? Int)
-                            ?? (json["total_private_repos"] as? Int)
-                            ?? 0
-            let totalRepos = publicRepos + privateOwned
-
-            self.fetchStars(token: token, totalRepos: totalRepos)
-        }.resume()
-    }
-
-    private func fetchStars(token: String, totalRepos: Int) {
-        guard let url = URL(string: "https://api.github.com/user/repos?per_page=100&affiliation=owner&sort=pushed") else { return }
+    private func get(_ urlString: String, token: String) async -> Any? {
+        guard let url = URL(string: urlString) else { return nil }
         var req = URLRequest(url: url, timeoutInterval: 15)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-
-        URLSession.shared.dataTask(with: req) { data, response, _ in
-            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-            guard let data, code == 200,
-                  let repos = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
-
-            let totalStars = repos.reduce(0) { $0 + ((($1["stargazers_count"] as? Int) ?? 0)) }
-
-            DispatchQueue.main.async {
-                AppState.shared.githubStats = GitHubStats(totalRepos: totalRepos, totalStars: totalStars)
-            }
-        }.resume()
+        guard let result = try? await URLSession.shared.data(for: req),
+              (result.1 as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return try? JSONSerialization.jsonObject(with: result.0)
     }
 }

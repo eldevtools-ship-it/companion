@@ -307,7 +307,6 @@ final class HookServer: @unchecked Sendable {
             let input = payload["tool_input"] as? [String: Any] ?? [:]
             let step = frenchStep(tool: tool, input: input)
             appendStep(id: agentId, step: step)
-            nbLog("PreToolUse \(tool)")
 
         case "PostToolUse":
             state.updateTask(id: agentId, state: .working)

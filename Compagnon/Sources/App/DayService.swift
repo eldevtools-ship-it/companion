@@ -33,7 +33,7 @@ final class DayService {
         }
         focusLoop = Task { [weak self] in
             while !Task.isCancelled {
-                self?.checkMeeting()
+                if !AppState.shared.macAsleep { self?.checkMeeting() }
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
             }
         }

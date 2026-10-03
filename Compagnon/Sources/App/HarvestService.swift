@@ -64,7 +64,7 @@ final class HarvestService {
         guard loop == nil else { return }
         loop = Task { [weak self] in
             while !Task.isCancelled {
-                await self?.refresh()
+                if !AppState.shared.macAsleep { await self?.refresh() }
                 try? await Task.sleep(nanoseconds: 60_000_000_000)
             }
         }

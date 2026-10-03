@@ -27,6 +27,8 @@ final class AppState: ObservableObject {
     var lastMouseMove: Date = .now
     var lastActivity: Date = .now
     var isPresent: Bool = true
+    /// Screens asleep or session locked: pollers skip their network calls.
+    var macAsleep: Bool = false
 
     // Pinned (alerts that stay open, never auto-close)
     var isPinned: Bool = false
@@ -198,15 +200,6 @@ final class AppState: ObservableObject {
     }
 
     // MARK: - Task management
-
-    func addTask(_ task: AgentTask) {
-        guard !tasks.contains(where: { $0.id == task.id }) else { return }
-        tasks.append(task)
-        if focusId == nil { focusId = task.id }
-        sortTasksByCatalog()
-        syncMode()
-        syncView()
-    }
 
     func removeTask(id: String) {
         // Catalog pills are reset to idle, never removed

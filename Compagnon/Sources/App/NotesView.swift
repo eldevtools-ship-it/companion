@@ -9,7 +9,6 @@ struct NotesView: View {
     @ObservedObject private var store = NotesStore.shared
 
     @State private var folder: String? = nil          // nil = every note
-    @State private var draft = ""
     @State private var editing: UUID? = nil
     @State private var editText = ""
     @State private var moving: UUID? = nil
@@ -43,8 +42,9 @@ struct NotesView: View {
             }
         }
         .onChange(of: focus) { _, _ in syncHold() }
-        .onChange(of: draft) { _, _ in syncHold() }
-        .onDisappear { endEditing() }
+        .onChange(of: store.draft) { _, _ in syncHold() }
+        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focus = .compose } }
+        .onDisappear { endEditing(); if state.isEditingText { state.isEditingText = false } }
     }
 
     // MARK: Folders
@@ -98,19 +98,19 @@ struct NotesView: View {
     private var composeRow: some View {
         HStack(spacing: 8) {
             ZStack(alignment: .leading) {
-                if draft.isEmpty {
+                if store.draft.isEmpty {
                     Text(folder.map { "Noter dans \($0)…" } ?? "Note quelque chose…")
                         .font(.system(size: 12))
                         .foregroundColor(Color.white.opacity(0.48))
                         .allowsHitTesting(false)
                 }
-                TextField("", text: $draft)
+                TextField("", text: $store.draft)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
                     .foregroundColor(Color(hex: "#F5F6F8"))
                     .focused($focus, equals: .compose)
                     .onSubmit(add)
-                    .onExitCommand { if draft.isEmpty { state.view = .overview } else { draft = "" } }
+                    .onExitCommand { if store.draft.isEmpty { state.view = .overview } else { store.draft = "" } }
             }
             .padding(.horizontal, 10)
             .frame(height: 32)
@@ -140,12 +140,12 @@ struct NotesView: View {
             Button(action: add) {
                 Image(systemName: "arrow.up")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(draft.isEmpty ? Color.white.opacity(0.4) : .black)
+                    .foregroundColor(store.draft.isEmpty ? Color.white.opacity(0.4) : .black)
                     .frame(width: 28, height: 28)
-                    .background(Circle().fill(draft.isEmpty ? Color.white.opacity(0.08) : Color.white))
+                    .background(Circle().fill(store.draft.isEmpty ? Color.white.opacity(0.08) : Color.white))
             }
             .buttonStyle(.plain)
-            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+            .disabled(store.draft.trimmingCharacters(in: .whitespaces).isEmpty)
             .pointingHand()
             .help("Garder la note (⏎)")
         }
@@ -195,10 +195,10 @@ struct NotesView: View {
     }
 
     private func add() {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = store.draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { store.add(text, folder: folder) }
-        draft = ""
+        store.draft = ""
         SoundEngine.shared.play("blip")
         // The cloud is pleased you told it something
         NotificationCenter.default.post(name: .triggerEmote, object: BotEmote.happy)
@@ -243,7 +243,7 @@ struct NotesView: View {
 
     /// Keep the island open while you're actually writing something.
     private func syncHold() {
-        let writing = focus != nil && (!draft.isEmpty || focus == .edit || focus == .folder)
+        let writing = focus != nil && (!store.draft.isEmpty || focus == .edit || focus == .folder)
         if state.isEditingText != writing { state.isEditingText = writing }
     }
 }

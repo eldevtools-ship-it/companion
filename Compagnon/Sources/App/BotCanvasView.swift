@@ -10,7 +10,10 @@ struct BotCanvasView: View {
     @StateObject private var engine = BotEngine()
 
     var body: some View {
-        TimelineView(.animation(paused: state.mode == .hidden)) { timeline in
+        // Full frame rate when the island is open; the 20 pt cloud of the compact bar
+        // looks the same at 30 fps; nothing at all when hidden.
+        TimelineView(.animation(minimumInterval: state.mode == .expanded ? nil : 1.0 / 30,
+                                paused: state.mode == .hidden)) { timeline in
             Canvas { context, size in
                 let now = timeline.date.timeIntervalSinceReferenceDate
                 let dtRaw = min(0.05, now - engine.lastTime)
@@ -115,7 +118,8 @@ struct MiniBotCanvasView: View {
     }
 
     var body: some View {
-        TimelineView(.animation) { timeline in
+        // Mini-bots are 10–18 pt: 30 fps looks the same and halves the work
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
             Canvas { context, size in
                 let now = timeline.date.timeIntervalSinceReferenceDate
                 let dt = min(0.05, now - engine.lastTime)

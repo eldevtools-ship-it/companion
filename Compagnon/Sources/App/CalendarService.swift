@@ -53,8 +53,9 @@ final class CalendarService {
         guard loop == nil else { return }
         loop = Task { [weak self] in
             while !Task.isCancelled {
-                self?.refresh()
-                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                if !AppState.shared.macAsleep { self?.refresh() }
+                // Calendar changes arrive by notification; this only moves the reminder along
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
             }
         }
     }

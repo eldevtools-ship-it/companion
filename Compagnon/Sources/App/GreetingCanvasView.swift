@@ -7,7 +7,6 @@ private enum GT {
     static let squint0:  Double = 0.60
     static let squint1:  Double = 0.82
     static let dip0:     Double = 1.25
-    static let dip1:     Double = 1.40
     static let pop0:     Double = 1.36
     static let pop1:     Double = 1.52
     static let content0: Double = 2.45

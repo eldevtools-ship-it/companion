@@ -7,7 +7,6 @@ import SwiftUI
 struct ChatView: View {
     @ObservedObject var state: AppState
     @ObservedObject private var chat = ChatService.shared
-    @State private var draft = ""
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -28,7 +27,9 @@ struct ChatView: View {
             else if focused { focused = false }
         }
         .onChange(of: focused) { _, _ in syncHold() }
-        .onChange(of: draft) { _, _ in syncHold() }
+        .onChange(of: chat.draft) { _, _ in syncHold() }
+        .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focused = true } }
+        .onDisappear { if state.isEditingText { state.isEditingText = false } }
     }
 
     // MARK: Top bar
@@ -124,19 +125,19 @@ struct ChatView: View {
     private var inputRow: some View {
         HStack(spacing: 8) {
             ZStack(alignment: .leading) {
-                if draft.isEmpty {
+                if chat.draft.isEmpty {
                     Text("Demande quelque chose à Claude…")
                         .font(.system(size: 12))
                         .foregroundColor(Color.white.opacity(0.48))
                         .allowsHitTesting(false)
                 }
-                TextField("", text: $draft)
+                TextField("", text: $chat.draft)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
                     .foregroundColor(Color(hex: "#F5F6F8"))
                     .focused($focused)
                     .onSubmit(send)
-                    .onExitCommand { if chat.busy { chat.stop() } else if draft.isEmpty { state.view = .overview } else { draft = "" } }
+                    .onExitCommand { if chat.busy { chat.stop() } else if chat.draft.isEmpty { state.view = .overview } else { chat.draft = "" } }
             }
             .padding(.horizontal, 10)
             .frame(height: 32)
@@ -151,9 +152,9 @@ struct ChatView: View {
             Button(action: { chat.busy ? chat.stop() : send() }) {
                 Image(systemName: chat.busy ? "stop.fill" : "arrow.up")
                     .font(.system(size: chat.busy ? 9 : 11, weight: .bold))
-                    .foregroundColor(chat.busy || !draft.isEmpty ? .black : Color.white.opacity(0.4))
+                    .foregroundColor(chat.busy || !chat.draft.isEmpty ? .black : Color.white.opacity(0.4))
                     .frame(width: 28, height: 28)
-                    .background(Circle().fill(chat.busy || !draft.isEmpty ? Color.white : Color.white.opacity(0.08)))
+                    .background(Circle().fill(chat.busy || !chat.draft.isEmpty ? Color.white : Color.white.opacity(0.08)))
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
@@ -163,15 +164,15 @@ struct ChatView: View {
     }
 
     private func send() {
-        let text = draft
+        let text = chat.draft
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty, !chat.busy else { return }
-        draft = ""
+        chat.draft = ""
         chat.send(text)
     }
 
     /// Keep the island open while you're writing.
     private func syncHold() {
-        let writing = focused && !draft.isEmpty
+        let writing = focused && !chat.draft.isEmpty
         if state.isEditingText != writing { state.isEditingText = writing }
     }
 }
@@ -236,7 +237,7 @@ private struct ChatBubble: View {
 
 private struct TypingDots: View {
     var body: some View {
-        TimelineView(.animation) { tl in
+        TimelineView(.animation(minimumInterval: 1.0 / 30)) { tl in
             let t = tl.date.timeIntervalSinceReferenceDate
             HStack(spacing: 4) {
                 ForEach(0..<3) { i in

@@ -72,8 +72,10 @@ final class VercelService {
         guard loop == nil else { return }
         loop = Task { [weak self] in
             while !Task.isCancelled {
-                await self?.refresh()
-                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                if !AppState.shared.macAsleep { await self?.refresh() }
+                // Every 30 s while something builds, every 2 min otherwise
+                let building = AppState.shared.vercelDeployments.contains { !$0.isFinished }
+                try? await Task.sleep(nanoseconds: (building ? 30 : 120) * 1_000_000_000)
             }
         }
     }

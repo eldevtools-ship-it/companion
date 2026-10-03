@@ -12,36 +12,28 @@ final class SoundEngine {
         didSet { players.values.forEach { $0.forEach { $0.volume = volume } } }
     }
 
-    // Pool of 3 players per sound to allow overlapping playback
+    // Two players per sound so a quick repeat can overlap, created the first time
+    // the sound plays (most sounds never play in a session).
     private var players: [String: [AVAudioPlayer]] = [:]
 
-    private init() {
-        preload()
-    }
+    private init() {}
 
-    private func preload() {
-        let names = ["peek","open","close","hover","blip","slap","annoyed","dizzy","greet",
-                     "work","finish","error","approval","question","approve","gulp","tick",
-                     "send","love","pop","proud","wink","yawn","attach","think","search",
-                     "rate","sleep"]
-        for name in names {
-            guard let url = Bundle.main.url(forResource: name, withExtension: "wav", subdirectory: "sounds") else { continue }
-            var pool: [AVAudioPlayer] = []
-            for _ in 0..<3 {
-                if let p = try? AVAudioPlayer(contentsOf: url) {
-                    p.volume = volume
-                    p.prepareToPlay()
-                    pool.append(p)
-                }
-            }
-            if !pool.isEmpty { players[name] = pool }
+    private func pool(for name: String) -> [AVAudioPlayer]? {
+        if let p = players[name] { return p }
+        guard let url = Bundle.main.url(forResource: name, withExtension: "wav", subdirectory: "sounds") else { return nil }
+        let pool = (0..<2).compactMap { _ -> AVAudioPlayer? in
+            guard let p = try? AVAudioPlayer(contentsOf: url) else { return nil }
+            p.volume = volume
+            p.prepareToPlay()
+            return p
         }
+        guard !pool.isEmpty else { return nil }
+        players[name] = pool
+        return pool
     }
 
     func play(_ name: String) {
-        guard enabled && AppState.shared.soundEnabled else { return }
-        guard let pool = players[name] else { return }
-        // Find a player that is not currently playing
+        guard enabled && AppState.shared.soundEnabled, let pool = pool(for: name) else { return }
         let player = pool.first { !$0.isPlaying } ?? pool[0]
         player.currentTime = 0
         player.volume = volume

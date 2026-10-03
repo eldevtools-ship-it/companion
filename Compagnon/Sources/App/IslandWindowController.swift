@@ -22,11 +22,8 @@ final class IslandWindowController: NSWindowController {
     // Suppress peek sound on next reveal (e.g. musicReveal)
     var silentNextReveal = false
 
-    // Finished-pin timer
-    private var finishedPinTimer: DispatchWorkItem?
 
     // Bot-head hover (love emote — mirrors prototype botHover())
-    private var hoverTimer: DispatchWorkItem?
     private var botHoverTimer: DispatchWorkItem?
     private var botHovering: Bool = false
     private var lastLoveTime: Double = 0
@@ -169,14 +166,25 @@ final class IslandWindowController: NSWindowController {
         }
     }
 
-    // MARK: - 60 Hz polling loop
+    // MARK: - Pointer polling
+    // 60 Hz while the pointer is near the island or it's open (hover, look-at, cursor);
+    // 8 Hz otherwise, so a resting island barely wakes the CPU.
+
+    private var pollHot = true
 
     private func startPolling() {
-        frameTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in self.pollFrame() }
+        schedulePoll(hot: true)
+    }
+
+    private func schedulePoll(hot: Bool) {
+        frameTimer?.invalidate()
+        pollHot = hot
+        let t = Timer(timeInterval: hot ? 1.0 / 60.0 : 1.0 / 8.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pollFrame() }
         }
-        RunLoop.main.add(frameTimer!, forMode: .common)
+        t.tolerance = hot ? 0.002 : 0.04
+        RunLoop.main.add(t, forMode: .common)
+        frameTimer = t
     }
 
     private func pollFrame() {
@@ -237,6 +245,11 @@ final class IslandWindowController: NSWindowController {
         }
         wasInIsland = inIsland
         updateKeyboard(pointerInside: inIsland)
+
+        // Fast polling only when it matters
+        let near = islandRect.insetBy(dx: -160, dy: -160).contains(local)
+        let wantHot = near || state.mode == .expanded || botHovering
+        if wantHot != pollHot { schedulePoll(hot: wantHot) }
 
         // Bot-head hover (love emote)
         let overBot = state.mode == .expanded && state.stateOverride == nil && isBotHit(local)
@@ -310,7 +323,6 @@ final class IslandWindowController: NSWindowController {
         return false
     }
 
-    private var lastMouse: CGPoint = .zero
     private var lastLocal: CGPoint = .zero
 
     // MARK: - Bot-head hover (love emote — mirrors prototype botHover())
@@ -341,13 +353,6 @@ final class IslandWindowController: NSWindowController {
         }
         botHoverTimer = item
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.9, execute: item)
-    }
-
-    private func scheduleHover(after delay: TimeInterval, action: @escaping () -> Void) {
-        hoverTimer?.cancel()
-        let item = DispatchWorkItem(block: action)
-        hoverTimer = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
     // MARK: - Mode transitions
@@ -391,7 +396,6 @@ final class IslandWindowController: NSWindowController {
     func collapse() {
         guard fsm.isHeldOpen?() != true else { return }
         state.isPinned = false
-        finishedPinTimer?.cancel()
         // Keep the FSM in step with what is on screen (home/greeting → petit now).
         fsm.collapse()
         setMode(.compact)
@@ -464,7 +468,6 @@ final class IslandWindowController: NSWindowController {
             MainActor.assumeIsolated {
                 guard self.wasInIsland else { return }
                 self.pendingIslandClick = true
-                self.hoverTimer?.cancel()
                 self.botHoverTimer?.cancel()
                 self.botHovering = false
                 guard self.isBotHit(event.locationInWindow) else { return }
@@ -508,32 +511,6 @@ final class IslandWindowController: NSWindowController {
     func defaultView() -> IslandView {
         if state.pendingApproval != nil { return .approval }
         return state.tasks.isEmpty ? .empty : .overview
-    }
-
-    func baseMode() -> IslandMode {
-        guard state.isPresent else { return .hidden }
-        return state.tasks.isEmpty ? .hidden : .compact
-    }
-
-    // MARK: - Activity reset (call on any user interaction in island)
-
-    func resetActivity() {
-        state.lastActivity = .now
-    }
-
-    // MARK: - Finished task pin (5.2s)
-
-    func pinForFinished(taskId: String) {
-        state.isPinned = true
-        finishedPinTimer?.cancel()
-        let item = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            self.state.removeTask(id: taskId)
-            self.state.isPinned = false
-            self.collapse()
-        }
-        finishedPinTimer = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.2, execute: item)
     }
 
     // MARK: - Dizzy recovery (triggered by BotEngine.slap via .botDizzy)
@@ -597,9 +574,6 @@ final class IslandWindowController: NSWindowController {
         )
     }
 
-    nonisolated func cleanup() {
-        // Called explicitly before release if needed
-    }
 }
 
 // MARK: - IslandPanel

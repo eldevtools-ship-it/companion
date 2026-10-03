@@ -241,5 +241,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NotesHotKey.register()
         NotificationCenter.default.addObserver(self, selector: #selector(openSettingsFromNotification(_:)),
                                                name: .openFullSettings, object: nil)
+        watchSleep()
+    }
+
+    /// No network polling while the screens sleep or the session is locked.
+    private func watchSleep() {
+        let ws = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.screensDidSleepNotification, NSWorkspace.willSleepNotification,
+                     NSWorkspace.sessionDidResignActiveNotification] {
+            ws.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { AppState.shared.macAsleep = true }
+            }
+        }
+        for name in [NSWorkspace.screensDidWakeNotification, NSWorkspace.didWakeNotification,
+                     NSWorkspace.sessionDidBecomeActiveNotification] {
+            ws.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { AppState.shared.macAsleep = false }
+            }
+        }
     }
 }

@@ -28,6 +28,8 @@ final class ChatService: ObservableObject {
 
     @Published private(set) var messages: [ChatMessage] = []
     @Published private(set) var busy = false
+    /// What you're typing, kept while you visit other views.
+    @Published var draft = ""
     @Published var model: ChatModel = .haiku {
         didSet { UserDefaults.standard.set(model.rawValue, forKey: "chatModel") }
     }

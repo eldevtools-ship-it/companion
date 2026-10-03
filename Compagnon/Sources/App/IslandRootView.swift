@@ -295,6 +295,7 @@ func botPosition(mode: IslandMode, view: IslandView, islandW: CGFloat, islandH: 
 
 struct IslandContentView: View {
     @ObservedObject var state: AppState
+    @State private var leaving: IslandView? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -303,23 +304,34 @@ struct IslandContentView: View {
                 .opacity(state.view == .confused ? 0 : 1)
                 .animation(.easeInOut(duration: 0.2), value: state.view == .confused)
 
+            // Only the current view and the one fading out are built: the others (and
+            // their timers, canvases, text fields) don't exist until you go to them.
             ZStack {
                 ForEach(IslandView.allCases, id: \.self) { v in
-                    let active = state.view == v
-                    let anim: Animation = active
-                        ? .spring(response: 0.4, dampingFraction: 0.8).delay(0.16)
-                        : .easeIn(duration: 0.16)
-                    // minHeight 0: a hidden view that needs more room (the notes) must never
-                    // stretch the stack, or the bottom margin gets eaten
-                    IslandViewContent(view: v, state: state)
-                        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
-                        .opacity(active ? 1 : 0)
-                        .scaleEffect(active ? 1 : 0.97)
-                        .allowsHitTesting(active)
-                        .animation(anim, value: state.view)
+                    if v == state.view || v == leaving {
+                        let active = state.view == v
+                        let anim: Animation = active
+                            ? .spring(response: 0.4, dampingFraction: 0.8).delay(0.16)
+                            : .easeIn(duration: 0.16)
+                        // minHeight 0: a view that needs more room (the notes) must never
+                        // stretch the stack, or the bottom margin gets eaten
+                        IslandViewContent(view: v, state: state)
+                            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                            .opacity(active ? 1 : 0)
+                            .scaleEffect(active ? 1 : 0.97)
+                            .allowsHitTesting(active)
+                            .animation(anim, value: state.view)
+                            .transition(.asymmetric(insertion: .opacity.animation(anim), removal: .identity))
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: state.view) { old, _ in
+                leaving = old
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    if leaving == old { leaving = nil }
+                }
+            }
             .padding(.horizontal, IslandConst.contentInset)
         }
         .padding(.top, IslandConst.headerTop)
