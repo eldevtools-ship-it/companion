@@ -21,7 +21,7 @@ struct BotCanvasView: View {
                 // The main character is always the cloud. The focused pill only lends it
                 // a hint of its colour from below; the state colour takes over when busy.
                 engine.bodyColor = nil
-                engine.accent = state.focusTask.map { cgColorFromHex($0.color) }
+                engine.accent = state.focusTask.flatMap { cgColorFromHex($0.color) }
 
                 engine.update(dt: dt)
                 var ctx = context
