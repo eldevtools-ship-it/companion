@@ -55,9 +55,9 @@ jobs:
           mkdir -p legacy && ditto "$APP" legacy/Compagnon.app
           ditto -c -k --keepParent legacy/Compagnon.app Compagnon.zip
 
-      # Each green build of the main branches becomes a release the app updates from.
+      # Each green build of main becomes a release the app updates from.
       - name: Publier la release (mise à jour automatique)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/hopeful-hopper-x3puq8' || github.ref == 'refs/heads/claude/practical-curie-0dijz9')
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
