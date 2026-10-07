@@ -191,7 +191,9 @@ final class AppState: ObservableObject {
         if let v = ud.object(forKey: "calendarLeadMinutes") as? Int { calendarLeadMinutes = v }
 
         SoundEngine.shared.volume = Float(soundVolume)
-        refreshPills()
+        // No refreshPills() here: the Agenda pill asks CalendarService, which reads
+        // AppState.shared — still being built, so that re-entry crashed the launch whenever
+        // calendar access was granted. AppDelegate shows the pills right after.
         loaded = true
     }
 

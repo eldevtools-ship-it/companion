@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import ServiceManagement
 import SwiftUI
 
 @MainActor
@@ -21,6 +22,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         IslandCursor.allowInBackground()
         setupMenuBarItem()
         setupIsland()
+        enableLaunchAtLoginOnce()
+    }
+
+    /// Kumo starts with the Mac: switched on once, on the first launch of this version
+    /// (Settings can turn it off; it's never forced again after that).
+    private func enableLaunchAtLoginOnce() {
+        let key = "launchAtLoginSetUp"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
+        guard SMAppService.mainApp.status != .enabled else { return }
+        do {
+            try SMAppService.mainApp.register()
+            appendAppLog("launch.log", "launch at login: \(SMAppService.mainApp.status.rawValue)")
+        } catch {
+            appendAppLog("launch.log", "launch at login: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Menu bar
@@ -234,6 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Island setup
 
     private func setupIsland() {
+        AppState.shared.refreshPills()
         islandController = IslandWindowController()
         islandController?.showWindow(nil)
         islandController?.fsm.launch()

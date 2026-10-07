@@ -221,6 +221,7 @@ struct SettingsView: View {
         GroupBox("Démarrage") {
             Toggle("Lancer au démarrage du Mac", isOn: $launchAtStartup)
                 .onChange(of: launchAtStartup) { _, on in toggleStartup(on) }
+                .onAppear { launchAtStartup = (SMAppService.mainApp.status == .enabled) }
                 .padding(6)
         }
     }
@@ -518,6 +519,8 @@ struct SettingsView: View {
     }
 
     private func toggleStartup(_ on: Bool) {
+        // Already in that state (the toggle was just synced with the system)
+        guard on != (SMAppService.mainApp.status == .enabled) else { return }
         do {
             if on { try SMAppService.mainApp.register() }
             else  { try SMAppService.mainApp.unregister() }
